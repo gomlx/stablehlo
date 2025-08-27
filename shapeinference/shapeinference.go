@@ -15,9 +15,9 @@ import (
 	"slices"
 
 	"github.com/gomlx/gopjrt/dtypes"
-	"github.com/gomlx/stablehlo/optypes"
-	"github.com/gomlx/stablehlo/shapes"
 	"github.com/gomlx/stablehlo/types"
+	"github.com/gomlx/stablehlo/types/optypes"
+	"github.com/gomlx/stablehlo/types/shapes"
 	"github.com/pkg/errors"
 )
 
@@ -911,7 +911,7 @@ func ReduceWindowOp(operand shapes.Shape, windowDimensions, strides, baseDilatio
 }
 
 // ConvGeneralOp returns the expected output shape for the ConvGeneral operation.
-func ConvGeneralOp(input, kernel shapes.Shape, axes optypes.ConvolveAxesConfig,
+func ConvGeneralOp(input, kernel shapes.Shape, axes types.ConvolveAxesConfig,
 	strides []int, paddings [][2]int,
 	inputDilations, kernelDilations []int,
 	channelGroupCount, batchGroupCount int) (shapes.Shape, error) {
