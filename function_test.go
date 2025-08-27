@@ -3,8 +3,8 @@ package stablehlo
 import (
 	"testing"
 
-	"github.com/gomlx/gopjrt/stablehlo/optypes"
-	"github.com/gomlx/gopjrt/stablehlo/shapes"
+	"github.com/gomlx/stablehlo/optypes"
+	"github.com/gomlx/stablehlo/shapes"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

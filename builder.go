@@ -4,7 +4,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/gomlx/gopjrt/stablehlo/shapes"
+	"github.com/gomlx/stablehlo/shapes"
 	"github.com/pkg/errors"
 )
 

@@ -1,8 +1,8 @@
 package stablehlo
 
 import (
-	"github.com/gomlx/gopjrt/stablehlo/optypes"
-	"github.com/gomlx/gopjrt/stablehlo/shapes"
+	"github.com/gomlx/stablehlo/optypes"
+	"github.com/gomlx/stablehlo/shapes"
 )
 
 // Op holds an operation definition with all its inputs, and the result name and shape.

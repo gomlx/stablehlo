@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/gomlx/gopjrt/stablehlo/shapes"
+	"github.com/gomlx/stablehlo/shapes"
 )
 
 // Value represents a value in a ToStableHLO program, like `%0` or `%arg0`.

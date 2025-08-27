@@ -5,8 +5,8 @@ import (
 	"io"
 
 	"github.com/gomlx/gopjrt/dtypes"
-	"github.com/gomlx/gopjrt/stablehlo/optypes"
-	"github.com/gomlx/gopjrt/stablehlo/shapes"
+	"github.com/gomlx/stablehlo/optypes"
+	"github.com/gomlx/stablehlo/shapes"
 )
 
 // Statement represents a single operation line in ToStableHLO.

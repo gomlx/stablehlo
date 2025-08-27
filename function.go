@@ -5,9 +5,9 @@ import (
 	"io"
 
 	"github.com/gomlx/gopjrt/dtypes"
-	"github.com/gomlx/gopjrt/stablehlo/optypes"
-	"github.com/gomlx/gopjrt/stablehlo/shapeinference"
-	"github.com/gomlx/gopjrt/stablehlo/shapes"
+	"github.com/gomlx/stablehlo/optypes"
+	"github.com/gomlx/stablehlo/shapeinference"
+	"github.com/gomlx/stablehlo/shapes"
 	"github.com/pkg/errors"
 )
 
