@@ -1,0 +1,85 @@
+# Tests only run with --short, since the full tests involve downloading datasets
+# and would be too costly for a GitHub actions.
+# Locally in the development box it works because the datasets are cached.
+name: "Tests" # The name of the workflow that will appear on GitHub
+permissions:
+  # read|write|none
+  actions: read
+  checks: read
+  contents: write
+  deployments: read
+  # id-token: read    --> doesn't work
+  issues: read
+  discussions: read
+  packages: read
+  pages: read
+  pull-requests: write
+  repository-projects: read
+  security-events: read
+  statuses: read
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04  # Rename to ubuntu-latest once the latest include GLIBC-2.38.
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install apt packages
+      shell: bash
+      run: |
+        sudo apt-get install -y --no-install-recommends \
+          "wget" "gcc" "libunwind8" "libunwind-dev" "liblzma5" "libgoogle-perftools-dev" "hdf5-tools"
+
+    - name: Install Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: "1.24.x"
+
+    - name: Install Gopjrt C library gomlx_xlabuilder and PJRT plugin
+      shell: bash
+      run: |
+        curl -sSf https://raw.githubusercontent.com/gomlx/gopjrt/main/cmd/install_linux_amd64.sh | bash
+        sudo ln -sf /usr/local/lib/libpjrt* /usr/lib/x86_64-linux-gnu/
+        sudo ln -sf /usr/local/include/gomlx /usr/include/
+    - name: PreTest
+      run: |
+        go test . -test.v
+
+    - name: Test
+      run: |
+        go test ./xlabuilder/... ./pjrt/...
+
+    - name: Go Coverage Badge
+      if: github.ref == 'refs/heads/main'
+      uses: tj-actions/coverage-badge-go@v2
+      with:
+        green: 80
+        filename: docs/coverage.out
+
+    - name: Commit README.md changes
+      if: github.ref == 'refs/heads/main'
+      run: |
+        if git diff --quiet -- 'README.md' ; then
+          echo "README.md not modified."
+        else
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add README.md
+          git commit -m "chore: Updated coverage badge."
+        fi
+
+    - name: Push Changes
+      if: github.ref == 'refs/heads/main'
+      uses: ad-m/github-push-action@master
+      with:
+        github_token: ${{ github.token }}
+        branch: ${{ github.ref }}
