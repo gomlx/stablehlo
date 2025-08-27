@@ -1,11 +1,41 @@
-# StableHLO Builder
+# [XLA](https://openxla.org/)'s [StableHLO](https://openxla.org/stablehlo) Builder API for Go
 
-> ** UNDER CONSTRUCTION **: Don't use this yet!
+[![Join the Gophers Slack Community](https://img.shields.io/badge/Slack-4A154B?style=for-the-badge&logo=slack&logoColor=white)](https://app.slack.com/client/T029RQSE6/C08TX33BX6U)
 
-This package is a replacement for XlaBuilder, with the following advantages:
+> [!Note]
+> 🚧 UNDER CONSTRUCTION 🚧
+> 
+> Don't use yet. Collaborations are welcome though, get in touch 
+> in our [Slack channel #gomlx](https://app.slack.com/client/T029RQSE6/C08TX33BX6U)
+> (you can [join the slack server here](https://invite.slack.golangbridge.org/))
 
-* XlaBuilder has become a second-class citizen so to say, within OpenXLA. And things are moving torwards
-  the "MLIR builder" (MLIR is the generic ML Intermediary Language, of which StableHLO is an specialization/extension).
+[StableHLO](https://openxla.org/stablehlo) is an operation set for high-level operations (HLO) in machine learning (ML) models. 
+
+It's the portability layer between ML frameworks (targeted for GoMLX, but could be used for others) and ML
+compilers. It allows for easy support for different vendors, by coupling with **XLA's PJRT** (*) API for executing
+StableHLO programs. So many different GPUs and TPUs are supported.
+
+(*) **PJRT**, which stands for Pluggable JIT Runtime, is an API in the context of XLA (Accelerated Linear Algebra)
+that provides a unified, cross-platform interface for interacting with different hardware accelerators. 
+StableHLO is the device-independent language to specify the computation, and it also includes APIs to handle
+buffer (the data) management and optionally distributed execution.
+
+See:
+
+* [GoMLX](https://github.com/gomlx/gomlx): a Go ML framework that supports an XLA (StableHLO+PJRT) backend to
+  efficiently run (or train) ML programs.
+* [Goprjt](https://github.com/gomlx/gopjrt): a Go wrapper for PJRT C API, capable of executing StableHLO programs,
+  for a lower level API.
+
+
+
+## StableHLO replaces [Gopjrt's XlaBuilder](https://github.com/gomlx/gopjrt/tree/main/xlabuilder)
+
+With the following advantages:
+
+* XlaBuilder has become a second-class citizen so to say, within OpenXLA. 
+  And things are moving towards the "MLIR builder" (MLIR is the generic ML Intermediary Language, of which StableHLO 
+  is a specialization/extension).
   So we will eventually need a newer "builder" for **Gopjrt**.
 * Since PJRT takes StableHLO in plain text format, we can write this entirely in Go, not requiring any extra
   C/C++ library build. 
@@ -27,11 +57,11 @@ The disadvantages:
 
 ## The `shapeinference` sub-package
 
-The same code is also used by [**GoMLX**](github.com/gomlx/gomlx) `SimpleGo` engine 
+The same code is also used by [**GoMLX**](https://github.com/gomlx/gomlx) `SimpleGo` engine 
 (`github.com/gomlx/gomlx/backends/simplego`), but we didn't want to create a dependency in either direction:
 users of **Gopjrt** may not be interested in **GoMLX**, and users of **GoMLX** that don't use the XLA backend
 wouldn't want a dependency to **Gopjrt**. 
 
-So the package `github.com/gomlx/gopjrt/stablehlo/shapeinference` is a copy of 
+So the package `github.com/gomlx/stablehlo/shapeinference` is a copy of 
 `github.com/gomlx/gomlx/backends/shapeinference`, with the later being the source of truth. We'll keep both in sync,
-but if you need to change, please send a PR for that in [**GoMLX**](github.com/gomlx/gomlx).
+but if you need to change, please send a PR for that in [**GoMLX**](https://github.com/gomlx/gomlx).
