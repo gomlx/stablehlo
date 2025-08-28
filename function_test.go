@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/gomlx/stablehlo/types/optypes"
+	"github.com/gomlx/stablehlo/internal/optypes"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

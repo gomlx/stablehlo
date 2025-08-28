@@ -38,7 +38,7 @@ func (s Set[T]) Insert(keys ...T) {
 	}
 }
 
-// Sub returns `s - s2`, that is, all elements in `s` that are not in `s2`.
+// Sub returns s - s2, that is, all elements in `s` that are not in `s2`.
 func (s Set[T]) Sub(s2 Set[T]) Set[T] {
 	sub := MakeSet[T]()
 	for k := range s {

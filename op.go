@@ -1,7 +1,7 @@
 package stablehlo
 
 import (
-	"github.com/gomlx/stablehlo/types/optypes"
+	"github.com/gomlx/stablehlo/internal/optypes"
 	"github.com/gomlx/stablehlo/types/shapes"
 )
 

@@ -15,8 +15,8 @@ import (
 	"slices"
 
 	"github.com/gomlx/gopjrt/dtypes"
+	"github.com/gomlx/stablehlo/internal/optypes"
 	"github.com/gomlx/stablehlo/types"
-	"github.com/gomlx/stablehlo/types/optypes"
 	"github.com/gomlx/stablehlo/types/shapes"
 	"github.com/pkg/errors"
 )
