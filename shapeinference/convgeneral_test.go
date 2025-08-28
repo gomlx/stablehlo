@@ -3,8 +3,8 @@ package shapeinference
 import (
 	"testing"
 
-	"github.com/gomlx/gomlx/backends"
-	"github.com/gomlx/gomlx/types/shapes"
+	"github.com/gomlx/stablehlo/types"
+	"github.com/gomlx/stablehlo/types/shapes"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -13,7 +13,7 @@ func TestConvGeneralOp(t *testing.T) {
 	type testCase struct {
 		name                               string
 		input, kernel                      shapes.Shape
-		axes                               backends.ConvolveAxesConfig
+		axes                               types.ConvolveAxesConfig
 		strides                            []int
 		paddings                           [][2]int
 		inputDilations, kernelDilations    []int
@@ -27,7 +27,7 @@ func TestConvGeneralOp(t *testing.T) {
 			name:   "1D with padding",
 			input:  S(F32, 2, 3, 5),
 			kernel: S(F32, 3, 4, 2),
-			axes: backends.ConvolveAxesConfig{
+			axes: types.ConvolveAxesConfig{
 				InputBatch:           0,
 				InputChannels:        1,
 				InputSpatial:         []int{2},
@@ -51,7 +51,7 @@ func TestConvGeneralOp(t *testing.T) {
 			name:   "1D with stride 2",
 			input:  S(F32, 1, 2, 6),
 			kernel: S(F32, 2, 3, 2),
-			axes: backends.ConvolveAxesConfig{
+			axes: types.ConvolveAxesConfig{
 				InputBatch:           0,
 				InputChannels:        1,
 				InputSpatial:         []int{2},
@@ -75,7 +75,7 @@ func TestConvGeneralOp(t *testing.T) {
 			name:   "1D with input dilation",
 			input:  S(F32, 1, 2, 4),
 			kernel: S(F32, 2, 3, 2),
-			axes: backends.ConvolveAxesConfig{
+			axes: types.ConvolveAxesConfig{
 				InputBatch:           0,
 				InputChannels:        1,
 				InputSpatial:         []int{2},
@@ -99,7 +99,7 @@ func TestConvGeneralOp(t *testing.T) {
 			name:   "1D with kernel dilation",
 			input:  S(F32, 1, 2, 6),
 			kernel: S(F32, 2, 3, 2),
-			axes: backends.ConvolveAxesConfig{
+			axes: types.ConvolveAxesConfig{
 				InputBatch:           0,
 				InputChannels:        1,
 				InputSpatial:         []int{2},
@@ -123,7 +123,7 @@ func TestConvGeneralOp(t *testing.T) {
 			name:   "1D with feature groups",
 			input:  S(F32, 1, 6, 5),
 			kernel: S(F32, 3, 4, 2),
-			axes: backends.ConvolveAxesConfig{
+			axes: types.ConvolveAxesConfig{
 				InputBatch:           0,
 				InputChannels:        1,
 				InputSpatial:         []int{2},
@@ -147,7 +147,7 @@ func TestConvGeneralOp(t *testing.T) {
 			name:   "1D with batch groups",
 			input:  S(F32, 4, 2, 5),
 			kernel: S(F32, 2, 4, 2),
-			axes: backends.ConvolveAxesConfig{
+			axes: types.ConvolveAxesConfig{
 				InputBatch:           0,
 				InputChannels:        1,
 				InputSpatial:         []int{2},
@@ -170,7 +170,7 @@ func TestConvGeneralOp(t *testing.T) {
 			name:   "2D convolution",
 			input:  S(F32, 1, 3, 4, 4),
 			kernel: S(F32, 3, 2, 2, 2),
-			axes: backends.ConvolveAxesConfig{
+			axes: types.ConvolveAxesConfig{
 				InputBatch:           0,
 				InputChannels:        1,
 				InputSpatial:         []int{2, 3},
@@ -194,7 +194,7 @@ func TestConvGeneralOp(t *testing.T) {
 			name:   "3D convolution",
 			input:  S(F32, 1, 2, 4, 4, 4),
 			kernel: S(F32, 2, 2, 2, 2, 2),
-			axes: backends.ConvolveAxesConfig{
+			axes: types.ConvolveAxesConfig{
 				InputBatch:           0,
 				InputChannels:        1,
 				InputSpatial:         []int{2, 3, 4},
@@ -218,7 +218,7 @@ func TestConvGeneralOp(t *testing.T) {
 			name:   "2D convolution with transposed output",
 			input:  S(F32, 1, 3, 4, 5),
 			kernel: S(F32, 3, 2, 2, 2),
-			axes: backends.ConvolveAxesConfig{
+			axes: types.ConvolveAxesConfig{
 				InputBatch:           0,
 				InputChannels:        1,
 				InputSpatial:         []int{2, 3},

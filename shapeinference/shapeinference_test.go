@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"testing"
 
-	. "github.com/gomlx/gomlx/backends"
-	"github.com/gomlx/gomlx/types/shapes"
 	"github.com/gomlx/gopjrt/dtypes"
+	"github.com/gomlx/stablehlo/types/optypes"
+	"github.com/gomlx/stablehlo/types/shapes"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -33,23 +33,23 @@ func must1[T any](value T, err error) T {
 func TestBinaryOp(t *testing.T) {
 	// Invalid data types check.
 	var err error
-	_, err = BinaryOp(OpTypeLogicalAnd, S(I8), S(I8))
+	_, err = BinaryOp(optypes.LogicalAnd, S(I8), S(I8))
 	require.Error(t, err)
-	_, err = BinaryOp(OpTypeMul, S(Bool, 1), S(Bool, 1))
+	_, err = BinaryOp(optypes.Mul, S(Bool, 1), S(Bool, 1))
 	require.Error(t, err)
-	_, err = BinaryOp(OpTypeMul, S(Bool, 1), S(Bool, 1))
+	_, err = BinaryOp(optypes.Mul, S(Bool, 1), S(Bool, 1))
 	require.Error(t, err)
-	_, err = BinaryOp(OpTypeBitwiseXor, S(F32, 1), S(F32, 1))
+	_, err = BinaryOp(optypes.BitwiseXor, S(F32, 1), S(F32, 1))
 	require.Error(t, err)
 
 	// Invalid operation type (not binary op).
-	_, err = BinaryOp(OpTypeExp, S(F32), S(F32))
+	_, err = BinaryOp(optypes.Exp, S(F32), S(F32))
 	require.Error(t, err)
 
 	// The same shape should be ok.
 	var output shapes.Shape
 	intMatrixShape := S(I8, 3, 3)
-	output, err = BinaryOp(OpTypeBitwiseOr, intMatrixShape, intMatrixShape)
+	output, err = BinaryOp(optypes.BitwiseOr, intMatrixShape, intMatrixShape)
 	require.NoError(t, err)
 	require.True(t, intMatrixShape.Equal(output))
 
@@ -57,10 +57,10 @@ func TestBinaryOp(t *testing.T) {
 	scalarShape := S(F32)
 	matrixShape := S(F32, 2, 3)
 	expectedShape := S(F32, 2, 3)
-	output, err = BinaryOp(OpTypeAdd, scalarShape, scalarShape)
+	output, err = BinaryOp(optypes.Add, scalarShape, scalarShape)
 	require.NoError(t, err)
 	require.True(t, scalarShape.Equal(output))
-	output, err = BinaryOp(OpTypeAdd, scalarShape, matrixShape)
+	output, err = BinaryOp(optypes.Add, scalarShape, matrixShape)
 	require.NoError(t, err)
 	require.True(t, expectedShape.Equal(output))
 
@@ -68,39 +68,39 @@ func TestBinaryOp(t *testing.T) {
 	shape1 := S(F32, 2, 1, 3)
 	shape2 := S(F32, 1, 4, 3)
 	expectedBroadcastShape := S(F32, 2, 4, 3)
-	require.True(t, expectedBroadcastShape.Equal(must1(BinaryOp(OpTypeMul, shape1, shape2))))
+	require.True(t, expectedBroadcastShape.Equal(must1(BinaryOp(optypes.Mul, shape1, shape2))))
 
 	// Matrix with scalar.
-	require.True(t, expectedShape.Equal(must1(BinaryOp(OpTypeAdd, matrixShape, scalarShape))))
+	require.True(t, expectedShape.Equal(must1(BinaryOp(optypes.Add, matrixShape, scalarShape))))
 
 	// Invalid broadcasting shapes.
 	invalidShape1 := S(F32, 2, 3)
 	invalidShape2 := S(F32, 3, 2)
-	_, err = BinaryOp(OpTypeAdd, invalidShape1, invalidShape2)
+	_, err = BinaryOp(optypes.Add, invalidShape1, invalidShape2)
 	require.Error(t, err)
 }
 
 func TestUnaryOp(t *testing.T) {
 	// Invalid data types check.
-	require.Panics(t, func() { must1(UnaryOp(OpTypeLogicalNot, S(F32))) })
-	require.Panics(t, func() { must1(UnaryOp(OpTypeLogicalNot, S(I8))) })
-	require.Panics(t, func() { must1(UnaryOp(OpTypeBitwiseNot, S(F32))) })
-	require.Panics(t, func() { must1(UnaryOp(OpTypeNeg, S(Bool))) })
+	require.Panics(t, func() { must1(UnaryOp(optypes.LogicalNot, S(F32))) })
+	require.Panics(t, func() { must1(UnaryOp(optypes.LogicalNot, S(I8))) })
+	require.Panics(t, func() { must1(UnaryOp(optypes.BitwiseNot, S(F32))) })
+	require.Panics(t, func() { must1(UnaryOp(optypes.Neg, S(Bool))) })
 
 	// Invalid operation type (not unary op).
-	require.Panics(t, func() { must1(UnaryOp(OpTypeAdd, S(F32))) })
-	require.Panics(t, func() { must1(UnaryOp(OpTypeNeg, S(U64))) })
+	require.Panics(t, func() { must1(UnaryOp(optypes.Add, S(F32))) })
+	require.Panics(t, func() { must1(UnaryOp(optypes.Neg, S(U64))) })
 
 	// Valid operations
 	boolShape := S(Bool, 2, 3)
-	require.True(t, boolShape.Equal(must1(UnaryOp(OpTypeLogicalNot, boolShape))))
+	require.True(t, boolShape.Equal(must1(UnaryOp(optypes.LogicalNot, boolShape))))
 
 	intShape := S(I8, 3, 3)
-	require.True(t, intShape.Equal(must1(UnaryOp(OpTypeBitwiseNot, intShape))))
+	require.True(t, intShape.Equal(must1(UnaryOp(optypes.BitwiseNot, intShape))))
 
 	floatShape := S(F32, 2, 3)
-	require.True(t, floatShape.Equal(must1(UnaryOp(OpTypeExp, floatShape))))
-	require.True(t, floatShape.Equal(must1(UnaryOp(OpTypeNeg, floatShape))))
+	require.True(t, floatShape.Equal(must1(UnaryOp(optypes.Exp, floatShape))))
+	require.True(t, floatShape.Equal(must1(UnaryOp(optypes.Neg, floatShape))))
 }
 
 func TestGatherOp(t *testing.T) {

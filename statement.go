@@ -87,15 +87,23 @@ func (s *Statement) Write(writer io.Writer) error {
 		w(input.shape.ToStableHLO())
 	}
 	w(")")
-	if len(s.Outputs) > 0 {
-		w(" -> (")
+	w(" -> ")
+	if len(s.Outputs) == 0 {
+		w("()")
+	} else {
+		// There are outputs: we use "(" and ")" only if there are more than one.
+		if len(s.Outputs) > 1 {
+			w("(")
+		}
 		for i, output := range s.Outputs {
 			if i > 0 {
 				w(", ")
 			}
 			w(output.shape.ToStableHLO())
 		}
-		w(")")
+		if len(s.Outputs) > 1 {
+			w(")")
+		}
 	}
 
 	return err
@@ -108,7 +116,7 @@ func literalToStableHLO(attr any) string {
 		return fmt.Sprintf("%q", v)
 	case float32, float64:
 		shape := shapes.Make(dtypes.FromAny(v))
-		return fmt.Sprintf("dense<%e> : %s", v, shape.ToStableHLO())
+		return fmt.Sprintf("dense<%g> : %s", v, shape.ToStableHLO())
 	case int, int8, int16, int32, int64, uint8, uint16, uint32, uint64:
 		shape := shapes.Make(dtypes.FromAny(v))
 		return fmt.Sprintf("dense<%d> : %s", v, shape.ToStableHLO())

@@ -1,10 +1,10 @@
 package stablehlo
 
 import (
+	"fmt"
 	"io"
 	"strings"
 
-	"github.com/gomlx/stablehlo/types/shapes"
 	"github.com/pkg/errors"
 )
 
@@ -20,9 +20,15 @@ type Builder struct {
 
 // New creates a new Builder object holding a computation graph in construction.
 //
-// Add operations (ops) one by one, until you defined the desired graph, and then call the method Build,
-// which returns a Computation. A pjrt.Client can use a Computation as input to JIT-compile and execute
-// efficiently.
+// From a builder you can create functtions.
+// For each function you create operations (ops) one by one, until you defined the desired computation.
+//
+// You have to define the "main" function for your StableHLO program.
+//
+// Once you are all set, call Build and it will return the StableHLO program as a string, that can
+// be used with PJRT.
+//
+// See github.com/gomlx/gopjrt for a Go API to PJRT.
 func New(name string) *Builder {
 	return &Builder{
 		name: name,
@@ -36,46 +42,68 @@ type elementWriter interface {
 
 // NewFunction creates a new function and adds it to the program.
 // The function outputs will be determined by the last statement in the function body.
-func (b *Builder) NewFunction(name string, isPublic bool, inputs []*Value) *Function {
+func (b *Builder) NewFunction(name string, inputs []*Value) *Function {
 	fn := &Function{
-		Name:     name,
-		IsPublic: isPublic,
-		Inputs:   inputs,
+		Name:   name,
+		Inputs: inputs,
 	}
 	b.functions = append(b.functions, fn)
 	return fn
 }
 
-// Build builds the Computation with the requested operations (the outputOp and all its dependencies)
-// or returns a non-ok status.
+// Write the StableHLO program (a readable string) to the given writer.
 //
-// Note that all ops that have been enqueued will be moved to the computation being returned and will no
-// longer be valid.
-func (b *Builder) Build() (*Computation, error) {
-	var sb strings.Builder
-	hasMain := false
+// It will write incomplete programs (without a main function or empty statements) without an error,
+// to help debuggging.
+//
+// See Builder.Build to check and output the program.
+func (b *Builder) Write(writer io.Writer) error {
+	var err error
+	w := func(format string, args ...any) {
+		if err != nil {
+			// No op if an error was encountered earlier
+			return
+		}
+		_, err = fmt.Fprintf(writer, format, args...)
+	}
+	we := func(e elementWriter) {
+		if err != nil {
+			// No op if an error was encountered earlier
+			return
+		}
+		err = e.Write(writer)
+	}
 	for i, fn := range b.functions {
+		if i > 0 {
+			w("\n\n")
+		}
+		we(fn)
+	}
+	w("\n")
+	return err
+}
+
+// Build checks the validity and builds the StableHLO program.
+//
+// If you want the output of an incomplete program (without the checing), use Builder.Write instead.
+func (b *Builder) Build() (string, error) {
+	hasMain := false
+	for _, fn := range b.functions {
 		if fn.Name == "main" {
 			hasMain = true
 		}
-		if i > 0 {
-			sb.WriteString("\n\n")
+		if len(fn.Statements) == 0 {
+			return "", fmt.Errorf("function %q has no statements", fn.Name)
 		}
-		// Set the outputs of the function to be the result of the last statement.
-		// This is a simplification and will be improved later.
-		if len(fn.Statements) > 0 {
-			lastStmt := fn.Statements[len(fn.Statements)-1]
-			fn.Outputs = []shapes.Shape{lastStmt.Outputs.shape}
-		}
-		sb.WriteString(fn.String())
 	}
-
 	if !hasMain {
-		return nil, errors.New("program must have a main function")
+		return "", errors.New("program must have a main function")
 	}
 
-	return &Computation{
-		Name:      b.name,
-		StableHLO: sb.String(),
-	}, nil
+	var sb strings.Builder
+	err := b.Write(&sb)
+	if err != nil {
+		return "", err
+	}
+	return sb.String(), nil
 }
