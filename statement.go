@@ -3,6 +3,7 @@ package stablehlo
 import (
 	"fmt"
 	"io"
+	"math"
 
 	"github.com/gomlx/gopjrt/dtypes"
 	"github.com/gomlx/stablehlo/internal/optypes"
@@ -115,8 +116,19 @@ func literalToStableHLO(attr any) string {
 	case string:
 		return fmt.Sprintf("%q", v)
 	case float32, float64:
+		var f float64
+		if f32, ok := v.(float32); ok {
+			f = float64(f32)
+		} else {
+			f = v.(float64)
+		}
 		shape := shapes.Make(dtypes.FromAny(v))
-		return fmt.Sprintf("dense<%g> : %s", v, shape.ToStableHLO())
+		format := "dense<%g> : %s"
+		if f == math.Trunc(f) {
+			// f is an integer, make sure we add a decimal point.
+			format = "dense<%.1f> : %s"
+		}
+		return fmt.Sprintf(format, v, shape.ToStableHLO())
 	case int, int8, int16, int32, int64, uint8, uint16, uint32, uint64:
 		shape := shapes.Make(dtypes.FromAny(v))
 		return fmt.Sprintf("dense<%d> : %s", v, shape.ToStableHLO())

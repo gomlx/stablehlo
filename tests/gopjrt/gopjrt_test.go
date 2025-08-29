@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var flagPluginNames = flag.String("plugin", "cpu|cuda", "List (|-separated) of PRJT plugin names or full paths")
+var flagPluginNames = flag.String("plugins", "cpu", "List (|-separated) of PRJT plugin names or full paths. E.g. \"cpu|cuda\"")
 
 func must[T any](value T, err error) T {
 	if err != nil {
@@ -42,13 +42,17 @@ func TestRun(t *testing.T) {
 	for _, pluginName := range getPluginNames() {
 		plugin, err := pjrt.GetPlugin(pluginName)
 		require.NoError(t, err, "failed to load plugin %q", pluginName)
+		client, err := plugin.NewClient(nil)
+		require.NoError(t, err, "failed to create client for plugin %q", pluginName)
 		t.Run(pluginName, func(t *testing.T) {
-			testRunWithPlugin(t, plugin)
+			testRunWithClient(t, client)
 		})
+		require.NoError(t, client.Destroy())
 	}
 }
 
-func testRunWithPlugin(t *testing.T, plugin *pjrt.Plugin) {
+func testRunWithClient(t *testing.T, client *pjrt.Client) {
+	const deviceNum = 0
 	t.Run("no inputs", func(t *testing.T) {
 		b := stablehlo.New(t.Name())
 		fn := b.NewFunction("main")
@@ -58,6 +62,13 @@ func testRunWithPlugin(t *testing.T, plugin *pjrt.Plugin) {
 		fn.Return(sum)
 		program := must(b.Build())
 		fmt.Printf("%s program:\n%s", t.Name(), program)
+		loadedExec := must(client.Compile().WithStableHLO([]byte(program)).Done())
+		outputBuffers := must(loadedExec.Execute().OnDevicesByNum(deviceNum).Done())
+		require.Len(t, outputBuffers, 1)
+		values, dims, err := outputBuffers[0].ToFlatDataAndDimensions()
+		require.NoError(t, err)
+		require.Len(t, dims, 0)
+		require.Equal(t, []float64{3.0}, values)
 	})
 
 	t.Run("with inputs", func(t *testing.T) {
