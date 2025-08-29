@@ -27,13 +27,17 @@ func TestBuilder(t *testing.T) {
 		fn.Return(sum)
 		program := must(b.Build())
 		fmt.Printf("%s program:\n%s", t.Name(), program)
-		assert.Contains(t, program,
-			`func.func @main() -> tensor<f64> {
-  %0 = "stablehlo.constant"(){value = dense<1> : tensor<f64>} : () -> tensor<f64>
-  %1 = "stablehlo.constant"(){value = dense<2> : tensor<f64>} : () -> tensor<f64>
+		want := `func.func @main() -> tensor<f64> {
+  %0 = "stablehlo.constant"(){value = dense<1.0> : tensor<f64>} : () -> tensor<f64>
+  %1 = "stablehlo.constant"(){value = dense<2.0> : tensor<f64>} : () -> tensor<f64>
   %2 = "stablehlo.add"(%0, %1) : (tensor<f64>, tensor<f64>) -> tensor<f64>
   "func.return"(%2) : (tensor<f64>) -> ()
-}`)
+}
+`
+		if program != want {
+			fmt.Printf("  Failed. Wanted the following program:\n%s", want)
+			t.Fatal("programs don't match")
+		}
 	})
 
 	t.Run("with inputs", func(t *testing.T) {
@@ -45,13 +49,16 @@ func TestBuilder(t *testing.T) {
 		fn.Return(sum)
 		program := must(builder.Build())
 		fmt.Printf("%s program:\n%s", t.Name(), program)
-		assert.Contains(t, program,
-			`func.func @main(%lhs: tensor<f64>, %rhs: tensor<f64>) -> tensor<f64> {
+		want := `func.func @main(%lhs: tensor<f64>, %rhs: tensor<f64>) -> tensor<f64> {
   %0 = "stablehlo.add"(%lhs, %rhs) : (tensor<f64>, tensor<f64>) -> tensor<f64>
   "func.return"(%0) : (tensor<f64>) -> ()
-}`)
+}
+`
+		if program != want {
+			fmt.Printf("  Failed. Wanted the following program:\n%s", want)
+			t.Fatal("programs don't match")
+		}
 	})
-
 }
 
 func TestBuilder_Errors(t *testing.T) {

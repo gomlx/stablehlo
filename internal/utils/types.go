@@ -2,7 +2,7 @@
 // sub-packages `shapes`, `tensor` and `slices`.
 //
 // This package also provides the types: Set.
-package types
+package utils
 
 // Set implements a Set for the key type T.
 type Set[T comparable] map[T]struct{}
