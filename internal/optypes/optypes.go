@@ -1,12 +1,16 @@
 // Package optypes defines OpType and lists the supported operations.
 package optypes
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/gomlx/stablehlo/internal/utils"
+)
 
 // OpType is an enum of all generic operations that ToStableHLO can support -- not all are implemented yet.
 type OpType int
 
-//go:generate go tool enumer -type=OpType -transform=snake optypes.go
+//go:generate go tool enumer -type=OpType optypes.go
 
 const (
 	Invalid OpType = iota
@@ -123,6 +127,6 @@ func (op OpType) ToStableHLO() string {
 	case FuncReturn:
 		return "func.return"
 	default:
-		return fmt.Sprintf("stablehlo.%s", op)
+		return fmt.Sprintf("stablehlo.%s", utils.ToSnakeCase(op.String()))
 	}
 }

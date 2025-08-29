@@ -61,3 +61,21 @@ func (s Set[T]) Equal(s2 Set[T]) bool {
 	}
 	return true
 }
+
+// Clone returns a copy of the set.
+func (s Set[T]) Clone() Set[T] {
+	newSet := make(Set[T], len(s))
+	for k := range s {
+		newSet.Insert(k)
+	}
+	return newSet
+}
+
+// Add returns the union of s and s2.
+func (s Set[T]) Add(s2 Set[T]) Set[T] {
+	union := s.Clone()
+	for k := range s2 {
+		union.Insert(k)
+	}
+	return union
+}

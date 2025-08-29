@@ -12,3 +12,6 @@
 //
 // See ToStableHLO documentation and specifications in https://openxla.org/stablehlo/spec
 package stablehlo
+
+// Generates some trivial functions (binary and unary operators) automatically.
+//go:generate go run ./internal/cmd/ops_generator

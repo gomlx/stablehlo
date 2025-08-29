@@ -16,6 +16,7 @@ import (
 
 	"github.com/gomlx/gopjrt/dtypes"
 	"github.com/gomlx/stablehlo/internal/optypes"
+	"github.com/gomlx/stablehlo/internal/utils"
 	"github.com/gomlx/stablehlo/types"
 	"github.com/gomlx/stablehlo/types/shapes"
 	"github.com/pkg/errors"
@@ -23,7 +24,7 @@ import (
 
 var (
 	// BooleanOperations take booleans as input, aka. logical operations.
-	BooleanOperations = types.SetWith(
+	BooleanOperations = utils.SetWith(
 		optypes.LogicalAnd,
 		optypes.LogicalOr,
 		optypes.LogicalXor,
@@ -31,7 +32,7 @@ var (
 	)
 
 	// BitwiseOperations operates only on integer (binary) numbers and won't work on floats or complex numbers.
-	BitwiseOperations = types.SetWith(
+	BitwiseOperations = utils.SetWith(
 		optypes.BitwiseAnd,
 		optypes.BitwiseOr,
 		optypes.BitwiseXor,
@@ -45,7 +46,7 @@ var (
 	)
 
 	// NumberOperations can take any type of number as input: integers, floats, or complex numbers.
-	NumberOperations = types.SetWith(
+	NumberOperations = utils.SetWith(
 		optypes.Add,
 		optypes.Sub,
 		optypes.Mul,
@@ -71,12 +72,12 @@ var (
 		optypes.LessThanTotalOrder,
 	)
 
-	SignedNumberOperations = types.SetWith(
+	SignedNumberOperations = utils.SetWith(
 		optypes.Neg,
 	)
 
 	// FloatOperations operates only on float (and not on complex numbers).
-	FloatOperations = types.SetWith(
+	FloatOperations = utils.SetWith(
 		optypes.Erf,
 		optypes.Logistic,
 		optypes.Cos,
@@ -85,7 +86,7 @@ var (
 	)
 
 	// FloatOrComplexOperations operates only on float or complex numbers and won't work on integer or boolean values.
-	FloatOrComplexOperations = types.SetWith(
+	FloatOrComplexOperations = utils.SetWith(
 		optypes.Exp,
 		optypes.Expm1,
 		optypes.Log,
@@ -99,7 +100,7 @@ var (
 	)
 
 	// ComplexOperations operates only on complex numbers.
-	ComplexOperations = types.SetWith(
+	ComplexOperations = utils.SetWith(
 		optypes.Imag,
 		optypes.Real,
 		optypes.Conj,
@@ -107,7 +108,7 @@ var (
 
 	// StandardBinaryOperations include all operations that have two operands usually named lhs (left-hand-side) and
 	// rhs (right-hand-side) and are usually commutative (invariant to order).
-	StandardBinaryOperations = types.SetWith(
+	StandardBinaryOperations = utils.SetWith(
 		optypes.Add,
 		optypes.Sub,
 		optypes.Mul,
@@ -126,7 +127,7 @@ var (
 
 	// ComparisonOperations include all operations that take two inputs and returns booleans with the results of
 	// a comparison.
-	ComparisonOperations = types.SetWith(
+	ComparisonOperations = utils.SetWith(
 		optypes.Equal,
 		optypes.NotEqual,
 		optypes.EqualTotalOrder,
@@ -142,7 +143,7 @@ var (
 
 	// StandardUnaryOperations include all operations that have a single operand as input, and the return shape is the
 	// same as the input (so no reductions).
-	StandardUnaryOperations = types.SetWith(
+	StandardUnaryOperations = utils.SetWith(
 		optypes.LogicalNot,
 		optypes.BitwiseNot,
 		optypes.BitCount,
@@ -434,7 +435,7 @@ func BroadcastInDimOp(operand, outputShape shapes.Shape, broadcastAxes []int) er
 	}
 
 	// Verify that the values of expandedAxis and create a map of the expanded axis.
-	preservedSet := types.MakeSet[int](len(broadcastAxes))
+	preservedSet := utils.MakeSet[int](len(broadcastAxes))
 	for axisInOperand, axisInOutput := range broadcastAxes {
 		if axisInOutput < 0 || axisInOutput >= outputShape.Rank() {
 			return errors.Errorf("broadcastAxes (%v) defines a value out-of-range (%d-th value -> %d), they must be between 0 and outputShape.Rank()-1=%d",
@@ -470,7 +471,7 @@ func ReduceOp(operand shapes.Shape, axes []int) (output shapes.Shape, err error)
 				return shapes.Invalid(), errors.Errorf("Reduce operation require each axis to be 0 <= axis < rank, but got invalid axis %d for shape %s", axis, operand)
 			}
 		}
-		axesSet := types.SetWith(axes...)
+		axesSet := utils.SetWith(axes...)
 		for axis, dim := range operand.Dimensions {
 			if !axesSet.Has(axis) {
 				output.Dimensions = append(output.Dimensions, dim)
@@ -500,7 +501,7 @@ func GatherOp(operand, startIndices shapes.Shape, indexVectorAxis int, offsetOut
 		return output, errors.Errorf("Gather() requires a non-scalar operand, got %s", operand)
 	}
 
-	setCollapsedAxes := types.MakeSet[int]()
+	setCollapsedAxes := utils.MakeSet[int]()
 	for _, collapsedSliceAxis := range collapsedSliceAxes {
 		if collapsedSliceAxis < 0 || collapsedSliceAxis >= operand.Rank() {
 			return output, errors.Errorf("collapsed slice axis %d is out of range for operand %s", collapsedSliceAxis, operand)
@@ -563,7 +564,7 @@ func GatherOp(operand, startIndices shapes.Shape, indexVectorAxis int, offsetOut
 	output = shapes.Make(operand.DType)
 	output.Dimensions = make([]int, batchRank+len(offsetOutputAxes))
 
-	setOffsetOutputAxes := types.MakeSet[int]()
+	setOffsetOutputAxes := utils.MakeSet[int]()
 	for _, offsetOutputAxis := range offsetOutputAxes {
 		if offsetOutputAxis < 0 || offsetOutputAxis >= output.Rank() {
 			return shapes.Invalid(), errors.Errorf("offset output axis %d is out of range for output of rank %d", offsetOutputAxis, output.Rank())
@@ -715,7 +716,7 @@ func ScatterOp(operand, indices, updates shapes.Shape, indexVectorAxis int, upda
 	}
 
 	// Validate that update dimensions fit into output dimensions.
-	insertedWindowAxesSet := types.SetWith(insertedWindowAxes...)
+	insertedWindowAxesSet := utils.SetWith(insertedWindowAxes...)
 	operandUpdatedWindowAxes := make([]int, 0, operand.Rank()-len(insertedWindowAxes))
 	for axis := range operand.Rank() {
 		if !insertedWindowAxesSet.Has(axis) {
@@ -942,7 +943,7 @@ func ConvGeneralOp(input, kernel shapes.Shape, axes types.ConvolveAxesConfig,
 		return errorf("axes.InputSpatial (%v) must provide one value for each spatial axis (%d), input shape is %s",
 			axes.InputSpatial, spatialRank, input)
 	}
-	inputAxes := types.SetWith(axes.InputBatch, axes.InputChannels)
+	inputAxes := utils.SetWith(axes.InputBatch, axes.InputChannels)
 	for _, inputAxis := range axes.InputSpatial {
 		if inputAxis < 0 || inputAxis >= rank {
 			return errorf("invalid input axes configuration (axis %d is out-of-bounds): batch=%d, channel=%d, spatial=%v", inputAxis, axes.InputBatch, axes.InputChannels, axes.InputSpatial)
@@ -957,7 +958,7 @@ func ConvGeneralOp(input, kernel shapes.Shape, axes types.ConvolveAxesConfig,
 		return shapes.Invalid(), errors.Errorf("ConvGeneralOp: axes.KernelSpatial (%v) must provide one value for each spatial axis (%d), kernel shape is %s",
 			axes.InputSpatial, spatialRank, kernel)
 	}
-	kernelAxes := types.SetWith(axes.KernelInputChannels, axes.KernelOutputChannels)
+	kernelAxes := utils.SetWith(axes.KernelInputChannels, axes.KernelOutputChannels)
 	for _, kernelAxis := range axes.KernelSpatial {
 		if kernelAxis < 0 || kernelAxis >= rank {
 			return errorf("invalid kernel axes configuration (axis %d is out-of-bounds): input channel=%d, output channel=%d, spatial=%v",
@@ -974,7 +975,7 @@ func ConvGeneralOp(input, kernel shapes.Shape, axes types.ConvolveAxesConfig,
 		return errorf("axes.OutputSpatial (%v) must have one value for each spatial axis (%d), input shape is %s",
 			axes.OutputSpatial, spatialRank, input)
 	}
-	outputAxes := types.SetWith(axes.OutputBatch, axes.OutputChannels)
+	outputAxes := utils.SetWith(axes.OutputBatch, axes.OutputChannels)
 	for _, outputAxis := range axes.OutputSpatial {
 		if outputAxis < 0 || outputAxis >= rank {
 			return errorf("invalid output axes configuration (axis %d is out-of-bounds): batch=%d, channels=%d, spatial=%v", outputAxis, axes.OutputBatch, axes.OutputChannels, axes.OutputSpatial)

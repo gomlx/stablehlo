@@ -30,8 +30,3 @@ func (f *Function) binaryOp(op optypes.OpType, lhs, rhs *Value) (*Value, error) 
 	}
 	return f.addOp(op, outputShape, lhs, rhs), nil
 }
-
-// Add adds two values together.
-func (f *Function) Add(lhs, rhs *Value) (*Value, error) {
-	return f.binaryOp(optypes.Add, lhs, rhs)
-}
