@@ -24,3 +24,21 @@ func (v *Value) Write(w io.Writer) error {
 	_, err := fmt.Fprintf(w, "%%%d", v.id)
 	return err
 }
+
+// String implements fmt.Stringer.
+func (v *Value) String() string {
+	if v.name != "" {
+		return "%" + v.name
+	}
+	return fmt.Sprintf("%%%d", v.id)
+}
+
+// NamedValue creates a new named value with the given shape.
+// These are meant to be used as inputs for functions.
+func NamedValue(name string, shape shapes.Shape) *Value {
+	return &Value{
+		shape: shape,
+		name:  name,
+		id:    -1,
+	}
+}
