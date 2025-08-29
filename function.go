@@ -43,17 +43,6 @@ func (f *Function) newValue(shape shapes.Shape) *Value {
 	return v
 }
 
-// newNamedValue creates a new named value with the given shape. No id is assigned to this value.
-func (f *Function) newNamedValue(shape shapes.Shape, name string) *Value {
-	v := &Value{
-		shape: shape,
-		name:  name,
-		id:    -1,
-	}
-	f.values = append(f.values, v)
-	return v
-}
-
 // NewConstant creates a new constant statement and returns the resulting value.
 func (f *Function) NewConstant(value any) (*Value, error) {
 	// The shape of the constant is inferred from the value.
@@ -71,27 +60,6 @@ func (f *Function) NewConstant(value any) (*Value, error) {
 	}
 	f.Statements = append(f.Statements, c)
 	return c.Outputs[0], nil
-}
-
-// AddOp adds a new operation to the function.
-func (f *Function) AddOp(opType optypes.OpType, inputs ...*Value) (*Value, error) {
-	inputShapes := make([]shapes.Shape, len(inputs))
-	for i, input := range inputs {
-		inputShapes[i] = input.shape
-	}
-
-	outputShape, err := inferShape(opType, inputShapes...)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to infer shape for op %s", opType)
-	}
-
-	stmt := &Statement{
-		OpType:  opType,
-		Inputs:  inputs,
-		Outputs: []*Value{f.newValue(outputShape)},
-	}
-	f.Statements = append(f.Statements, stmt)
-	return stmt.Outputs[0], nil
 }
 
 // inferShape dispatches to the correct shape inference function based on the opType.
@@ -162,14 +130,20 @@ func (f *Function) Write(writer io.Writer) error {
 		we(input)
 		w(": %s", input.shape.ToStableHLO())
 	}
-	w(") -> (")
+	w(") -> ")
+	if len(f.Outputs) > 1 {
+		w("(")
+	}
 	for i, output := range f.Outputs {
 		if i > 0 {
 			w(", ")
 		}
 		w("%s", output.ToStableHLO())
 	}
-	w(") {\n")
+	if len(f.Outputs) > 1 {
+		w(")")
+	}
+	w(" {\n")
 
 	for _, stmt := range f.Statements {
 		we(stmt)

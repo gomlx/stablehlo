@@ -3,6 +3,7 @@ package stablehlo
 import (
 	"fmt"
 	"io"
+	"slices"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -42,10 +43,11 @@ type elementWriter interface {
 
 // NewFunction creates a new function and adds it to the program.
 // The function outputs will be determined by the last statement in the function body.
-func (b *Builder) NewFunction(name string, inputs []*Value) *Function {
+func (b *Builder) NewFunction(name string, inputs ...*Value) *Function {
 	fn := &Function{
 		Name:   name,
 		Inputs: inputs,
+		values: slices.Clone(inputs),
 	}
 	b.functions = append(b.functions, fn)
 	return fn
@@ -54,7 +56,7 @@ func (b *Builder) NewFunction(name string, inputs []*Value) *Function {
 // Write the StableHLO program (a readable string) to the given writer.
 //
 // It will write incomplete programs (without a main function or empty statements) without an error,
-// to help debuggging.
+// to help debugging.
 //
 // See Builder.Build to check and output the program.
 func (b *Builder) Write(writer io.Writer) error {
