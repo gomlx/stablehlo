@@ -35,21 +35,21 @@ func TestBinaryOp(t *testing.T) {
 	var err error
 	_, err = BinaryOp(optypes.LogicalAnd, S(I8), S(I8))
 	require.Error(t, err)
-	_, err = BinaryOp(optypes.Mul, S(Bool, 1), S(Bool, 1))
+	_, err = BinaryOp(optypes.Multiply, S(Bool, 1), S(Bool, 1))
 	require.Error(t, err)
-	_, err = BinaryOp(optypes.Mul, S(Bool, 1), S(Bool, 1))
+	_, err = BinaryOp(optypes.Multiply, S(Bool, 1), S(Bool, 1))
 	require.Error(t, err)
-	_, err = BinaryOp(optypes.BitwiseXor, S(F32, 1), S(F32, 1))
+	_, err = BinaryOp(optypes.Xor, S(F32, 1), S(F32, 1))
 	require.Error(t, err)
 
 	// Invalid operation type (not binary op).
-	_, err = BinaryOp(optypes.Exp, S(F32), S(F32))
+	_, err = BinaryOp(optypes.Exponential, S(F32), S(F32))
 	require.Error(t, err)
 
 	// The same shape should be ok.
 	var output shapes.Shape
 	intMatrixShape := S(I8, 3, 3)
-	output, err = BinaryOp(optypes.BitwiseOr, intMatrixShape, intMatrixShape)
+	output, err = BinaryOp(optypes.Or, intMatrixShape, intMatrixShape)
 	require.NoError(t, err)
 	require.True(t, intMatrixShape.Equal(output))
 
@@ -68,7 +68,7 @@ func TestBinaryOp(t *testing.T) {
 	shape1 := S(F32, 2, 1, 3)
 	shape2 := S(F32, 1, 4, 3)
 	expectedBroadcastShape := S(F32, 2, 4, 3)
-	require.True(t, expectedBroadcastShape.Equal(must1(BinaryOp(optypes.Mul, shape1, shape2))))
+	require.True(t, expectedBroadcastShape.Equal(must1(BinaryOp(optypes.Multiply, shape1, shape2))))
 
 	// Matrix with scalar.
 	require.True(t, expectedShape.Equal(must1(BinaryOp(optypes.Add, matrixShape, scalarShape))))
@@ -84,7 +84,7 @@ func TestUnaryOp(t *testing.T) {
 	// Invalid data types check.
 	require.Panics(t, func() { must1(UnaryOp(optypes.LogicalNot, S(F32))) })
 	require.Panics(t, func() { must1(UnaryOp(optypes.LogicalNot, S(I8))) })
-	require.Panics(t, func() { must1(UnaryOp(optypes.BitwiseNot, S(F32))) })
+	require.Panics(t, func() { must1(UnaryOp(optypes.Not, S(F32))) })
 	require.Panics(t, func() { must1(UnaryOp(optypes.Negate, S(Bool))) })
 
 	// Invalid operation type (not unary op).
@@ -96,10 +96,10 @@ func TestUnaryOp(t *testing.T) {
 	require.True(t, boolShape.Equal(must1(UnaryOp(optypes.LogicalNot, boolShape))))
 
 	intShape := S(I8, 3, 3)
-	require.True(t, intShape.Equal(must1(UnaryOp(optypes.BitwiseNot, intShape))))
+	require.True(t, intShape.Equal(must1(UnaryOp(optypes.Not, intShape))))
 
 	floatShape := S(F32, 2, 3)
-	require.True(t, floatShape.Equal(must1(UnaryOp(optypes.Exp, floatShape))))
+	require.True(t, floatShape.Equal(must1(UnaryOp(optypes.Exponential, floatShape))))
 	require.True(t, floatShape.Equal(must1(UnaryOp(optypes.Negate, floatShape))))
 }
 

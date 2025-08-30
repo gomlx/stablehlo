@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"io"
 	"strings"
+
+	"github.com/gomlx/stablehlo/internal/utils"
 )
 
 // ToStableHLO returns the ToStableHLO representation of the shape's type.
@@ -52,6 +54,6 @@ func (s Shape) WriteStableHLO(writer io.Writer) error {
 		}
 		w("x")
 	}
-	w("%s>", DTypeToStableHLO(s.DType))
+	w("%s>", utils.DTypeToStableHLO(s.DType))
 	return err
 }

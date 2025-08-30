@@ -110,6 +110,10 @@ func (s *Statement) Write(writer io.Writer) error {
 	return err
 }
 
+type hasToStableHLO interface {
+	ToStableHLO() string
+}
+
 // literalToStableHLO converts a literal value, usually used in attributes, to its ToStableHLO string representation.
 func literalToStableHLO(attr any) string {
 	switch v := attr.(type) {
@@ -137,6 +141,11 @@ func literalToStableHLO(attr any) string {
 			return "true"
 		}
 		return "false"
+
+	case hasToStableHLO:
+		// For types that implement their own conversion to stablehlo, use that.
+		return v.ToStableHLO()
+
 	default:
 		return fmt.Sprintf("Unknown literal type: %t %#v", v, v)
 	}

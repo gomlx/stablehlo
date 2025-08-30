@@ -23,53 +23,38 @@ import (
 )
 
 var (
-	// BooleanOperations take booleans as input, aka. logical operations.
-	BooleanOperations = utils.SetWith(
-		optypes.LogicalAnd,
-		optypes.LogicalOr,
-		optypes.LogicalXor,
-		optypes.LogicalNot,
+	// BooleanOrBitwiseOperations take booleans as input, aka. logical operations.
+	BooleanOrBitwiseOperations = utils.SetWith(
+		optypes.And,
+		optypes.Or,
+		optypes.Xor,
+		optypes.Not,
 	)
 
 	// BitwiseOperations operates only on integer (binary) numbers and won't work on floats or complex numbers.
 	BitwiseOperations = utils.SetWith(
-		optypes.BitwiseAnd,
-		optypes.BitwiseOr,
-		optypes.BitwiseXor,
-		optypes.BitwiseNot,
 		optypes.BitCount,
 		optypes.ShiftLeft,
 		optypes.ShiftRightArithmetic,
 		optypes.ShiftRightLogical,
 		optypes.BitCount,
-		optypes.Clz,
+		optypes.CountLeadingZeros,
 	)
 
 	// NumberOperations can take any type of number as input: integers, floats, or complex numbers.
 	NumberOperations = utils.SetWith(
 		optypes.Add,
-		optypes.Sub,
-		optypes.Mul,
-		optypes.Div,
-		optypes.Pow,
-		optypes.Rem,
+		optypes.Subtract,
+		optypes.Multiply,
+		optypes.Divide,
+		optypes.Power,
+		optypes.Remainder,
 
 		// Notice Abs and Sign works for unsigned ints: it's just a trivial implementation.
 		optypes.Abs,
 		optypes.Sign,
 
-		optypes.Equal,
-		optypes.NotEqual,
-		optypes.GreaterOrEqual,
-		optypes.GreaterThan,
-		optypes.LessOrEqual,
-		optypes.LessThan,
-
-		optypes.EqualTotalOrder,
-		optypes.GreaterOrEqualTotalOrder,
-		optypes.GreaterThanTotalOrder,
-		optypes.LessOrEqualTotalOrder,
-		optypes.LessThanTotalOrder,
+		optypes.Compare,
 	)
 
 	SignedNumberOperations = utils.SetWith(
@@ -80,15 +65,15 @@ var (
 	FloatOperations = utils.SetWith(
 		optypes.Erf,
 		optypes.Logistic,
-		optypes.Cos,
-		optypes.Sin,
+		optypes.Cosine,
+		optypes.Sine,
 		optypes.Tanh,
 	)
 
 	// FloatOrComplexOperations operates only on float or complex numbers and won't work on integer or boolean values.
 	FloatOrComplexOperations = utils.SetWith(
-		optypes.Exp,
-		optypes.Expm1,
+		optypes.Exponential,
+		optypes.ExponentialMinusOne,
 		optypes.Log,
 		optypes.Log1p,
 		optypes.Ceil,
@@ -110,47 +95,32 @@ var (
 	// rhs (right-hand-side) and are usually commutative (invariant to order).
 	StandardBinaryOperations = utils.SetWith(
 		optypes.Add,
-		optypes.Sub,
-		optypes.Mul,
-		optypes.Div,
-		optypes.Pow,
-		optypes.Rem,
-		optypes.BitwiseAnd,
-		optypes.BitwiseOr,
-		optypes.BitwiseXor,
-		optypes.LogicalAnd,
-		optypes.LogicalOr,
-		optypes.LogicalXor,
-		optypes.Max,
-		optypes.Min,
+		optypes.Subtract,
+		optypes.Multiply,
+		optypes.Divide,
+		optypes.Power,
+		optypes.Remainder,
+		optypes.And,
+		optypes.Or,
+		optypes.Xor,
+		optypes.Maximum,
+		optypes.Minimum,
 	)
 
 	// ComparisonOperations include all operations that take two inputs and returns booleans with the results of
 	// a comparison.
-	ComparisonOperations = utils.SetWith(
-		optypes.Equal,
-		optypes.NotEqual,
-		optypes.EqualTotalOrder,
-		optypes.GreaterOrEqual,
-		optypes.GreaterOrEqualTotalOrder,
-		optypes.GreaterThan,
-		optypes.GreaterThanTotalOrder,
-		optypes.LessOrEqual,
-		optypes.LessOrEqualTotalOrder,
-		optypes.LessThan,
-		optypes.LessThanTotalOrder,
-	)
+	// For StableHLO they are converged in only one optypes.Compare, that takes as an attribute the comparison type.
+	ComparisonOperations = utils.SetWith(optypes.Compare)
 
 	// StandardUnaryOperations include all operations that have a single operand as input, and the return shape is the
 	// same as the input (so no reductions).
 	StandardUnaryOperations = utils.SetWith(
-		optypes.LogicalNot,
-		optypes.BitwiseNot,
+		optypes.Not,
 		optypes.BitCount,
-		optypes.Clz,
+		optypes.CountLeadingZeros,
 		optypes.Erf,
-		optypes.Exp,
-		optypes.Expm1,
+		optypes.Exponential,
+		optypes.ExponentialMinusOne,
 		optypes.Log,
 		optypes.Log1p,
 		optypes.Logistic,
@@ -162,8 +132,8 @@ var (
 		optypes.Imag,
 		optypes.Real,
 		optypes.Conj,
-		optypes.Cos,
-		optypes.Sin,
+		optypes.Cosine,
+		optypes.Sine,
 		optypes.Tanh,
 		optypes.Abs,
 		optypes.Negate,
@@ -178,7 +148,7 @@ var (
 // It returns an error if the data type (shape.DType) is invalid for the operation -- e.g.: non-matching
 // dtypes, or LogicalAnd not having booleans (dtype.Bool) as input.
 func BinaryOp(opType optypes.OpType, lhsShape, rhsShape shapes.Shape) (output shapes.Shape, err error) {
-	if !StandardBinaryOperations.Has(opType) {
+	if !StandardBinaryOperations.Has(opType) && !ComparisonOperations.Has(opType) {
 		err = errors.Errorf("operations %s is not in the StandardBinaryOperations set, cannot process it with BinaryOp", opType)
 		return
 	}
@@ -190,8 +160,8 @@ func BinaryOp(opType optypes.OpType, lhsShape, rhsShape shapes.Shape) (output sh
 		err = errors.Errorf("data types (DType) for BinaryOp %s must match, got %s and %s", opType, lhsShape, rhsShape)
 		return
 	}
-	if BooleanOperations.Has(opType) && lhsShape.DType != dtypes.Bool {
-		err = errors.Errorf("logical BinaryOp %s must have boolean (dtype.Bool) data types as input, got %s", opType, lhsShape)
+	if BooleanOrBitwiseOperations.Has(opType) && lhsShape.DType != dtypes.Bool && !lhsShape.DType.IsInt() {
+		err = errors.Errorf("Logical/Bitwise BinaryOp %q must have boolean (dtype.Bool) data types as input, got %s", opType, lhsShape)
 		return
 	}
 	if BitwiseOperations.Has(opType) && !lhsShape.DType.IsInt() {
@@ -246,26 +216,47 @@ func binaryOpImpl(opType optypes.OpType, lhsShape, rhsShape shapes.Shape) (outpu
 	return
 }
 
-// ComparisonOp returns the broadcast shape with dtype set to Bool, for comparison operations (Equal, LessThan, GreaterOrEqual, etc.)
-func ComparisonOp(opType optypes.OpType, lhsShape, rhsShape shapes.Shape) (output shapes.Shape, err error) {
-	if !ComparisonOperations.Has(opType) {
-		err = errors.Errorf("operation %s is not in the ComparisonOperations set, cannot process it with ComparisonOp", opType)
-		return
-	}
+// CompareOp returns the broadcast shape with dtype set to Bool, for comparison operations (Equal, LessThan, GreaterOrEqual, etc.)
+func CompareOp(lhsShape, rhsShape shapes.Shape, direction types.ComparisonDirection, compareType types.ComparisonType) (output shapes.Shape, err error) {
 	if lhsShape.DType == dtypes.InvalidDType || rhsShape.DType == dtypes.InvalidDType {
-		err = errors.Errorf("invalid shape for %s or %s for ComparisonOp %s", lhsShape, rhsShape, opType)
+		err = errors.Errorf("invalid shape for %s or %s for Compare", lhsShape, rhsShape)
 		return
 	}
 	if lhsShape.DType != rhsShape.DType {
-		err = errors.Errorf("data types (DType) for ComparisonOp %s must match, got %s and %s", opType, lhsShape, rhsShape)
+		err = errors.Errorf("data types (DType) for Compare must match, got %s and %s", lhsShape, rhsShape)
 		return
 	}
-	if !NumberOperations.Has(opType) {
-		err = errors.Errorf("operation %s is not in the NumberOperations set, cannot process it with ComparisonOp", opType)
+	dtype := lhsShape.DType
+	switch compareType {
+	case types.CompareFloat:
+		if !dtype.IsFloat() && !dtype.IsComplex() {
+			err = errors.Errorf("data type %s is not a float or complex, cannot process it with Compare(type=FLOAT)", dtype)
+			return
+		}
+	case types.CompareTotalOrder:
+		if !dtype.IsFloat() {
+			err = errors.Errorf("data type %s is not a float, cannot process it with Compare(type=TOTAL_ORDER)", dtype)
+			return
+		}
+	case types.CompareSigned:
+		if !dtype.IsInt() || dtype.IsUnsigned() {
+			err = errors.Errorf("data type %s is not a signed integer, cannot process it with Compare(type=SIGNED)", dtype)
+			return
+		}
+	case types.CompareUnsigned:
+		if !dtype.IsInt() || !dtype.IsUnsigned() {
+			err = errors.Errorf("data type %s is not a signed integer, cannot process it with Compare(type=UNSIGNED)", dtype)
+			return
+		}
+	default:
+		err = errors.Errorf("invalid comparison type %d for Compare", compareType)
 		return
 	}
-
-	output, err = binaryOpImpl(opType, lhsShape, rhsShape)
+	if direction < types.CompareEQ || direction > types.CompareNE {
+		err = errors.Errorf("invalid comparison direction %d for Compare", direction)
+		return
+	}
+	output, err = BinaryOp(optypes.Compare, lhsShape, rhsShape)
 	if err != nil {
 		return
 	}
@@ -284,8 +275,8 @@ func UnaryOp(opType optypes.OpType, operand shapes.Shape) (output shapes.Shape, 
 		err = errors.Errorf("invalid shape %s for UnaryOp %s", operand, opType)
 		return
 	}
-	if BooleanOperations.Has(opType) && operand.DType != dtypes.Bool {
-		err = errors.Errorf("logical UnaryOp %s must have boolean (dtype.Bool) data types as input, got %s", opType, operand)
+	if BooleanOrBitwiseOperations.Has(opType) && operand.DType != dtypes.Bool && !operand.DType.IsInt() {
+		err = errors.Errorf("logical UnaryOp %q must have boolean (dtype.Bool) data types as input, got %s", opType, operand)
 		return
 	}
 	if BitwiseOperations.Has(opType) && !operand.DType.IsInt() {

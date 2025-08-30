@@ -1,8 +1,11 @@
-// Package types is mostly a top level directory for GoMLX important types. See
-// sub-packages `shapes`, `tensor` and `slices`.
-//
-// This package also provides the types: Set.
+// Package utils holds small utility types and functions used internally in stablehlo.
 package utils
+
+import (
+	"cmp"
+	"maps"
+	"slices"
+)
 
 // Set implements a Set for the key type T.
 type Set[T comparable] map[T]struct{}
@@ -78,4 +81,9 @@ func (s Set[T]) Add(s2 Set[T]) Set[T] {
 		union.Insert(k)
 	}
 	return union
+}
+
+// SortedKeys returns the keys of the set in sorted order.
+func SortedKeys[T cmp.Ordered](set Set[T]) []T {
+	return slices.Sorted(maps.Keys(set))
 }

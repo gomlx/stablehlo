@@ -6,7 +6,6 @@ import (
 
 	"github.com/gomlx/gopjrt/dtypes"
 	"github.com/gomlx/stablehlo/internal/optypes"
-	"github.com/gomlx/stablehlo/shapeinference"
 	"github.com/gomlx/stablehlo/types/shapes"
 	"github.com/pkg/errors"
 )
@@ -60,29 +59,6 @@ func (f *Function) NewConstant(value any) (*Value, error) {
 	}
 	f.Statements = append(f.Statements, c)
 	return c.Outputs[0], nil
-}
-
-// inferShape dispatches to the correct shape inference function based on the opType.
-func inferShape(opType optypes.OpType, inputs ...shapes.Shape) (shapes.Shape, error) {
-	if shapeinference.StandardUnaryOperations.Has(opType) {
-		if len(inputs) != 1 {
-			return shapes.Invalid(), errors.Errorf("unary op %s must have 1 input, got %d", opType, len(inputs))
-		}
-		return shapeinference.UnaryOp(opType, inputs[0])
-	}
-	if shapeinference.StandardBinaryOperations.Has(opType) {
-		if len(inputs) != 2 {
-			return shapes.Invalid(), errors.Errorf("binary op %s must have 2 inputs, got %d", opType, len(inputs))
-		}
-		return shapeinference.BinaryOp(opType, inputs[0], inputs[1])
-	}
-	if shapeinference.ComparisonOperations.Has(opType) {
-		if len(inputs) != 2 {
-			return shapes.Invalid(), errors.Errorf("comparison op %s must have 2 inputs, got %d", opType, len(inputs))
-		}
-		return shapeinference.ComparisonOp(opType, inputs[0], inputs[1])
-	}
-	return shapes.Invalid(), errors.Errorf("shape inference for op %s not implemented", opType)
 }
 
 // Return adds a return statement to the function with the given return values.

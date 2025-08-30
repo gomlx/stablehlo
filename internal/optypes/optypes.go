@@ -18,70 +18,41 @@ const (
 	Constant
 	Identity
 
-	ReduceWindow
-	RngBitGenerator
+	Abs
+	Add
+	And
+	ArgMinMax
 	BatchNormForInference
 	BatchNormForTraining
 	BatchNormGradient
 	BitCount
-
-	Abs
-	Add
-	ArgMinMax
 	Bitcast
-	BitwiseAnd
-	BitwiseNot
-	BitwiseOr
-	BitwiseXor
 	Broadcast
 	BroadcastInDim
 	Ceil
-	Clz
-	Complex
-	Concatenate
+	CountLeadingZeros
+	Compare
 	Conj
-	ConvGeneralDilated
-	ConvertDType
-	Cos
-	Div
-	Dot
-	DotGeneral
-	DynamicSlice
-	DynamicUpdateSlice
-	Equal
-	EqualTotalOrder
+	Cosine
+	Divide
 	Erf
-	Exp
-	Expm1
-	FFT
+	Exponential
+	ExponentialMinusOne
 	Floor
-	Gather
-	GreaterOrEqual
-	GreaterOrEqualTotalOrder
-	GreaterThan
-	GreaterThanTotalOrder
 	Imag
 	Iota
 	IsFinite
-	LessOrEqual
-	LessOrEqualTotalOrder
-	LessThan
-	LessThanTotalOrder
 	Log
 	Log1p
-	LogicalAnd
-	LogicalNot
-	LogicalOr
-	LogicalXor
 	Logistic
-	Max
-	Min
-	Mul
+	Maximum
+	Minimum
+	Multiply
 	Negate
-	NotEqual
-	NotEqualTotalOrder
+	Not
+	Or
 	Pad
-	Pow
+	Power
 	Real
 	ReduceBitwiseAnd
 	ReduceBitwiseOr
@@ -93,9 +64,11 @@ const (
 	ReduceMin
 	ReduceProduct
 	ReduceSum
-	Rem
+	ReduceWindow
+	Remainder
 	Reshape
 	Reverse
+	RngBitGenerator
 	Round
 	Rsqrt
 	ScatterMax
@@ -108,13 +81,14 @@ const (
 	ShiftRightArithmetic
 	ShiftRightLogical
 	Sign
-	Sin
+	Sine
 	Slice
 	Sqrt
-	Sub
+	Subtract
 	Tanh
 	Transpose
 	Where
+	Xor
 
 	// Last should always be kept the last, it is used as a counter/marker for .
 	Last
