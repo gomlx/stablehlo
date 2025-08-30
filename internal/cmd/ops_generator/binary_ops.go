@@ -7,6 +7,7 @@ import (
 	"path"
 	"text/template"
 
+	"github.com/gomlx/stablehlo/internal/utils"
 	"github.com/gomlx/stablehlo/shapeinference"
 	"github.com/janpfeifer/must"
 )
@@ -42,11 +43,9 @@ type BinaryOp struct {
 }
 
 func GenerateBinaryOps() {
-	binaryOps := shapeinference.StandardBinaryOperations.Add(
-		shapeinference.ComparisonOperations)
+	binaryOps := shapeinference.StandardBinaryOperations
 	data := make([]BinaryOp, 0, len(binaryOps))
-
-	for k := range binaryOps {
+	for _, k := range utils.SortedKeys(binaryOps) {
 		data = append(data, BinaryOp{Name: k.String()})
 	}
 

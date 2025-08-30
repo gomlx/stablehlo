@@ -6,127 +6,57 @@ import (
 	"github.com/gomlx/stablehlo/internal/optypes"
 )
 
-// BitwiseXor implements the corresponding standard binary operation.
-func (f *Function) BitwiseXor(lhs, rhs *Value) (*Value, error) {
-	return f.binaryOp(optypes.BitwiseXor, lhs, rhs)
-}
-
-// BitwiseAnd implements the corresponding standard binary operation.
-func (f *Function) BitwiseAnd(lhs, rhs *Value) (*Value, error) {
-	return f.binaryOp(optypes.BitwiseAnd, lhs, rhs)
-}
-
-// LogicalAnd implements the corresponding standard binary operation.
-func (f *Function) LogicalAnd(lhs, rhs *Value) (*Value, error) {
-	return f.binaryOp(optypes.LogicalAnd, lhs, rhs)
-}
-
-// LessOrEqual implements the corresponding standard binary operation.
-func (f *Function) LessOrEqual(lhs, rhs *Value) (*Value, error) {
-	return f.binaryOp(optypes.LessOrEqual, lhs, rhs)
-}
-
-// EqualTotalOrder implements the corresponding standard binary operation.
-func (f *Function) EqualTotalOrder(lhs, rhs *Value) (*Value, error) {
-	return f.binaryOp(optypes.EqualTotalOrder, lhs, rhs)
-}
-
-// GreaterOrEqualTotalOrder implements the corresponding standard binary operation.
-func (f *Function) GreaterOrEqualTotalOrder(lhs, rhs *Value) (*Value, error) {
-	return f.binaryOp(optypes.GreaterOrEqualTotalOrder, lhs, rhs)
-}
-
 // Add implements the corresponding standard binary operation.
 func (f *Function) Add(lhs, rhs *Value) (*Value, error) {
 	return f.binaryOp(optypes.Add, lhs, rhs)
 }
 
-// Rem implements the corresponding standard binary operation.
-func (f *Function) Rem(lhs, rhs *Value) (*Value, error) {
-	return f.binaryOp(optypes.Rem, lhs, rhs)
+// And implements the corresponding standard binary operation.
+func (f *Function) And(lhs, rhs *Value) (*Value, error) {
+	return f.binaryOp(optypes.And, lhs, rhs)
 }
 
-// Mul implements the corresponding standard binary operation.
-func (f *Function) Mul(lhs, rhs *Value) (*Value, error) {
-	return f.binaryOp(optypes.Mul, lhs, rhs)
+// Divide implements the corresponding standard binary operation.
+func (f *Function) Divide(lhs, rhs *Value) (*Value, error) {
+	return f.binaryOp(optypes.Divide, lhs, rhs)
 }
 
-// Div implements the corresponding standard binary operation.
-func (f *Function) Div(lhs, rhs *Value) (*Value, error) {
-	return f.binaryOp(optypes.Div, lhs, rhs)
+// Maximum implements the corresponding standard binary operation.
+func (f *Function) Maximum(lhs, rhs *Value) (*Value, error) {
+	return f.binaryOp(optypes.Maximum, lhs, rhs)
 }
 
-// LessThanTotalOrder implements the corresponding standard binary operation.
-func (f *Function) LessThanTotalOrder(lhs, rhs *Value) (*Value, error) {
-	return f.binaryOp(optypes.LessThanTotalOrder, lhs, rhs)
+// Minimum implements the corresponding standard binary operation.
+func (f *Function) Minimum(lhs, rhs *Value) (*Value, error) {
+	return f.binaryOp(optypes.Minimum, lhs, rhs)
 }
 
-// Equal implements the corresponding standard binary operation.
-func (f *Function) Equal(lhs, rhs *Value) (*Value, error) {
-	return f.binaryOp(optypes.Equal, lhs, rhs)
+// Multiply implements the corresponding standard binary operation.
+func (f *Function) Multiply(lhs, rhs *Value) (*Value, error) {
+	return f.binaryOp(optypes.Multiply, lhs, rhs)
 }
 
-// LessOrEqualTotalOrder implements the corresponding standard binary operation.
-func (f *Function) LessOrEqualTotalOrder(lhs, rhs *Value) (*Value, error) {
-	return f.binaryOp(optypes.LessOrEqualTotalOrder, lhs, rhs)
+// Or implements the corresponding standard binary operation.
+func (f *Function) Or(lhs, rhs *Value) (*Value, error) {
+	return f.binaryOp(optypes.Or, lhs, rhs)
 }
 
-// NotEqual implements the corresponding standard binary operation.
-func (f *Function) NotEqual(lhs, rhs *Value) (*Value, error) {
-	return f.binaryOp(optypes.NotEqual, lhs, rhs)
+// Power implements the corresponding standard binary operation.
+func (f *Function) Power(lhs, rhs *Value) (*Value, error) {
+	return f.binaryOp(optypes.Power, lhs, rhs)
 }
 
-// Min implements the corresponding standard binary operation.
-func (f *Function) Min(lhs, rhs *Value) (*Value, error) {
-	return f.binaryOp(optypes.Min, lhs, rhs)
+// Remainder implements the corresponding standard binary operation.
+func (f *Function) Remainder(lhs, rhs *Value) (*Value, error) {
+	return f.binaryOp(optypes.Remainder, lhs, rhs)
 }
 
-// Pow implements the corresponding standard binary operation.
-func (f *Function) Pow(lhs, rhs *Value) (*Value, error) {
-	return f.binaryOp(optypes.Pow, lhs, rhs)
+// Subtract implements the corresponding standard binary operation.
+func (f *Function) Subtract(lhs, rhs *Value) (*Value, error) {
+	return f.binaryOp(optypes.Subtract, lhs, rhs)
 }
 
-// Max implements the corresponding standard binary operation.
-func (f *Function) Max(lhs, rhs *Value) (*Value, error) {
-	return f.binaryOp(optypes.Max, lhs, rhs)
-}
-
-// LogicalXor implements the corresponding standard binary operation.
-func (f *Function) LogicalXor(lhs, rhs *Value) (*Value, error) {
-	return f.binaryOp(optypes.LogicalXor, lhs, rhs)
-}
-
-// GreaterOrEqual implements the corresponding standard binary operation.
-func (f *Function) GreaterOrEqual(lhs, rhs *Value) (*Value, error) {
-	return f.binaryOp(optypes.GreaterOrEqual, lhs, rhs)
-}
-
-// GreaterThan implements the corresponding standard binary operation.
-func (f *Function) GreaterThan(lhs, rhs *Value) (*Value, error) {
-	return f.binaryOp(optypes.GreaterThan, lhs, rhs)
-}
-
-// Sub implements the corresponding standard binary operation.
-func (f *Function) Sub(lhs, rhs *Value) (*Value, error) {
-	return f.binaryOp(optypes.Sub, lhs, rhs)
-}
-
-// LogicalOr implements the corresponding standard binary operation.
-func (f *Function) LogicalOr(lhs, rhs *Value) (*Value, error) {
-	return f.binaryOp(optypes.LogicalOr, lhs, rhs)
-}
-
-// LessThan implements the corresponding standard binary operation.
-func (f *Function) LessThan(lhs, rhs *Value) (*Value, error) {
-	return f.binaryOp(optypes.LessThan, lhs, rhs)
-}
-
-// GreaterThanTotalOrder implements the corresponding standard binary operation.
-func (f *Function) GreaterThanTotalOrder(lhs, rhs *Value) (*Value, error) {
-	return f.binaryOp(optypes.GreaterThanTotalOrder, lhs, rhs)
-}
-
-// BitwiseOr implements the corresponding standard binary operation.
-func (f *Function) BitwiseOr(lhs, rhs *Value) (*Value, error) {
-	return f.binaryOp(optypes.BitwiseOr, lhs, rhs)
+// Xor implements the corresponding standard binary operation.
+func (f *Function) Xor(lhs, rhs *Value) (*Value, error) {
+	return f.binaryOp(optypes.Xor, lhs, rhs)
 }

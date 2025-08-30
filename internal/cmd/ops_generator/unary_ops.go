@@ -7,6 +7,7 @@ import (
 	"path"
 	"text/template"
 
+	"github.com/gomlx/stablehlo/internal/utils"
 	"github.com/gomlx/stablehlo/shapeinference"
 	"github.com/janpfeifer/must"
 )
@@ -45,7 +46,7 @@ func GenerateUnaryOps() {
 	unaryOps := shapeinference.StandardUnaryOperations
 	data := make([]UnaryOp, 0, len(unaryOps))
 
-	for k := range unaryOps {
+	for _, k := range utils.SortedKeys(unaryOps) {
 		data = append(data, UnaryOp{Name: k.String()})
 	}
 
