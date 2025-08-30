@@ -74,15 +74,15 @@ func testRunWithClient(t *testing.T, client *pjrt.Client) {
 
 	t.Run("with inputs", func(t *testing.T) {
 		builder := stablehlo.New(t.Name())
-		shape := S.Make(D.Float64)
+		shape := S.Make(D.Float32)
 		lhs, rhs := stablehlo.NamedValue("lhs", shape), stablehlo.NamedValue("rhs", shape)
 		fn := builder.NewFunction("main", lhs, rhs)
 		sum := must(fn.Add(lhs, rhs))
-		fn.Return(sum)
+		fn.Return(must(fn.Neg(sum)))
 		program := must(builder.Build())
 		fmt.Printf("%s program:\n%s", t.Name(), program)
-		a := must(client.BufferFromHost().FromFlatDataWithDimensions([]float64{3.0}, []int{}).Done())
-		b := must(client.BufferFromHost().FromFlatDataWithDimensions([]float64{7.0}, []int{}).Done())
+		a := must(client.BufferFromHost().FromFlatDataWithDimensions([]float32{3.0}, []int{}).Done())
+		b := must(client.BufferFromHost().FromFlatDataWithDimensions([]float32{7.0}, []int{}).Done())
 		loadedExec := must(client.Compile().WithStableHLO([]byte(program)).Done())
 		outputBuffers := must(loadedExec.Execute(a, b).DonateAll().OnDevicesByNum(deviceNum).Done())
 		require.Len(t, outputBuffers, 1)
@@ -90,6 +90,6 @@ func testRunWithClient(t *testing.T, client *pjrt.Client) {
 		require.NoError(t, err)
 		fmt.Printf("\t - output: dims=%v, values=%v\n", dims, values)
 		require.Len(t, dims, 0)
-		require.Equal(t, []float64{10.0}, values)
+		require.Equal(t, []float64{-10.0}, values)
 	})
 }

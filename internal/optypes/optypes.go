@@ -14,7 +14,6 @@ type OpType int
 
 const (
 	Invalid OpType = iota
-	Parameter
 	FuncReturn
 	Constant
 	Identity

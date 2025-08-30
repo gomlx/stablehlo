@@ -30,3 +30,12 @@ func (f *Function) binaryOp(op optypes.OpType, lhs, rhs *Value) (*Value, error) 
 	}
 	return f.addOp(op, outputShape, lhs, rhs), nil
 }
+
+// unaryOp adds a new unary operation to the function.
+func (f *Function) unaryOp(op optypes.OpType, operand *Value) (*Value, error) {
+	outputShape, err := shapeinference.UnaryOp(op, operand.shape)
+	if err != nil {
+		return nil, err
+	}
+	return f.addOp(op, outputShape, operand), nil
+}
