@@ -77,7 +77,7 @@ const (
 	Max
 	Min
 	Mul
-	Neg
+	Negate
 	NotEqual
 	NotEqualTotalOrder
 	Pad
@@ -120,12 +120,19 @@ const (
 	Last
 )
 
+var (
+	// stableHLOMappings maps OpType to the corresponding StableHLO name, when the default
+	// "snake case" doesn't work.
+	stableHLOMappings = map[OpType]string{
+		FuncReturn: "func.return",
+	}
+)
+
 // ToStableHLO returns the ToStableHLO name of the operation.
 func (op OpType) ToStableHLO() string {
-	switch op {
-	case FuncReturn:
-		return "func.return"
-	default:
-		return fmt.Sprintf("stablehlo.%s", utils.ToSnakeCase(op.String()))
+	name, ok := stableHLOMappings[op]
+	if !ok {
+		name = fmt.Sprintf("stablehlo.%s", utils.ToSnakeCase(op.String()))
 	}
+	return name
 }

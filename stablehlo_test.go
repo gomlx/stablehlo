@@ -25,7 +25,7 @@ func TestBuilder(t *testing.T) {
 		c2 := must(fn.NewConstant(2.0))
 		sum := must(fn.Add(c1, c2))
 		fn.Return(sum)
-		program := must(b.Build())
+		program := string(must(b.Build()))
 		fmt.Printf("%s program:\n%s", t.Name(), program)
 		want := `func.func @main() -> tensor<f64> {
   %0 = "stablehlo.constant"(){value = dense<1.0> : tensor<f64>} : () -> tensor<f64>
@@ -47,7 +47,7 @@ func TestBuilder(t *testing.T) {
 		fn := builder.NewFunction("main", lhs, rhs)
 		sum := must(fn.Add(lhs, rhs))
 		fn.Return(sum)
-		program := must(builder.Build())
+		program := string(must(builder.Build()))
 		fmt.Printf("%s program:\n%s", t.Name(), program)
 		want := `func.func @main(%lhs: tensor<f64>, %rhs: tensor<f64>) -> tensor<f64> {
   %0 = "stablehlo.add"(%lhs, %rhs) : (tensor<f64>, tensor<f64>) -> tensor<f64>

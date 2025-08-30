@@ -85,11 +85,11 @@ func TestUnaryOp(t *testing.T) {
 	require.Panics(t, func() { must1(UnaryOp(optypes.LogicalNot, S(F32))) })
 	require.Panics(t, func() { must1(UnaryOp(optypes.LogicalNot, S(I8))) })
 	require.Panics(t, func() { must1(UnaryOp(optypes.BitwiseNot, S(F32))) })
-	require.Panics(t, func() { must1(UnaryOp(optypes.Neg, S(Bool))) })
+	require.Panics(t, func() { must1(UnaryOp(optypes.Negate, S(Bool))) })
 
 	// Invalid operation type (not unary op).
 	require.Panics(t, func() { must1(UnaryOp(optypes.Add, S(F32))) })
-	require.Panics(t, func() { must1(UnaryOp(optypes.Neg, S(U64))) })
+	require.Panics(t, func() { must1(UnaryOp(optypes.Negate, S(U64))) })
 
 	// Valid operations
 	boolShape := S(Bool, 2, 3)
@@ -100,7 +100,7 @@ func TestUnaryOp(t *testing.T) {
 
 	floatShape := S(F32, 2, 3)
 	require.True(t, floatShape.Equal(must1(UnaryOp(optypes.Exp, floatShape))))
-	require.True(t, floatShape.Equal(must1(UnaryOp(optypes.Neg, floatShape))))
+	require.True(t, floatShape.Equal(must1(UnaryOp(optypes.Negate, floatShape))))
 }
 
 func TestGatherOp(t *testing.T) {

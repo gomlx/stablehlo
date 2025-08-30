@@ -73,7 +73,7 @@ var (
 	)
 
 	SignedNumberOperations = utils.SetWith(
-		optypes.Neg,
+		optypes.Negate,
 	)
 
 	// FloatOperations operates only on float (and not on complex numbers).
@@ -166,7 +166,7 @@ var (
 		optypes.Sin,
 		optypes.Tanh,
 		optypes.Abs,
-		optypes.Neg,
+		optypes.Negate,
 		optypes.Sign,
 	)
 )

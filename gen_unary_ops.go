@@ -6,49 +6,9 @@ import (
 	"github.com/gomlx/stablehlo/internal/optypes"
 )
 
-// BitwiseNot implements the corresponding standard unary operation.
-func (f *Function) BitwiseNot(operand *Value) (*Value, error) {
-	return f.unaryOp(optypes.BitwiseNot, operand)
-}
-
-// Log implements the corresponding standard unary operation.
-func (f *Function) Log(operand *Value) (*Value, error) {
-	return f.unaryOp(optypes.Log, operand)
-}
-
-// Logistic implements the corresponding standard unary operation.
-func (f *Function) Logistic(operand *Value) (*Value, error) {
-	return f.unaryOp(optypes.Logistic, operand)
-}
-
-// Sqrt implements the corresponding standard unary operation.
-func (f *Function) Sqrt(operand *Value) (*Value, error) {
-	return f.unaryOp(optypes.Sqrt, operand)
-}
-
-// Imag implements the corresponding standard unary operation.
-func (f *Function) Imag(operand *Value) (*Value, error) {
-	return f.unaryOp(optypes.Imag, operand)
-}
-
-// Cos implements the corresponding standard unary operation.
-func (f *Function) Cos(operand *Value) (*Value, error) {
-	return f.unaryOp(optypes.Cos, operand)
-}
-
 // LogicalNot implements the corresponding standard unary operation.
 func (f *Function) LogicalNot(operand *Value) (*Value, error) {
 	return f.unaryOp(optypes.LogicalNot, operand)
-}
-
-// BitCount implements the corresponding standard unary operation.
-func (f *Function) BitCount(operand *Value) (*Value, error) {
-	return f.unaryOp(optypes.BitCount, operand)
-}
-
-// Clz implements the corresponding standard unary operation.
-func (f *Function) Clz(operand *Value) (*Value, error) {
-	return f.unaryOp(optypes.Clz, operand)
 }
 
 // Exp implements the corresponding standard unary operation.
@@ -56,24 +16,9 @@ func (f *Function) Exp(operand *Value) (*Value, error) {
 	return f.unaryOp(optypes.Exp, operand)
 }
 
-// Log1p implements the corresponding standard unary operation.
-func (f *Function) Log1p(operand *Value) (*Value, error) {
-	return f.unaryOp(optypes.Log1p, operand)
-}
-
-// Ceil implements the corresponding standard unary operation.
-func (f *Function) Ceil(operand *Value) (*Value, error) {
-	return f.unaryOp(optypes.Ceil, operand)
-}
-
-// Tanh implements the corresponding standard unary operation.
-func (f *Function) Tanh(operand *Value) (*Value, error) {
-	return f.unaryOp(optypes.Tanh, operand)
-}
-
-// Erf implements the corresponding standard unary operation.
-func (f *Function) Erf(operand *Value) (*Value, error) {
-	return f.unaryOp(optypes.Erf, operand)
+// Expm1 implements the corresponding standard unary operation.
+func (f *Function) Expm1(operand *Value) (*Value, error) {
+	return f.unaryOp(optypes.Expm1, operand)
 }
 
 // Round implements the corresponding standard unary operation.
@@ -86,14 +31,59 @@ func (f *Function) Rsqrt(operand *Value) (*Value, error) {
 	return f.unaryOp(optypes.Rsqrt, operand)
 }
 
-// Real implements the corresponding standard unary operation.
-func (f *Function) Real(operand *Value) (*Value, error) {
-	return f.unaryOp(optypes.Real, operand)
-}
-
 // Conj implements the corresponding standard unary operation.
 func (f *Function) Conj(operand *Value) (*Value, error) {
 	return f.unaryOp(optypes.Conj, operand)
+}
+
+// Cos implements the corresponding standard unary operation.
+func (f *Function) Cos(operand *Value) (*Value, error) {
+	return f.unaryOp(optypes.Cos, operand)
+}
+
+// Erf implements the corresponding standard unary operation.
+func (f *Function) Erf(operand *Value) (*Value, error) {
+	return f.unaryOp(optypes.Erf, operand)
+}
+
+// Log1p implements the corresponding standard unary operation.
+func (f *Function) Log1p(operand *Value) (*Value, error) {
+	return f.unaryOp(optypes.Log1p, operand)
+}
+
+// Logistic implements the corresponding standard unary operation.
+func (f *Function) Logistic(operand *Value) (*Value, error) {
+	return f.unaryOp(optypes.Logistic, operand)
+}
+
+// Sqrt implements the corresponding standard unary operation.
+func (f *Function) Sqrt(operand *Value) (*Value, error) {
+	return f.unaryOp(optypes.Sqrt, operand)
+}
+
+// BitCount implements the corresponding standard unary operation.
+func (f *Function) BitCount(operand *Value) (*Value, error) {
+	return f.unaryOp(optypes.BitCount, operand)
+}
+
+// Clz implements the corresponding standard unary operation.
+func (f *Function) Clz(operand *Value) (*Value, error) {
+	return f.unaryOp(optypes.Clz, operand)
+}
+
+// Log implements the corresponding standard unary operation.
+func (f *Function) Log(operand *Value) (*Value, error) {
+	return f.unaryOp(optypes.Log, operand)
+}
+
+// Floor implements the corresponding standard unary operation.
+func (f *Function) Floor(operand *Value) (*Value, error) {
+	return f.unaryOp(optypes.Floor, operand)
+}
+
+// Imag implements the corresponding standard unary operation.
+func (f *Function) Imag(operand *Value) (*Value, error) {
+	return f.unaryOp(optypes.Imag, operand)
 }
 
 // Sin implements the corresponding standard unary operation.
@@ -106,19 +96,29 @@ func (f *Function) Abs(operand *Value) (*Value, error) {
 	return f.unaryOp(optypes.Abs, operand)
 }
 
-// Neg implements the corresponding standard unary operation.
-func (f *Function) Neg(operand *Value) (*Value, error) {
-	return f.unaryOp(optypes.Neg, operand)
+// Negate implements the corresponding standard unary operation.
+func (f *Function) Negate(operand *Value) (*Value, error) {
+	return f.unaryOp(optypes.Negate, operand)
 }
 
-// Expm1 implements the corresponding standard unary operation.
-func (f *Function) Expm1(operand *Value) (*Value, error) {
-	return f.unaryOp(optypes.Expm1, operand)
+// BitwiseNot implements the corresponding standard unary operation.
+func (f *Function) BitwiseNot(operand *Value) (*Value, error) {
+	return f.unaryOp(optypes.BitwiseNot, operand)
 }
 
-// Floor implements the corresponding standard unary operation.
-func (f *Function) Floor(operand *Value) (*Value, error) {
-	return f.unaryOp(optypes.Floor, operand)
+// Ceil implements the corresponding standard unary operation.
+func (f *Function) Ceil(operand *Value) (*Value, error) {
+	return f.unaryOp(optypes.Ceil, operand)
+}
+
+// Real implements the corresponding standard unary operation.
+func (f *Function) Real(operand *Value) (*Value, error) {
+	return f.unaryOp(optypes.Real, operand)
+}
+
+// Tanh implements the corresponding standard unary operation.
+func (f *Function) Tanh(operand *Value) (*Value, error) {
+	return f.unaryOp(optypes.Tanh, operand)
 }
 
 // Sign implements the corresponding standard unary operation.

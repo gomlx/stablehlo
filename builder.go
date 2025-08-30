@@ -1,10 +1,10 @@
 package stablehlo
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"slices"
-	"strings"
 
 	"github.com/pkg/errors"
 )
@@ -88,24 +88,24 @@ func (b *Builder) Write(writer io.Writer) error {
 // Build checks the validity and builds the StableHLO program.
 //
 // If you want the output of an incomplete program (without the checing), use Builder.Write instead.
-func (b *Builder) Build() (string, error) {
+func (b *Builder) Build() ([]byte, error) {
 	hasMain := false
 	for _, fn := range b.functions {
 		if fn.Name == "main" {
 			hasMain = true
 		}
 		if len(fn.Statements) == 0 {
-			return "", fmt.Errorf("function %q has no statements", fn.Name)
+			return nil, fmt.Errorf("function %q has no statements", fn.Name)
 		}
 	}
 	if !hasMain {
-		return "", errors.New("program must have a main function")
+		return nil, errors.New("program must have a main function")
 	}
 
-	var sb strings.Builder
-	err := b.Write(&sb)
+	var buf bytes.Buffer
+	err := b.Write(&buf)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	return sb.String(), nil
+	return buf.Bytes(), nil
 }
