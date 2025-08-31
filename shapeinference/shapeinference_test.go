@@ -33,7 +33,7 @@ func must1[T any](value T, err error) T {
 func TestBinaryOp(t *testing.T) {
 	// Invalid data types check.
 	var err error
-	_, err = BinaryOp(optypes.LogicalAnd, S(I8), S(I8))
+	_, err = BinaryOp(optypes.And, S(F32), S(F32))
 	require.Error(t, err)
 	_, err = BinaryOp(optypes.Multiply, S(Bool, 1), S(Bool, 1))
 	require.Error(t, err)
@@ -82,9 +82,8 @@ func TestBinaryOp(t *testing.T) {
 
 func TestUnaryOp(t *testing.T) {
 	// Invalid data types check.
-	require.Panics(t, func() { must1(UnaryOp(optypes.LogicalNot, S(F32))) })
-	require.Panics(t, func() { must1(UnaryOp(optypes.LogicalNot, S(I8))) })
 	require.Panics(t, func() { must1(UnaryOp(optypes.Not, S(F32))) })
+	require.Panics(t, func() { must1(UnaryOp(optypes.Not, S(dtypes.Complex64))) })
 	require.Panics(t, func() { must1(UnaryOp(optypes.Negate, S(Bool))) })
 
 	// Invalid operation type (not unary op).
@@ -93,7 +92,7 @@ func TestUnaryOp(t *testing.T) {
 
 	// Valid operations
 	boolShape := S(Bool, 2, 3)
-	require.True(t, boolShape.Equal(must1(UnaryOp(optypes.LogicalNot, boolShape))))
+	require.True(t, boolShape.Equal(must1(UnaryOp(optypes.Not, boolShape))))
 
 	intShape := S(I8, 3, 3)
 	require.True(t, intShape.Equal(must1(UnaryOp(optypes.Not, intShape))))
