@@ -30,3 +30,23 @@ func (f *Function) Complex(real, imag *Value) (*Value, error) {
 	}
 	return f.addOp(op, outputShape, real, imag).Outputs[0], nil
 }
+
+// Real returns the real part of the complex value.
+func (f *Function) Real(complex *Value) (*Value, error) {
+	op := optypes.Real
+	outputShape, err := shapeinference.RealOrImag(complex.shape)
+	if err != nil {
+		return nil, err
+	}
+	return f.addOp(op, outputShape, complex).Outputs[0], nil
+}
+
+// Imag returns the real part of the complex value.
+func (f *Function) Imag(complex *Value) (*Value, error) {
+	op := optypes.Imag
+	outputShape, err := shapeinference.RealOrImag(complex.shape)
+	if err != nil {
+		return nil, err
+	}
+	return f.addOp(op, outputShape, complex).Outputs[0], nil
+}

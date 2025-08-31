@@ -111,7 +111,7 @@ func TestGatherOp(t *testing.T) {
 	collapsedSliceAxes := []int{0, 2}
 	startIndexMap := []int{0, 2, 3}
 	sliceSizes := []int{1, 3, 1, 1}
-	output, err := GatherOp(operand, startIndices, indexVectorAxis,
+	output, err := Gather(operand, startIndices, indexVectorAxis,
 		offsetOutputAxes, collapsedSliceAxes, startIndexMap, sliceSizes, false)
 	require.NoError(t, err)
 	fmt.Printf("\tTest 1: outputShape=%s\n", output)
@@ -125,7 +125,7 @@ func TestGatherOp(t *testing.T) {
 	collapsedSliceAxes = []int{1, 2}
 	startIndexMap = []int{1, 2, 3}
 	sliceSizes = []int{3, 1, 1, 1}
-	output, err = GatherOp(operand, startIndices, indexVectorAxis, offsetOutputAxes, collapsedSliceAxes, startIndexMap, sliceSizes, true)
+	output, err = Gather(operand, startIndices, indexVectorAxis, offsetOutputAxes, collapsedSliceAxes, startIndexMap, sliceSizes, true)
 	require.NoError(t, err)
 	fmt.Printf("\tTest 2: outputShape=%s\n", output)
 	require.NoError(t, output.Check(F32, 7, 3, 1, 8))
@@ -138,7 +138,7 @@ func TestGatherOp(t *testing.T) {
 	collapsedSliceAxes = []int{0}
 	startIndexMap = []int{0}
 	sliceSizes = []int{1, 16}
-	output, err = GatherOp(operand, startIndices, indexVectorAxis, offsetOutputAxes, collapsedSliceAxes, startIndexMap, sliceSizes, true)
+	output, err = Gather(operand, startIndices, indexVectorAxis, offsetOutputAxes, collapsedSliceAxes, startIndexMap, sliceSizes, true)
 	require.NoError(t, err)
 	fmt.Printf("\tTest 3: outputShape=%s\n", output)
 	require.NoError(t, output.Check(F32, 8, 16))

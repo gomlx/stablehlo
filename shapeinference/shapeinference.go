@@ -134,8 +134,6 @@ var (
 		optypes.RoundNearestAfz,
 		optypes.Rsqrt,
 		optypes.Sqrt,
-		optypes.Imag,
-		optypes.Real,
 		optypes.Conj,
 		optypes.Cosine,
 		optypes.Sine,
@@ -384,10 +382,24 @@ func Complex(real, imag shapes.Shape) (output shapes.Shape, err error) {
 	return
 }
 
-// TransposeOp all axes of the operand.
+// RealOrImag returns the shape resulting from the corresponding operations.
+func RealOrImag(complexOperand shapes.Shape) (output shapes.Shape, err error) {
+	if !complexOperand.DType.IsComplex() {
+		err = errors.Errorf("Real() and Imag() require a complex data type, got %s", complexOperand)
+	}
+	output = complexOperand.Clone()
+	if complexOperand.DType == dtypes.Complex64 {
+		output.DType = dtypes.Float32
+	} else { // dtype = complex128
+		output.DType = dtypes.Float64
+	}
+	return
+}
+
+// Transpose all axes of the operand.
 // There must be one value in permutations for each axis in the operand.
 // The output will have: output.Shape.Dimension[ii] = operand.Shape.Dimension[permutations[i]].
-func TransposeOp(operand shapes.Shape, permutations []int) (output shapes.Shape, err error) {
+func Transpose(operand shapes.Shape, permutations []int) (output shapes.Shape, err error) {
 	rank := operand.Rank()
 	if len(permutations) != rank {
 		err = errors.Errorf("Transpose() requires all axes permutations to be defined, operand has shape %s, but %d permutations were given",
@@ -422,10 +434,10 @@ func TransposeOp(operand shapes.Shape, permutations []int) (output shapes.Shape,
 	return
 }
 
-// BroadcastOp adds the prefixDims to the start of the shape.
-func BroadcastOp(operand shapes.Shape, prefixDims []int) (output shapes.Shape, err error) {
+// Broadcast adds the prefixDims to the start of the shape.
+func Broadcast(operand shapes.Shape, prefixDims []int) (output shapes.Shape, err error) {
 	if operand.DType == dtypes.InvalidDType {
-		err = errors.Errorf("invalid shape %s for BroadcastOp", operand)
+		err = errors.Errorf("invalid shape %s for Broadcast", operand)
 		return
 	}
 	if len(prefixDims) == 0 {
@@ -433,7 +445,7 @@ func BroadcastOp(operand shapes.Shape, prefixDims []int) (output shapes.Shape, e
 	}
 	for _, dim := range prefixDims {
 		if dim <= 0 {
-			err = errors.Errorf("Invalid prefix dimensions %v for BroadcastOp, they must be positive", prefixDims)
+			err = errors.Errorf("Invalid prefix dimensions %v for Broadcast, they must be positive", prefixDims)
 			return
 		}
 	}
@@ -498,10 +510,10 @@ func ReduceOp(operand shapes.Shape, axes []int) (output shapes.Shape, err error)
 	return
 }
 
-// GatherOp returns the output shape of a Gather operation.
-func GatherOp(operand, startIndices shapes.Shape, indexVectorAxis int, offsetOutputAxes, collapsedSliceAxes,
+// Gather returns the output shape of a Gather operation.
+func Gather(operand, startIndices shapes.Shape, indexVectorAxis int, offsetOutputAxes, collapsedSliceAxes,
 	startIndexMap, sliceSizes []int, indicesAreSorted bool) (output shapes.Shape, err error) {
-	//fmt.Printf("GatherOp parameters:\n"+
+	//fmt.Printf("Gather parameters:\n"+
 	//	"  operand: %v\n"+
 	//	"  startIndices: %v\n"+
 	//	"  indexVectorAxis: %d\n"+

@@ -424,4 +424,20 @@ func testUnaryOps(t *testing.T, client *pjrt.Client) {
 	t.Run("Sign_Float32", func(t *testing.T) {
 		testUnaryOp(t, "Sign", (*stablehlo.Function).Sign, D.Float32, []float32{-3.0}, []float32{-1.0})
 	})
+
+	t.Run("Real_Complex64", func(t *testing.T) {
+		testUnaryOp(t, "Real", (*stablehlo.Function).Real, D.Complex64, []complex64{complex(3.0, 4.0)}, []float32{3.0})
+	})
+
+	t.Run("Real_Complex128", func(t *testing.T) {
+		testUnaryOp(t, "Real", (*stablehlo.Function).Real, D.Complex128, []complex128{complex(3.0, 4.0)}, []float64{3.0})
+	})
+
+	t.Run("Imag_Complex64", func(t *testing.T) {
+		testUnaryOp(t, "Imag", (*stablehlo.Function).Imag, D.Complex64, []complex64{complex(3.0, 4.0)}, []float32{4.0})
+	})
+
+	t.Run("Imag_Complex128", func(t *testing.T) {
+		testUnaryOp(t, "Imag", (*stablehlo.Function).Imag, D.Complex128, []complex128{complex(3.0, 4.0)}, []float64{4.0})
+	})
 }

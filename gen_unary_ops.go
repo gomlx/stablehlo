@@ -56,11 +56,6 @@ func (f *Function) Floor(operand *Value) (*Value, error) {
 	return f.unaryOp(optypes.Floor, operand)
 }
 
-// Imag implements the corresponding standard unary operation.
-func (f *Function) Imag(operand *Value) (*Value, error) {
-	return f.unaryOp(optypes.Imag, operand)
-}
-
 // Log implements the corresponding standard unary operation.
 func (f *Function) Log(operand *Value) (*Value, error) {
 	return f.unaryOp(optypes.Log, operand)
@@ -89,11 +84,6 @@ func (f *Function) Not(operand *Value) (*Value, error) {
 // Popcnt implements the corresponding standard unary operation.
 func (f *Function) Popcnt(operand *Value) (*Value, error) {
 	return f.unaryOp(optypes.Popcnt, operand)
-}
-
-// Real implements the corresponding standard unary operation.
-func (f *Function) Real(operand *Value) (*Value, error) {
-	return f.unaryOp(optypes.Real, operand)
 }
 
 // RoundNearestAfz implements the corresponding standard unary operation.
