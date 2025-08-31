@@ -1,5 +1,6 @@
 # [XLA](https://openxla.org/)'s [StableHLO](https://openxla.org/stablehlo) Builder API for Go
 
+[![TestStatus](https://github.com/gomlx/gomlx/actions/workflows/go.yaml/badge.svg)](https://github.com/gomlx/gomlx/actions/workflows/go.yaml)
 [![Join the Gophers Slack Community](https://img.shields.io/badge/Slack-4A154B?style=for-the-badge&logo=slack&logoColor=white)](https://app.slack.com/client/T029RQSE6/C08TX33BX6U)
 
 > [!Note]
