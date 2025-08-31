@@ -44,15 +44,15 @@ jobs:
       with:
         go-version: "1.24.x"
 
-    - name: Test
-      run: |
-        go test ./...
-
     - name: Install gopjrt shared libraries
       shell: bash
       run: |
         curl -sSf https://raw.githubusercontent.com/gomlx/gopjrt/main/cmd/install_linux_amd64.sh \
           | bash
+
+    - name: Test
+      run: |
+        go test ./...
 
 #    - name: Go Coverage Badge
 #      if: github.ref == 'refs/heads/main'
