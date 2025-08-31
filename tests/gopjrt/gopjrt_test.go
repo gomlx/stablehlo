@@ -3,6 +3,7 @@ package gopjrt
 import (
 	"flag"
 	"fmt"
+	"math"
 	"strings"
 	"testing"
 
@@ -52,6 +53,9 @@ func TestRun(t *testing.T) {
 			t.Run("BinaryOps", func(t *testing.T) {
 				testBinaryOps(t, client)
 			})
+			t.Run("UnaryOps", func(t *testing.T) {
+				testUnaryOps(t, client)
+			})
 			t.Run("Compare", func(t *testing.T) {
 				testCompare(t, client)
 			})
@@ -82,7 +86,7 @@ type FlatAndDims struct {
 
 // requireBuffersEqual checks that the actual buffers contents match the expected flat values.
 // It destroys the buffers.
-func requireBuffersEqual(t *testing.T, expected []FlatAndDims, got []*pjrt.Buffer) {
+func requireBuffersEqual(t *testing.T, dtype D.DType, expected []FlatAndDims, got []*pjrt.Buffer) {
 	defer func() {
 		for _, b := range got {
 			err := b.Destroy()
@@ -98,7 +102,12 @@ func requireBuffersEqual(t *testing.T, expected []FlatAndDims, got []*pjrt.Buffe
 		fmt.Printf("\t - output #%d: dims=%v, flat_values=%v\n", i, gotDims, gotFlat)
 		require.NoErrorf(t, err, "failed to get buffer contents for output #%d, expected flat value %v", i, expected[i].Flat)
 		require.Equalf(t, expected[i].Dims, gotDims, "output #%d dims don't match", i)
-		require.Equalf(t, expected[i].Flat, gotFlat, "output #%d flat values don't match", i)
+		switch dtype {
+		case D.Float64, D.Float32:
+			require.InDeltaSlicef(t, expected[i].Flat, gotFlat, 1e-4, "output #%d flat values don't match", i)
+		default:
+			require.Equalf(t, expected[i].Flat, gotFlat, "output #%d flat values don't match", i)
+		}
 	}
 }
 
@@ -113,7 +122,7 @@ func testSpecialOps(t *testing.T, client *pjrt.Client) {
 		program := must(b.Build())
 		fmt.Printf("%s program:\n%s", t.Name(), program)
 		output := compileAndExecute(t, client, program)
-		requireBuffersEqual(t, []FlatAndDims{{[]float64{3}, nil}}, output)
+		requireBuffersEqual(t, D.Float64, []FlatAndDims{{[]float64{3}, nil}}, output)
 	})
 }
 
@@ -132,11 +141,15 @@ func testBinaryOps(t *testing.T, client *pjrt.Client) {
 		a := must(client.BufferFromHost().FromFlatDataWithDimensions(lhs, []int{}).Done())
 		b := must(client.BufferFromHost().FromFlatDataWithDimensions(rhs, []int{}).Done())
 		output := compileAndExecute(t, client, program, a, b)
-		requireBuffersEqual(t, []FlatAndDims{{expected, nil}}, output)
+		requireBuffersEqual(t, dtype, []FlatAndDims{{expected, nil}}, output)
 	}
 
 	t.Run("Add", func(t *testing.T) {
 		testBinaryOp(t, "Add", (*stablehlo.Function).Add, D.Float32, []float32{3.0}, []float32{7.0}, []float32{10.0})
+	})
+	t.Run("Atan2", func(t *testing.T) {
+		testBinaryOp(t, "Atan2", (*stablehlo.Function).Atan2, D.Float32, []float32{3.0}, []float32{7.0},
+			[]float32{float32(math.Atan2(3.0, 7.0))})
 	})
 
 	t.Run("Subtract", func(t *testing.T) {
@@ -207,7 +220,7 @@ func testCompare(t *testing.T, client *pjrt.Client) {
 		a := must(client.BufferFromHost().FromFlatDataWithDimensions(lhs, []int{}).Done())
 		b := must(client.BufferFromHost().FromFlatDataWithDimensions(rhs, []int{}).Done())
 		output := compileAndExecute(t, client, program, a, b)
-		requireBuffersEqual(t, []FlatAndDims{{expected, nil}}, output)
+		requireBuffersEqual(t, dtype, []FlatAndDims{{expected, nil}}, output)
 	}
 
 	t.Run("Float_EQ", func(t *testing.T) {
@@ -238,5 +251,111 @@ func testCompare(t *testing.T, client *pjrt.Client) {
 	t.Run("Signed_LE", func(t *testing.T) {
 		runTest(t, "Compare", types.CompareLE, types.CompareSigned,
 			D.Int32, []int32{3}, []int32{7}, []bool{true})
+	})
+}
+
+func testUnaryOps(t *testing.T, client *pjrt.Client) {
+	testUnaryOp := func(t *testing.T, opName string,
+		op func(fn *stablehlo.Function, x *stablehlo.Value) (*stablehlo.Value, error),
+		dtype D.DType, input any, expected any) {
+		builder := stablehlo.New(t.Name())
+		shape := S.Make(dtype)
+		inputV := stablehlo.NamedValue("input", shape)
+		fn := builder.NewFunction("main", inputV)
+		result := must(op(fn, inputV))
+		fn.Return(result)
+		program := must(builder.Build())
+		fmt.Printf("%s program:\n%s", t.Name(), program)
+		a := must(client.BufferFromHost().FromFlatDataWithDimensions(input, []int{}).Done())
+		output := compileAndExecute(t, client, program, a)
+		requireBuffersEqual(t, dtype, []FlatAndDims{{expected, nil}}, output)
+	}
+
+	t.Run("Not_Bool", func(t *testing.T) {
+		testUnaryOp(t, "Not", (*stablehlo.Function).Not, D.Bool, []bool{true}, []bool{false})
+	})
+	t.Run("Not_Uint8", func(t *testing.T) {
+		testUnaryOp(t, "Not", (*stablehlo.Function).Not, D.Uint8, []uint8{128}, []uint8{127})
+	})
+
+	t.Run("Popcnt_Uint32", func(t *testing.T) {
+		testUnaryOp(t, "Popcnt", (*stablehlo.Function).Popcnt, D.Uint32, []uint32{0b1011}, []uint32{3})
+	})
+
+	t.Run("CountLeadingZeros_Uint32", func(t *testing.T) {
+		testUnaryOp(t, "CountLeadingZeros", (*stablehlo.Function).CountLeadingZeros, D.Uint32, []uint32{0b1}, []uint32{31})
+	})
+
+	t.Run("Erf_Float32", func(t *testing.T) {
+		testUnaryOp(t, "Erf", (*stablehlo.Function).Erf, D.Float64, []float64{1.0}, []float64{
+			float64(math.Erf(1))})
+	})
+
+	t.Run("Exponential_Float32", func(t *testing.T) {
+		testUnaryOp(t, "Exponential", (*stablehlo.Function).Exponential, D.Float32, []float32{1.0},
+			[]float32{float32(math.Exp(1))})
+	})
+
+	t.Run("ExponentialMinusOne_Float32", func(t *testing.T) {
+		testUnaryOp(t, "ExponentialMinusOne", (*stablehlo.Function).ExponentialMinusOne, D.Float32, []float32{1.0}, []float32{1.7183})
+	})
+
+	t.Run("Log_Float32", func(t *testing.T) {
+		testUnaryOp(t, "Log", (*stablehlo.Function).Log, D.Float32, []float32{2.7183}, []float32{1.0})
+	})
+
+	t.Run("LogPlusOne_Float32", func(t *testing.T) {
+		testUnaryOp(t, "LogPlusOne", (*stablehlo.Function).LogPlusOne, D.Float32, []float32{1.7183}, []float32{1.0})
+	})
+
+	t.Run("Logistic_Float32", func(t *testing.T) {
+		testUnaryOp(t, "Logistic", (*stablehlo.Function).Logistic, D.Float32, []float32{0.0}, []float32{0.5})
+	})
+
+	t.Run("Ceil_Float32", func(t *testing.T) {
+		testUnaryOp(t, "Ceil", (*stablehlo.Function).Ceil, D.Float32, []float32{1.7}, []float32{2.0})
+	})
+
+	t.Run("Floor_Float32", func(t *testing.T) {
+		testUnaryOp(t, "Floor", (*stablehlo.Function).Floor, D.Float32, []float32{1.7}, []float32{1.0})
+	})
+
+	t.Run("RoundNearestEven_Float32", func(t *testing.T) {
+		testUnaryOp(t, "RoundNearestEven", (*stablehlo.Function).RoundNearestEven, D.Float32, []float32{2.5}, []float32{2.0})
+	})
+	t.Run("RoundNearestAfz_Float32", func(t *testing.T) {
+		testUnaryOp(t, "RoundNearestAfz", (*stablehlo.Function).RoundNearestAfz, D.Float32, []float32{2.5}, []float32{3.0})
+	})
+
+	t.Run("Rsqrt_Float32", func(t *testing.T) {
+		testUnaryOp(t, "Rsqrt", (*stablehlo.Function).Rsqrt, D.Float32, []float32{4.0}, []float32{0.5})
+	})
+
+	t.Run("Sqrt_Float32", func(t *testing.T) {
+		testUnaryOp(t, "Sqrt", (*stablehlo.Function).Sqrt, D.Float32, []float32{4.0}, []float32{2.0})
+	})
+
+	t.Run("Cosine_Float32", func(t *testing.T) {
+		testUnaryOp(t, "Cosine", (*stablehlo.Function).Cosine, D.Float32, []float32{0.0}, []float32{1.0})
+	})
+
+	t.Run("Sine_Float32", func(t *testing.T) {
+		testUnaryOp(t, "Sine", (*stablehlo.Function).Sine, D.Float32, []float32{0.0}, []float32{0.0})
+	})
+
+	t.Run("Tanh_Float32", func(t *testing.T) {
+		testUnaryOp(t, "Tanh", (*stablehlo.Function).Tanh, D.Float32, []float32{0.0}, []float32{0.0})
+	})
+
+	t.Run("Abs_Float32", func(t *testing.T) {
+		testUnaryOp(t, "Abs", (*stablehlo.Function).Abs, D.Float32, []float32{-3.0}, []float32{3.0})
+	})
+
+	t.Run("Negate_Float32", func(t *testing.T) {
+		testUnaryOp(t, "Negate", (*stablehlo.Function).Negate, D.Float32, []float32{3.0}, []float32{-3.0})
+	})
+
+	t.Run("Sign_Float32", func(t *testing.T) {
+		testUnaryOp(t, "Sign", (*stablehlo.Function).Sign, D.Float32, []float32{-3.0}, []float32{-1.0})
 	})
 }

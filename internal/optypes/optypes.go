@@ -22,18 +22,18 @@ const (
 	Add
 	And
 	ArgMinMax
+	Atan2
 	BatchNormForInference
 	BatchNormForTraining
 	BatchNormGradient
-	BitCount
 	Bitcast
 	Broadcast
 	BroadcastInDim
 	Ceil
-	CountLeadingZeros
 	Compare
 	Conj
 	Cosine
+	CountLeadingZeros
 	Divide
 	Erf
 	Exponential
@@ -43,7 +43,7 @@ const (
 	Iota
 	IsFinite
 	Log
-	Log1p
+	LogPlusOne
 	Logistic
 	Maximum
 	Minimum
@@ -52,6 +52,7 @@ const (
 	Not
 	Or
 	Pad
+	Popcnt
 	Power
 	Real
 	ReduceBitwiseAnd
@@ -69,7 +70,8 @@ const (
 	Reshape
 	Reverse
 	RngBitGenerator
-	Round
+	RoundNearestAfz
+	RoundNearestEven
 	Rsqrt
 	ScatterMax
 	ScatterMin
@@ -99,6 +101,7 @@ var (
 	// "snake case" doesn't work.
 	stableHLOMappings = map[OpType]string{
 		FuncReturn: "func.return",
+		Erf:        "chlo.erf",
 	}
 )
 

@@ -8,7 +8,7 @@
 // The majority of the unary functions don't change the shape, except those that explicitly say that in their name,
 // like Reshape, etc.
 //
-// For the remainder ops, it defines one function per..
+// For the remainder operations, each one gets its own shape inference function.
 package shapeinference
 
 import (
@@ -33,11 +33,11 @@ var (
 
 	// BitwiseOperations operates only on integer (binary) numbers and won't work on floats or complex numbers.
 	BitwiseOperations = utils.SetWith(
-		optypes.BitCount,
+		optypes.Popcnt,
 		optypes.ShiftLeft,
 		optypes.ShiftRightArithmetic,
 		optypes.ShiftRightLogical,
-		optypes.BitCount,
+		optypes.Popcnt,
 		optypes.CountLeadingZeros,
 	)
 
@@ -75,10 +75,10 @@ var (
 		optypes.Exponential,
 		optypes.ExponentialMinusOne,
 		optypes.Log,
-		optypes.Log1p,
+		optypes.LogPlusOne,
 		optypes.Ceil,
 		optypes.Floor,
-		optypes.Round,
+		optypes.RoundNearestEven,
 		optypes.Rsqrt,
 		optypes.Sqrt,
 		optypes.IsFinite,
@@ -95,6 +95,7 @@ var (
 	// rhs (right-hand-side) and are usually commutative (invariant to order).
 	StandardBinaryOperations = utils.SetWith(
 		optypes.Add,
+		optypes.Atan2,
 		optypes.Subtract,
 		optypes.Multiply,
 		optypes.Divide,
@@ -116,17 +117,18 @@ var (
 	// same as the input (so no reductions).
 	StandardUnaryOperations = utils.SetWith(
 		optypes.Not,
-		optypes.BitCount,
+		optypes.Popcnt,
 		optypes.CountLeadingZeros,
 		optypes.Erf,
 		optypes.Exponential,
 		optypes.ExponentialMinusOne,
 		optypes.Log,
-		optypes.Log1p,
+		optypes.LogPlusOne,
 		optypes.Logistic,
 		optypes.Ceil,
 		optypes.Floor,
-		optypes.Round,
+		optypes.RoundNearestEven,
+		optypes.RoundNearestAfz,
 		optypes.Rsqrt,
 		optypes.Sqrt,
 		optypes.Imag,

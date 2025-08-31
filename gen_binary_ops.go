@@ -16,6 +16,11 @@ func (f *Function) And(lhs, rhs *Value) (*Value, error) {
 	return f.binaryOp(optypes.And, lhs, rhs)
 }
 
+// Atan2 implements the corresponding standard binary operation.
+func (f *Function) Atan2(lhs, rhs *Value) (*Value, error) {
+	return f.binaryOp(optypes.Atan2, lhs, rhs)
+}
+
 // Divide implements the corresponding standard binary operation.
 func (f *Function) Divide(lhs, rhs *Value) (*Value, error) {
 	return f.binaryOp(optypes.Divide, lhs, rhs)

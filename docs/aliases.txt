@@ -1,0 +1,11 @@
+# <old_xla_name>=<stablehlo_name>
+Mul=Multiply
+Div=Divide
+Sin=Sine
+Cos=Cosine
+Clz=CountLeadingZeros
+BitCount=Popcnt
+Equal,GreaterThan,GreaterOrEqual,LessThan,LessOrEqual,NotEqual=Compare
+Expm1=ExponentialMinusOne
+Log1p=LogPlusOne
+Round=RoundNearestEven
