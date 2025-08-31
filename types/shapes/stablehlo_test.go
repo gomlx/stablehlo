@@ -13,5 +13,5 @@ func TestToStableHLO(t *testing.T) {
 
 	// Test scalar.
 	shape = Make(dtypes.Int32)
-	require.Equal(t, "tensor<si32>", shape.ToStableHLO())
+	require.Equal(t, "tensor<i32>", shape.ToStableHLO())
 }
