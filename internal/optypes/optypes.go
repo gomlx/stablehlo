@@ -29,6 +29,7 @@ const (
 	Bitcast
 	Broadcast
 	BroadcastInDim
+	Cbrt
 	Ceil
 	Compare
 	Conj
@@ -87,6 +88,7 @@ const (
 	Slice
 	Sqrt
 	Subtract
+	Tan
 	Tanh
 	Transpose
 	Where

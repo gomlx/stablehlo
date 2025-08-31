@@ -118,6 +118,7 @@ var (
 	StandardUnaryOperations = utils.SetWith(
 		optypes.Not,
 		optypes.Popcnt,
+		optypes.Cbrt,
 		optypes.CountLeadingZeros,
 		optypes.Erf,
 		optypes.Exponential,
@@ -136,6 +137,7 @@ var (
 		optypes.Conj,
 		optypes.Cosine,
 		optypes.Sine,
+		optypes.Tan,
 		optypes.Tanh,
 		optypes.Abs,
 		optypes.Negate,

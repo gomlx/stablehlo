@@ -11,6 +11,11 @@ func (f *Function) Abs(operand *Value) (*Value, error) {
 	return f.unaryOp(optypes.Abs, operand)
 }
 
+// Cbrt implements the corresponding standard unary operation.
+func (f *Function) Cbrt(operand *Value) (*Value, error) {
+	return f.unaryOp(optypes.Cbrt, operand)
+}
+
 // Ceil implements the corresponding standard unary operation.
 func (f *Function) Ceil(operand *Value) (*Value, error) {
 	return f.unaryOp(optypes.Ceil, operand)
@@ -119,6 +124,11 @@ func (f *Function) Sine(operand *Value) (*Value, error) {
 // Sqrt implements the corresponding standard unary operation.
 func (f *Function) Sqrt(operand *Value) (*Value, error) {
 	return f.unaryOp(optypes.Sqrt, operand)
+}
+
+// Tan implements the corresponding standard unary operation.
+func (f *Function) Tan(operand *Value) (*Value, error) {
+	return f.unaryOp(optypes.Tan, operand)
 }
 
 // Tanh implements the corresponding standard unary operation.
