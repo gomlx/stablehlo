@@ -129,37 +129,3 @@ func (f *Function) Write(writer io.Writer) error {
 	w("}")
 	return err
 }
-
-// scalarShapeForValue is a local helper to get the shape for a scalar value.
-func scalarShapeForValue(value any) (shapes.Shape, error) {
-	var dtype dtypes.DType
-	switch value.(type) {
-	case bool:
-		dtype = dtypes.Bool
-	case int:
-		dtype = dtypes.Int64 // Assume int is 64-bit.
-	case int8:
-		dtype = dtypes.S8
-	case int16:
-		dtype = dtypes.S16
-	case int32:
-		dtype = dtypes.S32
-	case int64:
-		dtype = dtypes.S64
-	case uint8:
-		dtype = dtypes.U8
-	case uint16:
-		dtype = dtypes.U16
-	case uint32:
-		dtype = dtypes.U32
-	case uint64:
-		dtype = dtypes.U64
-	case float32:
-		dtype = dtypes.F32
-	case float64:
-		dtype = dtypes.F64
-	default:
-		return shapes.Shape{}, errors.Errorf("unsupported scalar value type %T", value)
-	}
-	return shapes.Make(dtype), nil
-}

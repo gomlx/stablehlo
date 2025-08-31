@@ -98,7 +98,7 @@ func requireBuffersEqual(t *testing.T, expected []FlatAndDims, got []*pjrt.Buffe
 	require.Len(t, got, len(expected))
 	for i, b := range got {
 		gotFlat, gotDims, err := b.ToFlatDataAndDimensions()
-		expectedShape, err := S.FromValue(expected[i].Flat)
+		expectedShape, err := S.FromAnyValue(expected[i].Flat)
 		require.NoErrorf(t, err, "failed to get shape for output #%d: %v", i, expected[i].Flat)
 		dtype := expectedShape.DType
 		fmt.Printf("\t - output #%d:\n\t   - Got: dims=%v, flat_values=%v\n", i, gotDims, gotFlat)
