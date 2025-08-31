@@ -33,11 +33,11 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-#    - name: Install apt packages
-#      shell: bash
-#      run: |
-#        sudo apt-get install -y --no-install-recommends \
-#           "wget" "gcc" "libunwind8" "libunwind-dev" "liblzma5" "libgoogle-perftools-dev" "hdf5-tools"
+    - name: Install apt packages
+      shell: bash
+      run: |
+        sudo apt-get install -y --no-install-recommends \
+           "wget" "gcc" "libunwind8" "libunwind-dev" "liblzma5" "libgoogle-perftools-dev" "hdf5-tools"
 
     - name: Install Go
       uses: actions/setup-go@v5
@@ -47,6 +47,12 @@ jobs:
     - name: Test
       run: |
         go test ./...
+
+    - name: Install gopjrt shared libraries
+      shell: bash
+      run: |
+        curl -sSf https://raw.githubusercontent.com/gomlx/gopjrt/main/cmd/install_linux_amd64.sh \
+          | bash
 
 #    - name: Go Coverage Badge
 #      if: github.ref == 'refs/heads/main'
