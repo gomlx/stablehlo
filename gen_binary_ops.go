@@ -56,6 +56,21 @@ func (f *Function) Remainder(lhs, rhs *Value) (*Value, error) {
 	return f.binaryOp(optypes.Remainder, lhs, rhs)
 }
 
+// ShiftLeft implements the corresponding standard binary operation.
+func (f *Function) ShiftLeft(lhs, rhs *Value) (*Value, error) {
+	return f.binaryOp(optypes.ShiftLeft, lhs, rhs)
+}
+
+// ShiftRightArithmetic implements the corresponding standard binary operation.
+func (f *Function) ShiftRightArithmetic(lhs, rhs *Value) (*Value, error) {
+	return f.binaryOp(optypes.ShiftRightArithmetic, lhs, rhs)
+}
+
+// ShiftRightLogical implements the corresponding standard binary operation.
+func (f *Function) ShiftRightLogical(lhs, rhs *Value) (*Value, error) {
+	return f.binaryOp(optypes.ShiftRightLogical, lhs, rhs)
+}
+
 // Subtract implements the corresponding standard binary operation.
 func (f *Function) Subtract(lhs, rhs *Value) (*Value, error) {
 	return f.binaryOp(optypes.Subtract, lhs, rhs)

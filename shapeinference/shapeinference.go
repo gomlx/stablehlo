@@ -37,7 +37,6 @@ var (
 		optypes.ShiftLeft,
 		optypes.ShiftRightArithmetic,
 		optypes.ShiftRightLogical,
-		optypes.Popcnt,
 		optypes.CountLeadingZeros,
 	)
 
@@ -106,6 +105,9 @@ var (
 		optypes.Xor,
 		optypes.Maximum,
 		optypes.Minimum,
+		optypes.ShiftLeft,
+		optypes.ShiftRightArithmetic,
+		optypes.ShiftRightLogical,
 	)
 
 	// ComparisonOperations include all operations that take two inputs and returns booleans with the results of

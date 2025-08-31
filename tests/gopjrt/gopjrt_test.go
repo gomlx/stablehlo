@@ -195,6 +195,18 @@ func testBinaryOps(t *testing.T, client *pjrt.Client) {
 		testBinaryOp(t, "Xor", (*stablehlo.Function).Xor, D.Bool, []bool{true}, []bool{false}, []bool{true})
 	})
 
+	t.Run("ShiftLeft", func(t *testing.T) {
+		testBinaryOp(t, "ShiftLeft", (*stablehlo.Function).ShiftLeft, D.Uint32, []uint32{0b1}, []uint32{2}, []uint32{0b100})
+	})
+
+	t.Run("ShiftRightArithmetic", func(t *testing.T) {
+		testBinaryOp(t, "ShiftRightArithmetic", (*stablehlo.Function).ShiftRightArithmetic, D.Int32, []int32{-8}, []int32{1}, []int32{-4})
+	})
+
+	t.Run("ShiftRightLogical", func(t *testing.T) {
+		testBinaryOp(t, "ShiftRightLogical", (*stablehlo.Function).ShiftRightLogical, D.Uint32, []uint32{0b1100}, []uint32{2}, []uint32{0b11})
+	})
+
 	t.Run("Reminder", func(t *testing.T) {
 		testBinaryOp(t, "Remainder", (*stablehlo.Function).Remainder, D.Float32, []float32{7.0}, []float32{4.0}, []float32{3.0})
 	})
@@ -206,6 +218,7 @@ func testBinaryOps(t *testing.T, client *pjrt.Client) {
 	t.Run("Minimum", func(t *testing.T) {
 		testBinaryOp(t, "Minimum", (*stablehlo.Function).Minimum, D.Float32, []float32{3.0}, []float32{7.0}, []float32{3.0})
 	})
+
 }
 
 func testCompare(t *testing.T, client *pjrt.Client) {
