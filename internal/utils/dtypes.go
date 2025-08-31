@@ -30,6 +30,10 @@ func DTypeToStableHLO(dtype dtypes.DType) string {
 		return "ui8"
 	case dtypes.Bool:
 		return "i1"
+	case dtypes.Complex64:
+		return "complex<f32>"
+	case dtypes.Complex128:
+		return "complex<f64>"
 	default:
 		return fmt.Sprintf("unknown_dtype<%s>", dtype.String())
 	}

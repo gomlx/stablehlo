@@ -3,6 +3,7 @@ package gopjrt
 import (
 	"flag"
 	"fmt"
+	"iter"
 	"math"
 	"strings"
 	"testing"
@@ -40,27 +41,19 @@ func getPluginNames() []string {
 	return names
 }
 
-func TestRun(t *testing.T) {
-	for _, pluginName := range getPluginNames() {
-		plugin, err := pjrt.GetPlugin(pluginName)
-		require.NoError(t, err, "failed to load plugin %q", pluginName)
-		client, err := plugin.NewClient(nil)
-		require.NoError(t, err, "failed to create client for plugin %q", pluginName)
-		t.Run(pluginName, func(t *testing.T) {
-			t.Run("SpecialOps", func(t *testing.T) {
-				testSpecialOps(t, client)
-			})
-			t.Run("BinaryOps", func(t *testing.T) {
-				testBinaryOps(t, client)
-			})
-			t.Run("UnaryOps", func(t *testing.T) {
-				testUnaryOps(t, client)
-			})
-			t.Run("Compare", func(t *testing.T) {
-				testCompare(t, client)
-			})
-		})
-		require.NoError(t, client.Destroy())
+func pjrtClientsIterator(t *testing.T) iter.Seq2[string, *pjrt.Client] {
+	return func(yield func(string, *pjrt.Client) bool) {
+		for _, pluginName := range getPluginNames() {
+			plugin, err := pjrt.GetPlugin(pluginName)
+			require.NoError(t, err, "failed to load plugin %q", pluginName)
+			client, err := plugin.NewClient(nil)
+			require.NoError(t, err, "failed to create client for plugin %q", pluginName)
+			done := yield(pluginName, client)
+			require.NoError(t, client.Destroy())
+			if done {
+				return
+			}
+		}
 	}
 }
 
@@ -114,7 +107,15 @@ func requireBuffersEqual(t *testing.T, expected []FlatAndDims, got []*pjrt.Buffe
 	}
 }
 
-func testSpecialOps(t *testing.T, client *pjrt.Client) {
+func TestUniqueOps(t *testing.T) {
+	for pluginName, client := range pjrtClientsIterator(t) {
+		t.Run(pluginName, func(t *testing.T) {
+			testUniqueOps(t, client)
+		})
+	}
+}
+
+func testUniqueOps(t *testing.T, client *pjrt.Client) {
 	t.Run("Constant", func(t *testing.T) {
 		b := stablehlo.New(t.Name())
 		fn := b.NewFunction("main")
@@ -127,6 +128,28 @@ func testSpecialOps(t *testing.T, client *pjrt.Client) {
 		output := compileAndExecute(t, client, program)
 		requireBuffersEqual(t, []FlatAndDims{{[]float64{3}, nil}}, output)
 	})
+
+	t.Run("Complex", func(t *testing.T) {
+		builder := stablehlo.New(t.Name())
+		shape := S.Make(D.Float64)
+		lhsV, rhsV := stablehlo.NamedValue("lhs", shape), stablehlo.NamedValue("rhs", shape)
+		fn := builder.NewFunction("main", lhsV, rhsV)
+		fn.Return(must(fn.Complex(lhsV, rhsV)))
+		program := must(builder.Build())
+		fmt.Printf("%s program:\n%s", t.Name(), program)
+		a := must(client.BufferFromHost().FromFlatDataWithDimensions([]float64{1.0}, nil).Done())
+		b := must(client.BufferFromHost().FromFlatDataWithDimensions([]float64{-1.0}, nil).Done())
+		output := compileAndExecute(t, client, program, a, b)
+		requireBuffersEqual(t, []FlatAndDims{{[]complex128{1 - 1i}, nil}}, output)
+	})
+}
+
+func TestBinaryOps(t *testing.T) {
+	for pluginName, client := range pjrtClientsIterator(t) {
+		t.Run(pluginName, func(t *testing.T) {
+			testBinaryOps(t, client)
+		})
+	}
 }
 
 func testBinaryOps(t *testing.T, client *pjrt.Client) {
@@ -221,6 +244,14 @@ func testBinaryOps(t *testing.T, client *pjrt.Client) {
 
 }
 
+func TestCompare(t *testing.T) {
+	for pluginName, client := range pjrtClientsIterator(t) {
+		t.Run(pluginName, func(t *testing.T) {
+			testCompare(t, client)
+		})
+	}
+}
+
 func testCompare(t *testing.T, client *pjrt.Client) {
 	runTest := func(t *testing.T, opName string,
 		direction types.ComparisonDirection, compareType types.ComparisonType,
@@ -271,6 +302,14 @@ func testCompare(t *testing.T, client *pjrt.Client) {
 }
 
 const pi32 = float32(math.Pi)
+
+func TestUnaryOps(t *testing.T) {
+	for pluginName, client := range pjrtClientsIterator(t) {
+		t.Run(pluginName, func(t *testing.T) {
+			testUnaryOps(t, client)
+		})
+	}
+}
 
 func testUnaryOps(t *testing.T, client *pjrt.Client) {
 	testUnaryOp := func(t *testing.T, opName string,

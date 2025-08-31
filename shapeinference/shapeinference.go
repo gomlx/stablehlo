@@ -222,8 +222,8 @@ func binaryOpImpl(opType optypes.OpType, lhsShape, rhsShape shapes.Shape) (outpu
 	return
 }
 
-// CompareOp returns the broadcast shape with dtype set to Bool, for comparison operations (Equal, LessThan, GreaterOrEqual, etc.)
-func CompareOp(lhsShape, rhsShape shapes.Shape, direction types.ComparisonDirection, compareType types.ComparisonType) (output shapes.Shape, err error) {
+// Compare returns the broadcast shape with dtype set to Bool, for comparison operations (Equal, LessThan, GreaterOrEqual, etc.)
+func Compare(lhsShape, rhsShape shapes.Shape, direction types.ComparisonDirection, compareType types.ComparisonType) (output shapes.Shape, err error) {
 	if lhsShape.DType == dtypes.InvalidDType || rhsShape.DType == dtypes.InvalidDType {
 		err = errors.Errorf("invalid shape for %s or %s for Compare", lhsShape, rhsShape)
 		return
@@ -314,14 +314,14 @@ func UnaryOp(opType optypes.OpType, operand shapes.Shape) (output shapes.Shape, 
 	return
 }
 
-// WhereOp returns the shape resulting from the Where operation.
+// Where returns the shape resulting from the Where operation.
 //
 // Shape constraints for the operation:
 //
 //  1. The onTrue and onFalse must have the exact same shape, or one can be a scalar.
 //  2. The condition must either be a scalar or match the shape of onTrue or onFalse, except for the DType that
 //     must be Bool.
-func WhereOp(condition, onTrue, onFalse shapes.Shape) (output shapes.Shape, err error) {
+func Where(condition, onTrue, onFalse shapes.Shape) (output shapes.Shape, err error) {
 	if condition.DType != dtypes.Bool {
 		err = errors.Errorf("condition for Where() must be a boolean, got %s instead", condition)
 		return
@@ -350,16 +350,36 @@ func WhereOp(condition, onTrue, onFalse shapes.Shape) (output shapes.Shape, err 
 	return
 }
 
-// ReshapeOp to the given dimensions: trivial output shape, but this function also checks
+// Reshape to the given dimensions: trivial output shape, but this function also checks
 // that the sizes are the same.
 //
 // Notice the optypes.Reshape doesn't support auto-scaling dimensions (set to -1), as graph.Reshape does.
-func ReshapeOp(operand shapes.Shape, dims []int) (output shapes.Shape, err error) {
+func Reshape(operand shapes.Shape, dims []int) (output shapes.Shape, err error) {
 	output = shapes.Make(operand.DType, dims...)
 	if operand.Size() != output.Size() {
 		err = errors.Errorf("Reshape() cannot reshape %s to dimensions %v, their size don't match",
 			operand, dims)
 		return shapes.Invalid(), err
+	}
+	return
+}
+
+// Complex returns the shape resulting from the Complex operation.
+func Complex(real, imag shapes.Shape) (output shapes.Shape, err error) {
+	if real.DType != imag.DType {
+		err = errors.Errorf("real and imaginary parts for Complex() must have the same data type, got %s and %s",
+			real, imag)
+		return
+	}
+	if real.DType != dtypes.Float32 && real.DType != dtypes.Float64 {
+		err = errors.Errorf("real and imaginary parts for Complex() must have a float data type, got %s",
+			real)
+	}
+	output = real.Clone()
+	if real.DType == dtypes.Float32 {
+		output.DType = dtypes.Complex64
+	} else { // dtype = float64
+		output.DType = dtypes.Complex128
 	}
 	return
 }

@@ -32,6 +32,7 @@ const (
 	Cbrt
 	Ceil
 	Compare
+	Complex
 	Conj
 	Cosine
 	CountLeadingZeros
