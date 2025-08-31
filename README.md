@@ -1,7 +1,7 @@
 # [XLA](https://openxla.org/)'s [StableHLO](https://openxla.org/stablehlo) Builder API for Go
 
 [![TestStatus](https://github.com/gomlx/gomlx/actions/workflows/go.yaml/badge.svg)](https://github.com/gomlx/gomlx/actions/workflows/go.yaml)
-[![Slack](https://img.shields.io/badge/Slack-GoMLX-green.svg?logo=slack)](https://app.slack.com/client/T029RQSE6/C08TX33BX6U)
+[![Slack](https://img.shields.io/badge/Slack-GoMLX-purple.svg?logo=slack)](https://app.slack.com/client/T029RQSE6/C08TX33BX6U)
 
 > [!Note]
 > 🚧 UNDER CONSTRUCTION 🚧
