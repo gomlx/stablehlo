@@ -142,6 +142,21 @@ func testUniqueOps(t *testing.T, client *pjrt.Client) {
 		output := compileAndExecute(t, client, program, a, b)
 		requireBuffersEqual(t, []FlatAndDims{{[]complex128{1 - 1i}, nil}}, output)
 	})
+
+	t.Run("Clamp", func(t *testing.T) {
+		builder := stablehlo.New(t.Name())
+		minV, maxV := stablehlo.NamedValue("min", S.Make(D.Float32)), stablehlo.NamedValue("max", S.Make(D.Float32))
+		xV := stablehlo.NamedValue("x", S.Make(D.Float32, 3))
+		fn := builder.NewFunction("main", minV, xV, maxV)
+		fn.Return(must(fn.Clamp(minV, xV, maxV)))
+		program := must(builder.Build())
+		fmt.Printf("%s program:\n%s", t.Name(), program)
+		min := must(client.BufferFromHost().FromFlatDataWithDimensions([]float32{-1.0}, nil).Done())
+		max := must(client.BufferFromHost().FromFlatDataWithDimensions([]float32{1.0}, nil).Done())
+		x := must(client.BufferFromHost().FromFlatDataWithDimensions([]float32{0.1, -2.2, 3.3}, []int{3}).Done())
+		output := compileAndExecute(t, client, program, min, x, max)
+		requireBuffersEqual(t, []FlatAndDims{{[]float32{0.1, -1, 1}, []int{3}}}, output)
+	})
 }
 
 func TestBinaryOps(t *testing.T) {

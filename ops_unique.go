@@ -50,3 +50,19 @@ func (f *Function) Imag(complex *Value) (*Value, error) {
 	}
 	return f.addOp(op, outputShape, complex).Outputs[0], nil
 }
+
+// Clamp returns the minimum(maximum(x, min), max).
+//
+// The values max and min can either be a scalar or have the same shape as x.
+//
+// Clamp is not defined for booleans or complex numbers (the semantics would not be clear).
+//
+// Note: the order of the arguments in StableHLO is different from most ML libraries.
+func (f *Function) Clamp(min, x, max *Value) (*Value, error) {
+	op := optypes.Clamp
+	outputShape, err := shapeinference.Clamp(min.shape, x.shape, max.shape)
+	if err != nil {
+		return nil, err
+	}
+	return f.addOp(op, outputShape, min, x, max).Outputs[0], nil
+}

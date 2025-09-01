@@ -396,6 +396,31 @@ func RealOrImag(complexOperand shapes.Shape) (output shapes.Shape, err error) {
 	return
 }
 
+// Clamp returns the shape resulting from the corresponding operation.
+func Clamp(min, operand, max shapes.Shape) (output shapes.Shape, err error) {
+	if operand.DType != min.DType || operand.DType != max.DType {
+		err = errors.Errorf("operand, min and max for Clamp() must have the same data type, got %s, %s and %s",
+			operand, min, max)
+		return
+	}
+	if operand.DType.IsComplex() || operand.DType == dtypes.Bool {
+		err = errors.Errorf("Clamp() does not support complex or boolean data types, got %s", operand)
+		return
+	}
+	if !min.IsScalar() && !min.Equal(operand) {
+		err = errors.Errorf("min for Clamp() must either be a scalar or match the operand shape, instead got min=%s and operand=%s",
+			min, operand)
+		return
+	}
+	if !max.IsScalar() && !max.Equal(operand) {
+		err = errors.Errorf("max for Clamp() must either be a scalar or match the operand shape, instead got max=%s and operand=%s",
+			max, operand)
+		return
+	}
+	output = operand.Clone()
+	return
+}
+
 // Transpose all axes of the operand.
 // There must be one value in permutations for each axis in the operand.
 // The output will have: output.Shape.Dimension[ii] = operand.Shape.Dimension[permutations[i]].

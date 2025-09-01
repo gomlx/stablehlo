@@ -31,6 +31,7 @@ const (
 	BroadcastInDim
 	Cbrt
 	Ceil
+	Clamp
 	Compare
 	Complex
 	Conj
