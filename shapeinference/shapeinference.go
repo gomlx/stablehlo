@@ -87,7 +87,6 @@ var (
 	ComplexOperations = utils.SetWith(
 		optypes.Imag,
 		optypes.Real,
-		optypes.Conj,
 	)
 
 	// StandardBinaryOperations include all operations that have two operands usually named lhs (left-hand-side) and
@@ -134,7 +133,6 @@ var (
 		optypes.RoundNearestAfz,
 		optypes.Rsqrt,
 		optypes.Sqrt,
-		optypes.Conj,
 		optypes.Cosine,
 		optypes.Sine,
 		optypes.Tan,

@@ -21,11 +21,6 @@ func (f *Function) Ceil(operand *Value) (*Value, error) {
 	return f.unaryOp(optypes.Ceil, operand)
 }
 
-// Conj implements the corresponding standard unary operation.
-func (f *Function) Conj(operand *Value) (*Value, error) {
-	return f.unaryOp(optypes.Conj, operand)
-}
-
 // Cosine implements the corresponding standard unary operation.
 func (f *Function) Cosine(operand *Value) (*Value, error) {
 	return f.unaryOp(optypes.Cosine, operand)

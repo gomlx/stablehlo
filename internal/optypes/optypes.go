@@ -21,20 +21,12 @@ const (
 	Abs
 	Add
 	And
-	ArgMinMax
 	Atan2
-	BatchNormForInference
-	BatchNormForTraining
-	BatchNormGradient
-	Bitcast
-	Broadcast
-	BroadcastInDim
 	Cbrt
 	Ceil
 	Clamp
 	Compare
 	Complex
-	Conj
 	Cosine
 	CountLeadingZeros
 	Divide
@@ -43,8 +35,6 @@ const (
 	ExponentialMinusOne
 	Floor
 	Imag
-	Iota
-	IsFinite
 	Log
 	LogPlusOne
 	Logistic
@@ -54,47 +44,80 @@ const (
 	Negate
 	Not
 	Or
-	Pad
 	Popcnt
 	Power
 	Real
-	ReduceBitwiseAnd
-	ReduceBitwiseOr
-	ReduceBitwiseXor
-	ReduceLogicalAnd
-	ReduceLogicalOr
-	ReduceLogicalXor
-	ReduceMax
-	ReduceMin
-	ReduceProduct
-	ReduceSum
-	ReduceWindow
 	Remainder
 	Reshape
-	Reverse
-	RngBitGenerator
 	RoundNearestAfz
 	RoundNearestEven
 	Rsqrt
-	ScatterMax
-	ScatterMin
-	ScatterSum
-	SelectAndScatterMax
-	SelectAndScatterMin
-	SelectAndScatterSum
 	ShiftLeft
 	ShiftRightArithmetic
 	ShiftRightLogical
 	Sign
 	Sine
-	Slice
 	Sqrt
 	Subtract
 	Tan
 	Tanh
-	Transpose
-	Where
 	Xor
+
+	// Here the ones not implemented yet:
+
+	ArgMinMax
+	BatchNormForInference
+	BatchNormForTraining
+	BatchNormGradient
+	BitcastConvert
+	BroadcastInDim
+	Case
+	Cholesky
+	CollectiveBroadcast
+	CollectivePermute
+	Composite
+	Concatenate
+	Convert
+	Convolution
+	CustomCall
+	DotGeneral
+	DynamicBroadcastInDim
+	DynamicConv
+	DynamicGather
+	DynamicIota
+	DynamicPad
+	DynamicReshape
+	DynamicUpdateSlice
+	Fft
+	Gather
+	GetDimensionSize
+	GetTupleElement
+	If
+	Infeed
+	Iota
+	IsFinite
+	OptimizationBarrier
+	Outfeed
+	Pad
+	PartitionId
+	Recv
+	Reduce
+	ReducePrecision
+	ReduceScatter
+	ReduceWindow
+	Reverse
+	RngBitGenerator
+	Scatter
+	Select
+	SelectAndScatter
+	Send
+	Slice
+	Transpose
+	TriangularSolve
+	Tuple
+	UniformDequantize
+	UniformQuantize
+	While
 
 	// Last should always be kept the last, it is used as a counter/marker for .
 	Last
