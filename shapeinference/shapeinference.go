@@ -653,11 +653,11 @@ func Gather(operand, startIndices shapes.Shape, indexVectorAxis int, offsetOutpu
 	return output, nil
 }
 
-// ConcatenateOp calculates the output shape of a Concatenate operation.
+// Concatenate calculates the output shape of a Concatenate operation.
 // It takes a slice of input shapes and the dimension along which to concatenate.
-func ConcatenateOp(inputs []shapes.Shape, axis int) (output shapes.Shape, err error) {
+func Concatenate(inputs []shapes.Shape, axis int) (output shapes.Shape, err error) {
 	if len(inputs) == 0 {
-		return shapes.Invalid(), errors.Errorf("ConcatenateOp requires at least one input shape")
+		return shapes.Invalid(), errors.Errorf("Concatenate requires at least one input shape")
 	}
 
 	// Initialize output dimensions with the first shape.
@@ -666,7 +666,7 @@ func ConcatenateOp(inputs []shapes.Shape, axis int) (output shapes.Shape, err er
 	rank := firstShape.Rank()
 	output = firstShape.Clone()
 	if dtype == dtypes.InvalidDType {
-		return shapes.Invalid(), errors.Errorf("invalid shape %s for first input of ConcatenateOp", firstShape)
+		return shapes.Invalid(), errors.Errorf("invalid shape %s for first input of Concatenate", firstShape)
 	}
 	if len(inputs) == 1 {
 		return firstShape, nil
@@ -680,14 +680,14 @@ func ConcatenateOp(inputs []shapes.Shape, axis int) (output shapes.Shape, err er
 	for i := 1; i < len(inputs); i++ {
 		currentShape := inputs[i]
 		if currentShape.DType == dtypes.InvalidDType {
-			return shapes.Invalid(), errors.Errorf("invalid shape %s for input #%d of ConcatenateOp", currentShape, i)
+			return shapes.Invalid(), errors.Errorf("invalid shape %s for input #%d of Concatenate", currentShape, i)
 		}
 		if currentShape.DType != dtype {
-			return shapes.Invalid(), errors.Errorf("mismatched DTypes for ConcatenateOp: input #0 has %s, input #%d has %s",
+			return shapes.Invalid(), errors.Errorf("mismatched DTypes for Concatenate: input #0 has %s, input #%d has %s",
 				dtype, i, currentShape.DType)
 		}
 		if currentShape.Rank() != rank {
-			return shapes.Invalid(), errors.Errorf("mismatched ranks for ConcatenateOp: input #0 has rank %d, input #%d has rank %d",
+			return shapes.Invalid(), errors.Errorf("mismatched ranks for Concatenate: input #0 has rank %d, input #%d has rank %d",
 				rank, i, currentShape.Rank())
 		}
 
@@ -696,7 +696,7 @@ func ConcatenateOp(inputs []shapes.Shape, axis int) (output shapes.Shape, err er
 				output.Dimensions[d] += currentShape.Dimensions[d]
 			} else {
 				if currentShape.Dimensions[d] != output.Dimensions[d] {
-					return shapes.Invalid(), errors.Errorf("mismatched dimensions for ConcatenateOp at axis %d (non-concatenation axis): input #0 has %d, input #%d has %d",
+					return shapes.Invalid(), errors.Errorf("mismatched dimensions for Concatenate at axis %d (non-concatenation axis): input #0 has %d, input #%d has %d",
 						d, output.Dimensions[d], i, currentShape.Dimensions[d])
 				}
 			}
@@ -1152,4 +1152,146 @@ func ConvGeneralOp(input, kernel shapes.Shape, axes types.ConvolveAxesConfig,
 	}
 
 	return output, nil
+}
+
+// adjustAxisToRank returns a positive axis, adjusting negative numbers to the correct rank.
+func adjustAxisToRank(rank, axis int) (int, error) {
+	if axis < 0 {
+		axis += rank
+	}
+	if axis < 0 || axis >= rank {
+		return -1, errors.Errorf("axis %d is out of range [0, %d)", axis, rank)
+	}
+	return axis, nil
+}
+
+// DotGeneral returns the shape resulting from the corresponding operations.
+//
+// It also has a side effect on the axes' specifications: it converts negative axes to their
+// corresponding positive axes, and it sorts the axes in ascending order.
+func DotGeneral(
+	lhs shapes.Shape, lhsContractingAxes, lhsBatchAxes []int,
+	rhs shapes.Shape, rhsContractingAxes, rhsBatchAxes []int,
+	precision [2]types.DotGeneralPrecisionType,
+	outputDType dtypes.DType,
+	algorithm *types.DotGeneralAlgorithm,
+) (output shapes.Shape, err error) {
+	dtype := lhs.DType
+	if dtype != rhs.DType {
+		err = errors.Errorf("DotGeneral lhs (left-hand-side) and rhs operands don't match data types: %s and %s", dtype, rhs.DType)
+		return
+	}
+	if len(lhsContractingAxes) != len(rhsContractingAxes) {
+		err = errors.Errorf("DotGeneral number of contracting axes for lhs (%d) doesn't match rhs (%d)",
+			len(lhsContractingAxes), len(rhsContractingAxes))
+		return
+	}
+	if len(lhsBatchAxes) != len(rhsBatchAxes) {
+		err = errors.Errorf("DotGeneral number of contracting axes for lhs (%d) doesn't match rhs (%d)",
+			len(lhsContractingAxes), len(rhsContractingAxes))
+	}
+	lhsRank := lhs.Rank()
+	rhsRank := rhs.Rank()
+
+	// Validate and adjust axes.
+	for ii, axis := range lhsContractingAxes {
+		lhsContractingAxes[ii], err = adjustAxisToRank(lhsRank, axis)
+		if err != nil {
+			err = errors.WithMessagef(err, "while adjusting contractingAxes for DotGeneral(lhs=%s, lhsContractingAxes=%v)", lhs, lhsContractingAxes)
+			return
+		}
+	}
+	for ii, axis := range lhsBatchAxes {
+		lhsBatchAxes[ii], err = adjustAxisToRank(lhsRank, axis)
+		if err != nil {
+			err = errors.WithMessagef(err, "while adjusting batchAxes for DotGeneral(lhs=%s, lhsBatchAxes=%v)", lhs, lhsBatchAxes)
+			return
+		}
+	}
+	for ii, axis := range rhsContractingAxes {
+		rhsContractingAxes[ii], err = adjustAxisToRank(rhsRank, axis)
+		if err != nil {
+			err = errors.WithMessagef(err, "while adjusting contractingAxes for DotGeneral(rhs=%s, rhsContractingAxes=%v)", rhs, rhsContractingAxes)
+			return
+		}
+	}
+	for ii, axis := range rhsBatchAxes {
+		rhsBatchAxes[ii], err = adjustAxisToRank(rhsRank, axis)
+		if err != nil {
+			err = errors.WithMessagef(err, "while adjusting batchAxes for DotGeneral(rhs=%s, rhsBatchAxes=%v)", rhs, rhsBatchAxes)
+			return
+		}
+	}
+
+	// Check that batch and contracting dimensions from lhs and rhs match.
+	batchDims := make([]int, len(lhsBatchAxes))
+	contractingDims := make([]int, len(lhsContractingAxes))
+	for ii, lhsAxis := range lhsContractingAxes {
+		rhsAxis := rhsContractingAxes[ii]
+		if lhs.Dimensions[lhsAxis] != rhs.Dimensions[rhsAxis] {
+			err = errors.Errorf("DotGeneral contracting dimensions don't match: lhs[%d]=%d != rhs[%d]=%d",
+				lhsAxis, lhs.Dimensions[lhsAxis], rhsAxis, rhs.Dimensions[rhsAxis])
+			return
+		}
+		contractingDims[ii] = lhs.Dimensions[lhsAxis]
+	}
+	for ii, lhsAxis := range lhsBatchAxes {
+		rhsAxis := rhsBatchAxes[ii]
+		if lhs.Dimensions[lhsAxis] != rhs.Dimensions[rhsAxis] {
+			err = errors.Errorf("DotGeneral batch dimensions don't match: lhs[%d]=%d != rhs[%d]=%d",
+				lhsAxis, lhs.Dimensions[lhsAxis], rhsAxis, rhs.Dimensions[rhsAxis])
+			return
+		}
+		batchDims[ii] = lhs.Dimensions[lhsAxis]
+	}
+
+	// Find sizes of the normalized operands ([batchSize, crossSize, contractSize]).
+	var lhsCrossDims, rhsCrossDims []int
+	batchSize, lhsCrossSize, contractingSize, lhsCrossDims := dotGeneralFindSizes(lhs, lhsContractingAxes, lhsBatchAxes)
+	_, rhsCrossSize, _, rhsCrossDims := dotGeneralFindSizes(rhs, rhsContractingAxes, rhsBatchAxes)
+
+	// Check that all sizes are positive
+	if batchSize < 0 || lhsCrossSize < 0 || contractingSize < 0 || rhsCrossSize < 0 {
+		err = errors.Errorf("DotGeneral sizes must be positive: lhs(batch=%d, cross=%d, contracting=%d), rhs(cross=%d)",
+			batchSize, lhsCrossSize, contractingSize, rhsCrossSize)
+		return
+	}
+
+	// Reshape result to recover batch and cross dimensions.
+	resultingDims := make([]int, 0, len(batchDims)+len(lhsCrossDims)+len(rhsCrossDims))
+	resultingDims = append(resultingDims, batchDims...)
+	resultingDims = append(resultingDims, lhsCrossDims...)
+	resultingDims = append(resultingDims, rhsCrossDims...)
+	output = shapes.Make(outputDType, resultingDims...)
+	return
+}
+
+func dotGeneralFindSizes(shape shapes.Shape, contractingAxes, batchAxes []int) (batchSize, crossSize, contractingSize int, crossDims []int) {
+	rank := shape.Rank()
+	axesTypes := make([]int, rank)
+
+	// Mark axes types: 1 for contracting, 2 for batch
+	for _, axis := range contractingAxes {
+		axesTypes[axis] = 1
+	}
+	for _, axis := range batchAxes {
+		axesTypes[axis] = 2
+	}
+
+	// Calculate sizes by multiplying dimensions according to the axis type.
+	batchSize, crossSize, contractingSize = 1, 1, 1
+	crossDims = make([]int, 0, rank-len(contractingAxes)-len(batchAxes))
+	for axis, axisType := range axesTypes {
+		dim := shape.Dimensions[axis]
+		switch axisType {
+		case 0: // Cross axes (unmarked)
+			crossSize *= dim
+			crossDims = append(crossDims, dim)
+		case 1: // Contracting axes
+			contractingSize *= dim
+		case 2: // Batch axes
+			batchSize *= dim
+		}
+	}
+	return
 }

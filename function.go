@@ -32,18 +32,18 @@ type Function struct {
 }
 
 // newValue creates a new value with the given shape and assigns it to the next available id.
-func (f *Function) newValue(shape shapes.Shape) *Value {
+func (fn *Function) newValue(shape shapes.Shape) *Value {
 	v := &Value{
-		id:    f.nextID,
+		id:    fn.nextID,
 		shape: shape,
 	}
-	f.nextID++
-	f.values = append(f.values, v)
+	fn.nextID++
+	fn.values = append(fn.values, v)
 	return v
 }
 
 // NewConstant creates a new constant statement and returns the resulting value.
-func (f *Function) NewConstant(value any) (*Value, error) {
+func (fn *Function) NewConstant(value any) (*Value, error) {
 	// The shape of the constant is inferred from the value.
 	dtype := dtypes.FromAny(value)
 	if dtype == dtypes.INVALID {
@@ -55,15 +55,15 @@ func (f *Function) NewConstant(value any) (*Value, error) {
 		Attributes: map[string]any{
 			"value": value,
 		},
-		Outputs: []*Value{f.newValue(shape)},
+		Outputs: []*Value{fn.newValue(shape)},
 	}
-	f.Statements = append(f.Statements, c)
+	fn.Statements = append(fn.Statements, c)
 	return c.Outputs[0], nil
 }
 
 // Return adds a return statement to the function with the given return values.
 // There must be at least one return value.
-func (f *Function) Return(firstValue *Value, otherValues ...*Value) {
+func (fn *Function) Return(firstValue *Value, otherValues ...*Value) {
 	allValues := make([]*Value, len(otherValues)+1)
 	allValues[0] = firstValue
 	allValues = append(allValues, otherValues...)
@@ -72,16 +72,16 @@ func (f *Function) Return(firstValue *Value, otherValues ...*Value) {
 	for i, value := range allValues {
 		outputShapes[i] = value.shape
 	}
-	f.Outputs = outputShapes
+	fn.Outputs = outputShapes
 
 	stmt := &Statement{
 		OpType: optypes.FuncReturn,
 		Inputs: allValues,
 	}
-	f.Statements = append(f.Statements, stmt)
+	fn.Statements = append(fn.Statements, stmt)
 }
 
-func (f *Function) Write(writer io.Writer) error {
+func (fn *Function) Write(writer io.Writer) error {
 	var err error
 	w := func(format string, args ...any) {
 		if err != nil {
@@ -98,8 +98,8 @@ func (f *Function) Write(writer io.Writer) error {
 		err = e.Write(writer)
 	}
 
-	w("func.func @%s(", f.Name)
-	for i, input := range f.Inputs {
+	w("func.func @%s(", fn.Name)
+	for i, input := range fn.Inputs {
 		if i > 0 {
 			w(", ")
 		}
@@ -107,21 +107,21 @@ func (f *Function) Write(writer io.Writer) error {
 		w(": %s", input.shape.ToStableHLO())
 	}
 	w(") -> ")
-	if len(f.Outputs) > 1 {
+	if len(fn.Outputs) > 1 {
 		w("(")
 	}
-	for i, output := range f.Outputs {
+	for i, output := range fn.Outputs {
 		if i > 0 {
 			w(", ")
 		}
 		w("%s", output.ToStableHLO())
 	}
-	if len(f.Outputs) > 1 {
+	if len(fn.Outputs) > 1 {
 		w(")")
 	}
 	w(" {\n")
 
-	for _, stmt := range f.Statements {
+	for _, stmt := range fn.Statements {
 		we(stmt)
 		w("\n")
 	}

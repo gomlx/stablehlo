@@ -1,19 +1,20 @@
 package stablehlo
 
 import (
+	"github.com/gomlx/gopjrt/dtypes"
 	"github.com/gomlx/stablehlo/internal/optypes"
 	"github.com/gomlx/stablehlo/shapeinference"
 	"github.com/gomlx/stablehlo/types"
 )
 
 // Compare implements the corresponding standard binary operation.
-func (f *Function) Compare(lhs, rhs *Value, direction types.ComparisonDirection, compareType types.ComparisonType) (*Value, error) {
+func (fn *Function) Compare(lhs, rhs *Value, direction types.ComparisonDirection, compareType types.ComparisonType) (*Value, error) {
 	op := optypes.Compare
 	outputShape, err := shapeinference.Compare(lhs.shape, rhs.shape, direction, compareType)
 	if err != nil {
 		return nil, err
 	}
-	stmt := f.addOp(op, outputShape, lhs, rhs)
+	stmt := fn.addOp(op, outputShape, lhs, rhs)
 	stmt.Attributes = map[string]any{
 		"compare_type":         compareType,
 		"comparison_direction": direction,
@@ -22,33 +23,33 @@ func (f *Function) Compare(lhs, rhs *Value, direction types.ComparisonDirection,
 }
 
 // Complex returns the complex value by concatenating the real and imaginary parts element-wise.
-func (f *Function) Complex(real, imag *Value) (*Value, error) {
+func (fn *Function) Complex(real, imag *Value) (*Value, error) {
 	op := optypes.Complex
 	outputShape, err := shapeinference.Complex(real.shape, imag.shape)
 	if err != nil {
 		return nil, err
 	}
-	return f.addOp(op, outputShape, real, imag).Outputs[0], nil
+	return fn.addOp(op, outputShape, real, imag).Outputs[0], nil
 }
 
 // Real returns the real part of the complex value.
-func (f *Function) Real(complex *Value) (*Value, error) {
+func (fn *Function) Real(complex *Value) (*Value, error) {
 	op := optypes.Real
 	outputShape, err := shapeinference.RealOrImag(complex.shape)
 	if err != nil {
 		return nil, err
 	}
-	return f.addOp(op, outputShape, complex).Outputs[0], nil
+	return fn.addOp(op, outputShape, complex).Outputs[0], nil
 }
 
 // Imag returns the real part of the complex value.
-func (f *Function) Imag(complex *Value) (*Value, error) {
+func (fn *Function) Imag(complex *Value) (*Value, error) {
 	op := optypes.Imag
 	outputShape, err := shapeinference.RealOrImag(complex.shape)
 	if err != nil {
 		return nil, err
 	}
-	return f.addOp(op, outputShape, complex).Outputs[0], nil
+	return fn.addOp(op, outputShape, complex).Outputs[0], nil
 }
 
 // Clamp returns the minimum(maximum(x, min), max).
@@ -58,11 +59,124 @@ func (f *Function) Imag(complex *Value) (*Value, error) {
 // Clamp is not defined for booleans or complex numbers (the semantics would not be clear).
 //
 // Note: the order of the arguments in StableHLO is different from most ML libraries.
-func (f *Function) Clamp(min, x, max *Value) (*Value, error) {
+func (fn *Function) Clamp(min, x, max *Value) (*Value, error) {
 	op := optypes.Clamp
 	outputShape, err := shapeinference.Clamp(min.shape, x.shape, max.shape)
 	if err != nil {
 		return nil, err
 	}
-	return f.addOp(op, outputShape, min, x, max).Outputs[0], nil
+	return fn.addOp(op, outputShape, min, x, max).Outputs[0], nil
+}
+
+// DotGeneralBuilder is a builder for DotGeneral nodes. See DotGeneral for more details.
+type DotGeneralBuilder struct {
+	fn                               *Function
+	lhs                              *Value
+	lhsContractingAxes, lhsBatchAxes []int
+	rhs                              *Value
+	rhsContractingAxes, rhsBatchAxes []int
+
+	precision   [2]types.DotGeneralPrecisionType
+	outputDType dtypes.DType
+	algorithm   *types.DotGeneralAlgorithm
+}
+
+// DotGeneral takes as input lhs (left-hand-side) and rhs (right-hand-side) specifications
+// for a general vector product -- a generalized "Einsum". Each axis can be:
+//   - Just aligned (batch axes), so the output has the same axes as the inputs. The dimensions
+//     must match in lhs and rhs.
+//   - Crossed (default), in which case the output is the combination (concatenation) of the
+//     dimensions.
+//   - Contracted (contracting axes), where the output does multiply the values and reduce sum
+//     those dimensions.
+//
+// It follows that the resulting dimension number starts with the batch dimension, then the 'lhs'
+// non-contracting/non-batch dimension and finally the 'rhs' non-contracting/non-batch dimension.
+// It provides the basic means of implementing Einsum.
+//
+// Because there are optional parameters, this function returns a DotGeneralBuilder that can
+// be further configured. Call DotGeneralBuilder.Done to get the final DotGeneral node.
+//
+// Example:
+//
+//	// Create a function with a single DotGeneral node.
+//	f := NewFunction()
+//	lhs := f.Constant(types.Float32, []float32{1, 2, 3, 4, 5, 6})
+//	rhs := f.Constant(types.Float32, []float32{1, 2, 3, 4, 5, 6})
+//	dot, err := f.DotGeneral(lhs, []int{-1}, []int{-2}, rhs, []int{-1}, []int{-2}).Done()
+func (fn *Function) DotGeneral(
+	lhsOp *Value, lhsContractingAxes, lhsBatchAxes []int,
+	rhsOp *Value, rhsContractingAxes, rhsBatchAxes []int) *DotGeneralBuilder {
+	return &DotGeneralBuilder{
+		fn:                 fn,
+		lhs:                lhsOp,
+		lhsContractingAxes: lhsContractingAxes,
+		lhsBatchAxes:       lhsBatchAxes,
+		rhs:                rhsOp,
+		rhsContractingAxes: rhsContractingAxes,
+		rhsBatchAxes:       rhsBatchAxes,
+
+		precision:   [2]types.DotGeneralPrecisionType{types.DotGeneralPrecisionDefault, types.DotGeneralPrecisionDefault},
+		outputDType: lhsOp.shape.DType,
+	}
+}
+
+// Precision sets the precision of the dot-general operation.
+//
+// Its default is described as "the fastest calculation, but the least accurate approximation to the original number."
+//
+// It controls the tradeoff between speed and accuracy for computations on accelerator backends.
+// This can be one of the following (at the moment, the semantics of these enum values are underspecified,
+// but they are planning to address this in #755 -- https://github.com/openxla/stablehlo/issues/755):
+func (b *DotGeneralBuilder) Precision(lhsPrecision, rhsPrecision types.DotGeneralPrecisionType) *DotGeneralBuilder {
+	b.precision[0] = lhsPrecision
+	b.precision[1] = rhsPrecision
+	return b
+}
+
+// OutputDType sets the output data type: for input types like BFloat16 one may want to increase the
+// output precision.
+func (b *DotGeneralBuilder) OutputDType(dtype dtypes.DType) *DotGeneralBuilder {
+	b.outputDType = dtype
+	return b
+}
+
+// Algorithm sets the algorithm settings to use for the dot-general operation.
+//
+// The default is not to set any of these parameters.
+//
+// See details in types.DotGeneralAlgorithm.
+func (b *DotGeneralBuilder) Algorithm(algorithm *types.DotGeneralAlgorithm) *DotGeneralBuilder {
+	b.algorithm = algorithm
+	return b
+}
+
+// Done indicates the end of the DotGeneralBuilder configuration.
+// It checks the validity of the parameters and shapes and returns the final DotGeneral node.
+func (b *DotGeneralBuilder) Done() (*Value, error) {
+	op := optypes.DotGeneral
+	outputShape, err := shapeinference.DotGeneral(
+		b.lhs.shape, b.lhsContractingAxes, b.lhsBatchAxes,
+		b.rhs.shape, b.rhsContractingAxes, b.rhsBatchAxes,
+		b.precision, b.outputDType, b.algorithm)
+	if err != nil {
+		return nil, err
+	}
+	stmt := b.fn.addOp(op, outputShape, b.lhs, b.rhs)
+	stmt.Attributes = map[string]any{
+		"lhs_contracting_axes": b.lhsContractingAxes,
+		"lhs_batch_axes":       b.lhsBatchAxes,
+		"rhs_contracting_axes": b.rhsContractingAxes,
+		"rhs_batch_axes":       b.rhsBatchAxes,
+		"precision":            b.precision,
+	}
+	if b.algorithm != nil {
+		stmt.Attributes["lhs_precision_type"] = b.algorithm.LhsPrecisionType
+		stmt.Attributes["rhs_precision_type"] = b.algorithm.RhsPrecisionType
+		stmt.Attributes["lhs_component_count"] = b.algorithm.LhsComponentCount
+		stmt.Attributes["rhs_component_count"] = b.algorithm.RhsComponentCount
+		stmt.Attributes["num_primitive_operations"] = b.algorithm.NumPrimitiveOperations
+		stmt.Attributes["allow_imprecise_accumulation"] = b.algorithm.AllowImpreciseAccumulation
+	}
+	return stmt.Outputs[0], nil
 }

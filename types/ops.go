@@ -3,10 +3,14 @@ package types
 import (
 	"fmt"
 	"slices"
+
+	"github.com/gomlx/gopjrt/dtypes"
 )
 
 // ComparisonType enum defined for the Compare op.
 type ComparisonType int
+
+//go:generate go tool enumer -type=ComparisonType ops.go
 
 const (
 	// CompareFloat are used for floating point comparisons.
@@ -36,6 +40,8 @@ func (c ComparisonType) ToStableHLO() string {
 
 // ComparisonDirection enum defined for the Compare op.
 type ComparisonDirection int
+
+//go:generate go tool enumer -type=ComparisonDirection -trimprefix=Compare ops.go
 
 const (
 	CompareEQ ComparisonDirection = iota
@@ -88,4 +94,41 @@ func (c ConvolveAxesConfig) Clone() ConvolveAxesConfig {
 	c2.KernelSpatial = slices.Clone(c.KernelSpatial)
 	c2.OutputSpatial = slices.Clone(c.OutputSpatial)
 	return c2
+}
+
+// DotGeneralPrecisionType defines the precision of the dot product.
+//
+// It controls the tradeoff between speed and accuracy for computations on accelerator backends.
+// This can be one of the following (at the moment, the semantics of these enum values are underspecified,
+// but they are planning to address this in #755 -- https://github.com/openxla/stablehlo/issues/755):
+type DotGeneralPrecisionType int
+
+//go:generate go tool enumer -type=DotGeneralPrecisionType -trimprefix=DotGeneral ops.go
+
+const (
+	// DotGeneralPrecisionDefault is the fastest calculation, but the least accurate approximation to the original number.
+	DotGeneralPrecisionDefault DotGeneralPrecisionType = iota
+	DotGeneralPrecisionHigh
+	DotGeneralPrecisionHighest
+)
+
+// DotGeneralAlgorithm defines fine-control of the algorithm used for the dot product.
+type DotGeneralAlgorithm struct {
+	// LhsPrecisionType, RhsPrecisionType that the LHS and RHS of the operation are rounded to.
+	// Precision types are independent of the storage types of the inputs and the output.
+	LhsPrecisionType, RhsPrecisionType dtypes.DType
+
+	// AccumulationType defines the type of the accumulator used for the dot product.
+	AccumulationType dtypes.DType
+
+	// LhsComponentCount, RhsComponentCount and NumPrimitiveOperations apply when we are doing an algorithm which
+	// decomposes the LHS and/or RHS into multiple components and does multiple "primitive" dot operations on those values -
+	// usually to emulate a higher precision (e.g.: Leveraging the bfloat16 Artificial Intelligence Datatype For
+	// Higher-Precision Computations: bf16_6x tf32_3x -- https://arxiv.org/pdf/1904.06376, etc).
+	// For algorithms with no decomposition, these values should be set to 1
+	LhsComponentCount, RhsComponentCount, NumPrimitiveOperations int
+
+	// AllowImpreciseAccumulation to specify if accumulation in lower precision is permitted for some steps
+	// (e.g. CUBLASLT_MATMUL_DESC_FAST_ACCUM).
+	AllowImpreciseAccumulation bool
 }
