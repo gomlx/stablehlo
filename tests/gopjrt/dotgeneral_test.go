@@ -97,7 +97,7 @@ func testDotGeneral(t *testing.T, client *pjrt.Client) {
 				Algorithm(&types.DotGeneralAlgorithm{
 					LhsPrecisionType:           types.FloatPrecisionType{TF32: true},
 					RhsPrecisionType:           types.FloatPrecisionType{TF32: true},
-					AccumulationType:           types.FloatPrecisionType{TF32: true},
+					AccumulationType:           types.FloatPrecisionType{DType: D.F32},
 					LhsComponentCount:          1,
 					RhsComponentCount:          1,
 					NumPrimitiveOperations:     1,
