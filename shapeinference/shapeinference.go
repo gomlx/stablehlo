@@ -155,15 +155,15 @@ func BinaryOp(opType optypes.OpType, lhsShape, rhsShape shapes.Shape) (output sh
 		return
 	}
 	if lhsShape.DType == dtypes.InvalidDType || rhsShape.DType == dtypes.InvalidDType {
-		err = errors.Errorf("invalid shape for %s or %s for BinaryOp %s", lhsShape, rhsShape, opType)
+		err = errors.Errorf("invalid shape for %s or %s for %q", lhsShape, rhsShape, opType)
 		return
 	}
-	if lhsShape.DType != rhsShape.DType {
-		err = errors.Errorf("data types (DType) for BinaryOp %s must match, got %s and %s", opType, lhsShape, rhsShape)
+	if !lhsShape.Equal(rhsShape) {
+		err = errors.Errorf("shapes for %q must match, got %s and %s", opType, lhsShape, rhsShape)
 		return
 	}
 	if BooleanOrBitwiseOperations.Has(opType) && lhsShape.DType != dtypes.Bool && !lhsShape.DType.IsInt() {
-		err = errors.Errorf("Logical/Bitwise BinaryOp %q must have boolean (dtype.Bool) data types as input, got %s", opType, lhsShape)
+		err = errors.Errorf("Logical/Bitwise %q must have boolean (dtype.Bool) data types as input, got %s", opType, lhsShape)
 		return
 	}
 	if BitwiseOperations.Has(opType) && !lhsShape.DType.IsInt() {

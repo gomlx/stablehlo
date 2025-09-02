@@ -1,6 +1,8 @@
 package stablehlo
 
 import (
+	"fmt"
+
 	"github.com/gomlx/gopjrt/dtypes"
 	"github.com/gomlx/stablehlo/internal/optypes"
 	"github.com/gomlx/stablehlo/shapeinference"
@@ -165,21 +167,24 @@ func (b *DotGeneralBuilder) Done() (*Value, error) {
 		return nil, err
 	}
 	stmt := b.fn.addOp(op, outputShape, b.lhs, b.rhs)
+	dotConfig := fmt.Sprintf(`#stablehlo.dot<
+      lhs_batching_dimensions = %s,
+      rhs_batching_dimensions = %s,
+      lhs_contracting_dimensions = %s,
+      rhs_contracting_dimensions = %s
+    >`, intSliceToStableHLO(b.lhsBatchAxes), intSliceToStableHLO(b.rhsBatchAxes),
+		intSliceToStableHLO(b.lhsContractingAxes), intSliceToStableHLO(b.rhsContractingAxes))
 	stmt.Attributes = map[string]any{
-		"lhs_contracting_axes": b.lhsContractingAxes,
-		"lhs_batch_axes":       b.lhsBatchAxes,
-		"rhs_contracting_axes": b.rhsContractingAxes,
-		"rhs_batch_axes":       b.rhsBatchAxes,
-		"precision":            b.precision,
+		"dot_dimension_numbers": literalStr(dotConfig),
 	}
-	if b.algorithm != nil {
-		stmt.Attributes["lhs_precision_type"] = b.algorithm.LhsPrecisionType
-		stmt.Attributes["rhs_precision_type"] = b.algorithm.RhsPrecisionType
-		stmt.Attributes["lhs_component_count"] = b.algorithm.LhsComponentCount
-		stmt.Attributes["rhs_component_count"] = b.algorithm.RhsComponentCount
-		stmt.Attributes["num_primitive_operations"] = b.algorithm.NumPrimitiveOperations
-		stmt.Attributes["allow_imprecise_accumulation"] = b.algorithm.AllowImpreciseAccumulation
-	}
+	//if b.algorithm != nil {
+	//	stmt.Attributes["lhs_precision_type"] = b.algorithm.LhsPrecisionType
+	//	stmt.Attributes["rhs_precision_type"] = b.algorithm.RhsPrecisionType
+	//	stmt.Attributes["lhs_component_count"] = b.algorithm.LhsComponentCount
+	//	stmt.Attributes["rhs_component_count"] = b.algorithm.RhsComponentCount
+	//	stmt.Attributes["num_primitive_operations"] = b.algorithm.NumPrimitiveOperations
+	//	stmt.Attributes["allow_imprecise_accumulation"] = b.algorithm.AllowImpreciseAccumulation
+	//}
 	return stmt.Outputs[0], nil
 }
 

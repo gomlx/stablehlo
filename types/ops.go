@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/gomlx/gopjrt/dtypes"
+	"github.com/gomlx/stablehlo/internal/utils"
 )
 
 // ComparisonType enum defined for the Compare op.
@@ -117,14 +118,33 @@ func (p DotGeneralPrecisionType) ToStableHLO() string {
 	return strings.ToUpper(p.String())
 }
 
+// FloatPrecisionType defines the precision used during floating point operations.
+// In particular, modern GPUs accept the TF32 type which sacrifices some accuracy for
+// significant speed improvements.
+type FloatPrecisionType struct {
+	// TF32 is used for the TF32 precision type.
+	TF32 bool
+
+	// DType is used for non-TF32 precision types.
+	// It must be a float type.
+	DType dtypes.DType
+}
+
+func (f FloatPrecisionType) ToStableHLO() string {
+	if f.TF32 {
+		return "tf32"
+	}
+	return utils.DTypeToStableHLO(f.DType)
+}
+
 // DotGeneralAlgorithm defines fine-control of the algorithm used for the dot product.
 type DotGeneralAlgorithm struct {
 	// LhsPrecisionType, RhsPrecisionType that the LHS and RHS of the operation are rounded to.
 	// Precision types are independent of the storage types of the inputs and the output.
-	LhsPrecisionType, RhsPrecisionType dtypes.DType
+	LhsPrecisionType, RhsPrecisionType FloatPrecisionType
 
 	// AccumulationType defines the type of the accumulator used for the dot product.
-	AccumulationType dtypes.DType
+	AccumulationType FloatPrecisionType
 
 	// LhsComponentCount, RhsComponentCount and NumPrimitiveOperations apply when we are doing an algorithm which
 	// decomposes the LHS and/or RHS into multiple components and does multiple "primitive" dot operations on those values -

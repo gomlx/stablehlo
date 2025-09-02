@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"strings"
 
 	"github.com/gomlx/gopjrt/dtypes"
 	"github.com/gomlx/stablehlo/internal/optypes"
@@ -68,16 +69,28 @@ func (s *Statement) Write(writer io.Writer) error {
 
 	// Write attributes:
 	if len(s.Attributes) > 0 {
-		w("{")
-		first := true
-		for key, value := range s.Attributes {
-			if !first {
-				w(", ")
+		if len(s.Attributes) == 1 {
+			for key, value := range s.Attributes {
+				literalValue := literalToStableHLO(value)
+				if strings.Index(literalValue, "\n") == -1 {
+					w(" { %s = %s }", key, literalToStableHLO(value))
+				} else {
+					w(" {\n    %s = %s\n  }", key, literalToStableHLO(value))
+				}
 			}
-			first = false
-			w("%s = %s", key, literalToStableHLO(value))
+		} else {
+			// One attribute per line:
+			w(" {")
+			first := true
+			for key, value := range s.Attributes {
+				if !first {
+					w(",")
+				}
+				first = false
+				w("\n    %s = %s", key, literalToStableHLO(value))
+			}
+			w("\n  }")
 		}
-		w("}")
 	}
 
 	// Write signature:
@@ -111,8 +124,17 @@ func (s *Statement) Write(writer io.Writer) error {
 	return err
 }
 
+// hasToStableHLO is implemented by types that can be converted to a stablehlo string.
 type hasToStableHLO interface {
 	ToStableHLO() string
+}
+
+// literalStr represents a value already rendered in StableHLO format.
+type literalStr string
+
+// ToStableHLO returns the string representation of the literal.
+func (str literalStr) ToStableHLO() string {
+	return string(str)
 }
 
 // literalToStableHLO converts a literal value, usually used in attributes, to its ToStableHLO string representation.
@@ -150,4 +172,11 @@ func literalToStableHLO(attr any) string {
 	default:
 		return fmt.Sprintf("Unknown literal type: %t %#v", v, v)
 	}
+}
+
+// intSliceToStableHLO converts a slice of ints to a string with comma-separated values, as used
+// by StableHLO for attribute values that are an array of ints.
+func intSliceToStableHLO(ints []int) string {
+	str := fmt.Sprint(ints) // Produces "[1 2 3]"
+	return strings.Replace(str, " ", ", ", -1)
 }
