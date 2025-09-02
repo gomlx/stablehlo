@@ -3,6 +3,7 @@ package types
 import (
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/gomlx/gopjrt/dtypes"
 )
@@ -111,6 +112,10 @@ const (
 	DotGeneralPrecisionHigh
 	DotGeneralPrecisionHighest
 )
+
+func (p DotGeneralPrecisionType) ToStableHLO() string {
+	return strings.ToUpper(p.String())
+}
 
 // DotGeneralAlgorithm defines fine-control of the algorithm used for the dot product.
 type DotGeneralAlgorithm struct {
