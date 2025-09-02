@@ -180,14 +180,24 @@ func (b *DotGeneralBuilder) Done() (*Value, error) {
 	precisionConfig := fmt.Sprintf("[#stablehlo<precision %s>, #stablehlo<precision %s>]",
 		b.precision[0].ToStableHLO(), b.precision[1].ToStableHLO())
 	stmt.Attributes["precision_config"] = literalStr(precisionConfig)
-	//if b.algorithm != nil {
-	//	stmt.Attributes["lhs_precision_type"] = b.algorithm.LhsPrecisionType
-	//	stmt.Attributes["rhs_precision_type"] = b.algorithm.RhsPrecisionType
-	//	stmt.Attributes["lhs_component_count"] = b.algorithm.LhsComponentCount
-	//	stmt.Attributes["rhs_component_count"] = b.algorithm.RhsComponentCount
-	//	stmt.Attributes["num_primitive_operations"] = b.algorithm.NumPrimitiveOperations
-	//	stmt.Attributes["allow_imprecise_accumulation"] = b.algorithm.AllowImpreciseAccumulation
-	//}
+	if b.algorithm != nil {
+		algorithmConfig := fmt.Sprintf(`#stablehlo.dot_algorithm<
+      lhs_precision_type = %s,
+      rhs_precision_type = %s,
+      accumulation_type = %s,
+      lhs_component_count = %d,
+      rhs_component_count = %d,
+      num_primitive_operations = %d,
+      allow_imprecise_accumulation = %v
+    >`, b.algorithm.LhsPrecisionType.ToStableHLO(),
+			b.algorithm.RhsPrecisionType.ToStableHLO(),
+			b.algorithm.AccumulationType.ToStableHLO(),
+			b.algorithm.LhsComponentCount,
+			b.algorithm.RhsComponentCount,
+			b.algorithm.NumPrimitiveOperations,
+			b.algorithm.AllowImpreciseAccumulation)
+		stmt.Attributes["algorithm"] = literalStr(algorithmConfig)
+	}
 	return stmt.Outputs[0], nil
 }
 
