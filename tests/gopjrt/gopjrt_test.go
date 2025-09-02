@@ -190,6 +190,34 @@ func testUniqueOps(t *testing.T, client *pjrt.Client) {
 		}, outputs)
 	})
 
+	t.Run("BroadcastInDim", func(t *testing.T) {
+		builder := stablehlo.New(t.Name())
+		fn := builder.NewFunction("main")
+		x := must(fn.Iota(S.Make(D.F32, 3), 0))
+		y := must(fn.BroadcastInDim(x, S.Make(D.F32, 2, 3), []int{1}))
+		fn.Return(y)
+		program := must(builder.Build())
+		fmt.Printf("%s program:\n%s", t.Name(), program)
+		outputs := compileAndExecute(t, client, program)
+		requireBuffersEqual(t, []FlatAndDims{
+			{[]float32{0, 1, 2, 0, 1, 2}, []int{2, 3}},
+		}, outputs)
+	})
+
+	t.Run("BroadcastInDim<scalar>", func(t *testing.T) {
+		builder := stablehlo.New(t.Name())
+		fn := builder.NewFunction("main")
+		x := must(fn.NewConstant(float32(7.0)))
+		y := must(fn.BroadcastInDim(x, S.Make(D.F32, 3), nil))
+		fn.Return(y)
+		program := must(builder.Build())
+		fmt.Printf("%s program:\n%s", t.Name(), program)
+		outputs := compileAndExecute(t, client, program)
+		requireBuffersEqual(t, []FlatAndDims{
+			{[]float32{7, 7, 7}, []int{3}},
+		}, outputs)
+	})
+
 }
 
 func TestBinaryOps(t *testing.T) {

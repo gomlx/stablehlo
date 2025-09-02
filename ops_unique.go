@@ -220,3 +220,19 @@ func (fn *Function) Reshape(operand *Value, shape shapes.Shape) (*Value, error) 
 	stmt := fn.addOp(op, shape, operand)
 	return stmt.Outputs[0], nil
 }
+
+// BroadcastInDim broadcasts dimensions from the operand to the target shape.
+// It can also transpose axes and add new ones.
+//
+// The axesMapping should have one value per operand axes. It maps the axes from the operand to
+// the corresponding value on the target shape.
+func (fn *Function) BroadcastInDim(operand *Value, target shapes.Shape, axesMapping []int) (*Value, error) {
+	op := optypes.BroadcastInDim
+	err := shapeinference.BroadcastInDim(operand.shape, target, axesMapping)
+	if err != nil {
+		return nil, err
+	}
+	stmt := fn.addOp(op, target, operand)
+	stmt.Attributes = map[string]any{"broadcast_dimensions": intSliceToArrayI64StableHLO(axesMapping)}
+	return stmt.Outputs[0], nil
+}

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"strconv"
 	"strings"
 
 	"github.com/gomlx/gopjrt/dtypes"
@@ -176,7 +177,24 @@ func literalToStableHLO(attr any) string {
 
 // intSliceToStableHLO converts a slice of ints to a string with comma-separated values, as used
 // by StableHLO for attribute values that are an array of ints.
-func intSliceToStableHLO(ints []int) string {
+func intSliceToStableHLO(ints []int) literalStr {
 	str := fmt.Sprint(ints) // Produces "[1 2 3]"
-	return strings.Replace(str, " ", ", ", -1)
+	return literalStr(strings.Replace(str, " ", ", ", -1))
+}
+
+// intSliceToArrayI64StableHLO converts a slice of ints to a string with comma-separated values, as used
+// by StableHLO for attribute values that are an array of int64.
+func intSliceToArrayI64StableHLO(ints []int) literalStr {
+	var sb strings.Builder
+	sb.WriteString("array<i64")
+	for i, v := range ints {
+		if i == 0 {
+			sb.WriteString(": ")
+		} else {
+			sb.WriteString(", ")
+		}
+		sb.WriteString(strconv.Itoa(v))
+	}
+	sb.WriteString(">")
+	return literalStr(sb.String())
 }

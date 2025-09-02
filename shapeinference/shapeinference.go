@@ -479,31 +479,41 @@ func Broadcast(operand shapes.Shape, prefixDims []int) (output shapes.Shape, err
 	return
 }
 
-// BroadcastInDimOp verifies that the arguments are valid. The output shape is already known, so nothing is returned.
-func BroadcastInDimOp(operand, outputShape shapes.Shape, broadcastAxes []int) error {
-	if len(broadcastAxes) != operand.Rank() {
-		return errors.Errorf("there must be exactly one broadcastAxes (%v) per axis in the operand (%s)",
-			broadcastAxes, operand)
+// BroadcastInDim verifies that the arguments are valid.
+// The output shape is already known, so nothing is returned.
+//
+// The axesMapping is changed in place, replacing negative axes with their positive equivalent.
+func BroadcastInDim(operand, output shapes.Shape, axesMapping []int) error {
+	if operand.DType != output.DType {
+		return errors.Errorf("BroadcastInDim() requires the operand and the output to have the same data type, got operand=%s and output=%s",
+			operand, output)
 	}
-
-	// Verify that the values of expandedAxis and create a map of the expanded axis.
-	preservedSet := utils.MakeSet[int](len(broadcastAxes))
-	for axisInOperand, axisInOutput := range broadcastAxes {
-		if axisInOutput < 0 || axisInOutput >= outputShape.Rank() {
-			return errors.Errorf("broadcastAxes (%v) defines a value out-of-range (%d-th value -> %d), they must be between 0 and outputShape.Rank()-1=%d",
-				broadcastAxes, axisInOperand, axisInOutput, outputShape.Rank()-1)
+	targetRank := output.Rank()
+	if targetRank < operand.Shape().Rank() {
+		return errors.Errorf("BroadcastInDim() cannot be used to shrink the rank of the operand, got operand=%s and output=%s",
+			operand, output)
+	}
+	if len(axesMapping) != operand.Shape().Rank() {
+		return errors.Errorf("BroadcastInDim() requires all operand's axes mappings to be defined, operand has output %s, but %d axes were given",
+			operand, len(axesMapping))
+	}
+	usedAxis := utils.MakeSet[int](len(axesMapping))
+	for operandAxis, targetAxis := range axesMapping {
+		targetAxis, err := AdjustAxisToRank(targetRank, targetAxis)
+		if err != nil {
+			return errors.WithMessagef(err, "invalid axes mapping of operand axis %d to output axis %d, output output is %s", operandAxis, targetAxis, output)
 		}
-		if preservedSet.Has(axisInOutput) {
-			return errors.Errorf("broadcastAxes (%v) repeats axis %d (broadcastAxes[%d]), they must be all unique and between 0 and outputShape.Rank()-1=%d",
-				broadcastAxes, axisInOutput, axisInOperand, outputShape.Rank()-1)
+		if usedAxis.Has(targetAxis) {
+			return errors.Errorf("BroadcastInDim() requires all output axes to be unique, got duplicate axis %d", targetAxis)
 		}
-		preservedSet.Insert(axisInOutput)
-		if operand.Dimensions[axisInOperand] != 1 && operand.Dimensions[axisInOperand] != outputShape.Dimensions[axisInOutput] {
-			return errors.Errorf("the values of outputShape (%v) that are being broadcast (listed in broadcastAxes) "+
-				"must match the corresponding value in the operand shape (%s) or be 1 (if broadcasting), "+
-				"but the value of outputShape.Dimensions[%d]=%d does not match the value in operand.Shape().Dimensions[%d]=%d",
-				outputShape, operand, axisInOutput, outputShape.Dimensions[axisInOutput], axisInOperand, operand.Dimensions[axisInOperand])
+		usedAxis.Insert(targetAxis)
+		operandDim := operand.Dimensions[operandAxis]
+		targetDim := output.Dimensions[targetAxis]
+		if operandDim != 1 && operandDim != targetDim {
+			return errors.Errorf("BroadcastInDim() requires all operand axes to be broadcast to be of dimension 1, but got operand.Dimensions[%d]=%d and output.Dimension[%d]=%d",
+				operandAxis, operandDim, targetAxis, targetDim)
 		}
+		axesMapping[operandAxis] = targetAxis
 	}
 	return nil
 }

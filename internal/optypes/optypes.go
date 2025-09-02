@@ -22,6 +22,7 @@ const (
 	Add
 	And
 	Atan2
+	BroadcastInDim
 	Cbrt
 	Ceil
 	Clamp
@@ -72,7 +73,6 @@ const (
 	BatchNormForTraining
 	BatchNormGradient
 	BitcastConvert
-	BroadcastInDim
 	Case
 	Cholesky
 	CollectiveBroadcast
