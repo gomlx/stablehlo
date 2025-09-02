@@ -6,7 +6,6 @@ import (
 
 	"github.com/gomlx/gopjrt/dtypes"
 	"github.com/gomlx/stablehlo/internal/optypes"
-	"github.com/gomlx/stablehlo/types"
 	"github.com/gomlx/stablehlo/types/shapes"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -671,9 +670,7 @@ func TestDotGeneral(t *testing.T) {
 	output, err := DotGeneral(
 		lhs, []int{1}, []int{3, 0},
 		rhs, []int{3}, []int{0, 2},
-		[2]types.DotGeneralPrecisionType{types.DotGeneralPrecisionDefault, types.DotGeneralPrecisionDefault},
-		F32,
-		nil)
+		F32)
 	require.NoError(t, err)
 	// Batch dims: 5 , 2
 	// Contracting dims: 3

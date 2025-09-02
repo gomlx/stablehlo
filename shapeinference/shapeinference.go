@@ -1172,10 +1172,7 @@ func adjustAxisToRank(rank, axis int) (int, error) {
 func DotGeneral(
 	lhs shapes.Shape, lhsContractingAxes, lhsBatchAxes []int,
 	rhs shapes.Shape, rhsContractingAxes, rhsBatchAxes []int,
-	precision [2]types.DotGeneralPrecisionType,
-	outputDType dtypes.DType,
-	algorithm *types.DotGeneralAlgorithm,
-) (output shapes.Shape, err error) {
+	outputDType dtypes.DType) (output shapes.Shape, err error) {
 	dtype := lhs.DType
 	if dtype != rhs.DType {
 		err = errors.Errorf("DotGeneral lhs (left-hand-side) and rhs operands don't match data types: %s and %s", dtype, rhs.DType)

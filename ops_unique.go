@@ -158,7 +158,7 @@ func (b *DotGeneralBuilder) Done() (*Value, error) {
 	outputShape, err := shapeinference.DotGeneral(
 		b.lhs.shape, b.lhsContractingAxes, b.lhsBatchAxes,
 		b.rhs.shape, b.rhsContractingAxes, b.rhsBatchAxes,
-		b.precision, b.outputDType, b.algorithm)
+		b.outputDType)
 	if err != nil {
 		return nil, err
 	}
