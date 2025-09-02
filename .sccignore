@@ -4,3 +4,4 @@ LICENSE
 .idea
 protos/
 gen_*
+*_enumer.go
