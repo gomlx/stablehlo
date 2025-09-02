@@ -28,8 +28,8 @@ func TestBuilder(t *testing.T) {
 		program := string(must(b.Build()))
 		fmt.Printf("%s program:\n%s", t.Name(), program)
 		want := `func.func @main() -> tensor<f64> {
-  %0 = "stablehlo.constant"(){value = dense<1.0> : tensor<f64>} : () -> tensor<f64>
-  %1 = "stablehlo.constant"(){value = dense<2.0> : tensor<f64>} : () -> tensor<f64>
+  %0 = "stablehlo.constant"() { value = dense<1.0> : tensor<f64> } : () -> tensor<f64>
+  %1 = "stablehlo.constant"() { value = dense<2.0> : tensor<f64> } : () -> tensor<f64>
   %2 = "stablehlo.add"(%0, %1) : (tensor<f64>, tensor<f64>) -> tensor<f64>
   "func.return"(%2) : (tensor<f64>) -> ()
 }

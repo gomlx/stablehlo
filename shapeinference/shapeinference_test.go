@@ -56,22 +56,26 @@ func TestBinaryOp(t *testing.T) {
 	// Scalar with matrix.
 	scalarShape := S(F32)
 	matrixShape := S(F32, 2, 3)
-	expectedShape := S(F32, 2, 3)
+	//expectedShape := S(F32, 2, 3)
 	output, err = BinaryOp(optypes.Add, scalarShape, scalarShape)
 	require.NoError(t, err)
 	require.True(t, scalarShape.Equal(output))
-	output, err = BinaryOp(optypes.Add, scalarShape, matrixShape)
-	require.NoError(t, err)
-	require.True(t, expectedShape.Equal(output))
+	_, err = BinaryOp(optypes.Add, scalarShape, matrixShape)
+	require.Error(t, err)
+	//require.True(t, expectedShape.Equal(output))
 
-	// Broadcasting on both sides.
+	// Broadcasting: not provided in StableHLO.
 	shape1 := S(F32, 2, 1, 3)
 	shape2 := S(F32, 1, 4, 3)
-	expectedBroadcastShape := S(F32, 2, 4, 3)
-	require.True(t, expectedBroadcastShape.Equal(must1(BinaryOp(optypes.Multiply, shape1, shape2))))
+	_, err = BinaryOp(optypes.Add, shape1, shape2)
+	require.Error(t, err)
+	//expectedBroadcastShape := S(F32, 2, 4, 3)
+	//require.True(t, expectedBroadcastShape.Equal(must1(BinaryOp(optypes.Multiply, shape1, shape2))))
 
 	// Matrix with scalar.
-	require.True(t, expectedShape.Equal(must1(BinaryOp(optypes.Add, matrixShape, scalarShape))))
+	_, err = BinaryOp(optypes.Add, matrixShape, scalarShape)
+	require.Error(t, err)
+	//require.True(t, expectedShape.Equal(must1(BinaryOp(optypes.Add, matrixShape, scalarShape))))
 
 	// Invalid broadcasting shapes.
 	invalidShape1 := S(F32, 2, 3)
