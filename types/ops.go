@@ -105,7 +105,7 @@ func (c ConvolveAxesConfig) Clone() ConvolveAxesConfig {
 // but they are planning to address this in #755 -- https://github.com/openxla/stablehlo/issues/755):
 type DotGeneralPrecisionType int
 
-//go:generate go tool enumer -type=DotGeneralPrecisionType -trimprefix=DotGeneral ops.go
+//go:generate go tool enumer -type=DotGeneralPrecisionType -trimprefix=DotGeneralPrecision ops.go
 
 const (
 	// DotGeneralPrecisionDefault is the fastest calculation, but the least accurate approximation to the original number.

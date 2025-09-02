@@ -177,6 +177,9 @@ func (b *DotGeneralBuilder) Done() (*Value, error) {
 	stmt.Attributes = map[string]any{
 		"dot_dimension_numbers": literalStr(dotConfig),
 	}
+	precisionConfig := fmt.Sprintf("[#stablehlo<precision %s>, #stablehlo<precision %s>]",
+		b.precision[0].ToStableHLO(), b.precision[1].ToStableHLO())
+	stmt.Attributes["precision_config"] = literalStr(precisionConfig)
 	//if b.algorithm != nil {
 	//	stmt.Attributes["lhs_precision_type"] = b.algorithm.LhsPrecisionType
 	//	stmt.Attributes["rhs_precision_type"] = b.algorithm.RhsPrecisionType
