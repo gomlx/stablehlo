@@ -7,76 +7,76 @@ import (
 )
 
 // Add implements the corresponding standard binary operation.
-func (f *Function) Add(lhs, rhs *Value) (*Value, error) {
-	return f.binaryOp(optypes.Add, lhs, rhs)
+func (fn *Function) Add(lhs, rhs *Value) (*Value, error) {
+	return fn.binaryOp(optypes.Add, lhs, rhs)
 }
 
 // And implements the corresponding standard binary operation.
-func (f *Function) And(lhs, rhs *Value) (*Value, error) {
-	return f.binaryOp(optypes.And, lhs, rhs)
+func (fn *Function) And(lhs, rhs *Value) (*Value, error) {
+	return fn.binaryOp(optypes.And, lhs, rhs)
 }
 
 // Atan2 implements the corresponding standard binary operation.
-func (f *Function) Atan2(lhs, rhs *Value) (*Value, error) {
-	return f.binaryOp(optypes.Atan2, lhs, rhs)
+func (fn *Function) Atan2(lhs, rhs *Value) (*Value, error) {
+	return fn.binaryOp(optypes.Atan2, lhs, rhs)
 }
 
 // Divide implements the corresponding standard binary operation.
-func (f *Function) Divide(lhs, rhs *Value) (*Value, error) {
-	return f.binaryOp(optypes.Divide, lhs, rhs)
+func (fn *Function) Divide(lhs, rhs *Value) (*Value, error) {
+	return fn.binaryOp(optypes.Divide, lhs, rhs)
 }
 
 // Maximum implements the corresponding standard binary operation.
-func (f *Function) Maximum(lhs, rhs *Value) (*Value, error) {
-	return f.binaryOp(optypes.Maximum, lhs, rhs)
+func (fn *Function) Maximum(lhs, rhs *Value) (*Value, error) {
+	return fn.binaryOp(optypes.Maximum, lhs, rhs)
 }
 
 // Minimum implements the corresponding standard binary operation.
-func (f *Function) Minimum(lhs, rhs *Value) (*Value, error) {
-	return f.binaryOp(optypes.Minimum, lhs, rhs)
+func (fn *Function) Minimum(lhs, rhs *Value) (*Value, error) {
+	return fn.binaryOp(optypes.Minimum, lhs, rhs)
 }
 
 // Multiply implements the corresponding standard binary operation.
-func (f *Function) Multiply(lhs, rhs *Value) (*Value, error) {
-	return f.binaryOp(optypes.Multiply, lhs, rhs)
+func (fn *Function) Multiply(lhs, rhs *Value) (*Value, error) {
+	return fn.binaryOp(optypes.Multiply, lhs, rhs)
 }
 
 // Or implements the corresponding standard binary operation.
-func (f *Function) Or(lhs, rhs *Value) (*Value, error) {
-	return f.binaryOp(optypes.Or, lhs, rhs)
+func (fn *Function) Or(lhs, rhs *Value) (*Value, error) {
+	return fn.binaryOp(optypes.Or, lhs, rhs)
 }
 
 // Power implements the corresponding standard binary operation.
-func (f *Function) Power(lhs, rhs *Value) (*Value, error) {
-	return f.binaryOp(optypes.Power, lhs, rhs)
+func (fn *Function) Power(lhs, rhs *Value) (*Value, error) {
+	return fn.binaryOp(optypes.Power, lhs, rhs)
 }
 
 // Remainder implements the corresponding standard binary operation.
-func (f *Function) Remainder(lhs, rhs *Value) (*Value, error) {
-	return f.binaryOp(optypes.Remainder, lhs, rhs)
+func (fn *Function) Remainder(lhs, rhs *Value) (*Value, error) {
+	return fn.binaryOp(optypes.Remainder, lhs, rhs)
 }
 
 // ShiftLeft implements the corresponding standard binary operation.
-func (f *Function) ShiftLeft(lhs, rhs *Value) (*Value, error) {
-	return f.binaryOp(optypes.ShiftLeft, lhs, rhs)
+func (fn *Function) ShiftLeft(lhs, rhs *Value) (*Value, error) {
+	return fn.binaryOp(optypes.ShiftLeft, lhs, rhs)
 }
 
 // ShiftRightArithmetic implements the corresponding standard binary operation.
-func (f *Function) ShiftRightArithmetic(lhs, rhs *Value) (*Value, error) {
-	return f.binaryOp(optypes.ShiftRightArithmetic, lhs, rhs)
+func (fn *Function) ShiftRightArithmetic(lhs, rhs *Value) (*Value, error) {
+	return fn.binaryOp(optypes.ShiftRightArithmetic, lhs, rhs)
 }
 
 // ShiftRightLogical implements the corresponding standard binary operation.
-func (f *Function) ShiftRightLogical(lhs, rhs *Value) (*Value, error) {
-	return f.binaryOp(optypes.ShiftRightLogical, lhs, rhs)
+func (fn *Function) ShiftRightLogical(lhs, rhs *Value) (*Value, error) {
+	return fn.binaryOp(optypes.ShiftRightLogical, lhs, rhs)
 }
 
 // Subtract implements the corresponding standard binary operation.
-func (f *Function) Subtract(lhs, rhs *Value) (*Value, error) {
-	return f.binaryOp(optypes.Subtract, lhs, rhs)
+func (fn *Function) Subtract(lhs, rhs *Value) (*Value, error) {
+	return fn.binaryOp(optypes.Subtract, lhs, rhs)
 }
 
 // Xor implements the corresponding standard binary operation.
-func (f *Function) Xor(lhs, rhs *Value) (*Value, error) {
-	return f.binaryOp(optypes.Xor, lhs, rhs)
+func (fn *Function) Xor(lhs, rhs *Value) (*Value, error) {
+	return fn.binaryOp(optypes.Xor, lhs, rhs)
 }
