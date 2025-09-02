@@ -64,12 +64,12 @@ func (fn *Function) NewConstant(value any) (*Value, error) {
 // Return adds a return statement to the function with the given return values.
 // There must be at least one return value.
 func (fn *Function) Return(firstValue *Value, otherValues ...*Value) {
-	allValues := make([]*Value, len(otherValues)+1)
+	allValues := make([]*Value, 1, len(otherValues)+1)
 	allValues[0] = firstValue
 	allValues = append(allValues, otherValues...)
-
 	outputShapes := make([]shapes.Shape, len(allValues))
 	for i, value := range allValues {
+		fmt.Printf("%d: %s\n", i, value.shape)
 		outputShapes[i] = value.shape
 	}
 	fn.Outputs = outputShapes

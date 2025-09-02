@@ -7,6 +7,7 @@ import (
 
 	"github.com/gomlx/gopjrt/dtypes"
 	"github.com/gomlx/stablehlo/internal/optypes"
+	"github.com/gomlx/stablehlo/internal/utils"
 	"github.com/gomlx/stablehlo/types/shapes"
 )
 
@@ -134,8 +135,8 @@ func literalToStableHLO(attr any) string {
 		}
 		return fmt.Sprintf(format, v, shape.ToStableHLO())
 	case int, int8, int16, int32, int64, uint8, uint16, uint32, uint64:
-		shape := shapes.Make(dtypes.FromAny(v))
-		return fmt.Sprintf("dense<%d> : %s", v, shape.ToStableHLO())
+		dtype := dtypes.FromAny(v)
+		return fmt.Sprintf("%d : %s", v, utils.DTypeToStableHLO(dtype))
 	case bool:
 		if v {
 			return "true"

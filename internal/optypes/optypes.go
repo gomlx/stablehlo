@@ -30,11 +30,13 @@ const (
 	Cosine
 	CountLeadingZeros
 	Divide
+	DotGeneral
 	Erf
 	Exponential
 	ExponentialMinusOne
 	Floor
 	Imag
+	Iota
 	Log
 	LogPlusOne
 	Logistic
@@ -80,7 +82,6 @@ const (
 	Convert
 	Convolution
 	CustomCall
-	DotGeneral
 	DynamicBroadcastInDim
 	DynamicConv
 	DynamicGather
@@ -94,7 +95,6 @@ const (
 	GetTupleElement
 	If
 	Infeed
-	Iota
 	IsFinite
 	OptimizationBarrier
 	Outfeed

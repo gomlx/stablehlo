@@ -1154,13 +1154,13 @@ func ConvGeneral(input, kernel shapes.Shape, axes types.ConvolveAxesConfig,
 	return output, nil
 }
 
-// adjustAxisToRank returns a positive axis, adjusting negative numbers to the correct rank.
-func adjustAxisToRank(rank, axis int) (int, error) {
+// AdjustAxisToRank returns a positive axis, adjusting negative numbers to the correct rank.
+func AdjustAxisToRank(rank, axis int) (int, error) {
+	if axis < -rank || axis >= rank {
+		return -1, errors.Errorf("axis %d is out of range for the rank %d", axis, rank)
+	}
 	if axis < 0 {
 		axis += rank
-	}
-	if axis < 0 || axis >= rank {
-		return -1, errors.Errorf("axis %d is out of range [0, %d)", axis, rank)
 	}
 	return axis, nil
 }
@@ -1192,28 +1192,28 @@ func DotGeneral(
 
 	// Validate and adjust axes.
 	for ii, axis := range lhsContractingAxes {
-		lhsContractingAxes[ii], err = adjustAxisToRank(lhsRank, axis)
+		lhsContractingAxes[ii], err = AdjustAxisToRank(lhsRank, axis)
 		if err != nil {
 			err = errors.WithMessagef(err, "while adjusting contractingAxes for DotGeneral(lhs=%s, lhsContractingAxes=%v)", lhs, lhsContractingAxes)
 			return
 		}
 	}
 	for ii, axis := range lhsBatchAxes {
-		lhsBatchAxes[ii], err = adjustAxisToRank(lhsRank, axis)
+		lhsBatchAxes[ii], err = AdjustAxisToRank(lhsRank, axis)
 		if err != nil {
 			err = errors.WithMessagef(err, "while adjusting batchAxes for DotGeneral(lhs=%s, lhsBatchAxes=%v)", lhs, lhsBatchAxes)
 			return
 		}
 	}
 	for ii, axis := range rhsContractingAxes {
-		rhsContractingAxes[ii], err = adjustAxisToRank(rhsRank, axis)
+		rhsContractingAxes[ii], err = AdjustAxisToRank(rhsRank, axis)
 		if err != nil {
 			err = errors.WithMessagef(err, "while adjusting contractingAxes for DotGeneral(rhs=%s, rhsContractingAxes=%v)", rhs, rhsContractingAxes)
 			return
 		}
 	}
 	for ii, axis := range rhsBatchAxes {
-		rhsBatchAxes[ii], err = adjustAxisToRank(rhsRank, axis)
+		rhsBatchAxes[ii], err = AdjustAxisToRank(rhsRank, axis)
 		if err != nil {
 			err = errors.WithMessagef(err, "while adjusting batchAxes for DotGeneral(rhs=%s, rhsBatchAxes=%v)", rhs, rhsBatchAxes)
 			return

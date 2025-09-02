@@ -5,6 +5,7 @@ import (
 	"github.com/gomlx/stablehlo/internal/optypes"
 	"github.com/gomlx/stablehlo/shapeinference"
 	"github.com/gomlx/stablehlo/types"
+	"github.com/gomlx/stablehlo/types/shapes"
 )
 
 // Compare implements the corresponding standard binary operation.
@@ -178,5 +179,20 @@ func (b *DotGeneralBuilder) Done() (*Value, error) {
 		stmt.Attributes["num_primitive_operations"] = b.algorithm.NumPrimitiveOperations
 		stmt.Attributes["allow_imprecise_accumulation"] = b.algorithm.AllowImpreciseAccumulation
 	}
+	return stmt.Outputs[0], nil
+}
+
+// Iota creates a constant of the given shape with increasing numbers (starting from 0)
+// on the given axis. So Iota([2,2], 1) returns [[0 1][0 1]], while Iota([2,2], 0)
+// returns [[0 0][1 1]].
+func (fn *Function) Iota(shape shapes.Shape, axis int) (*Value, error) {
+	op := optypes.Iota
+	var err error
+	axis, err = shapeinference.AdjustAxisToRank(shape.Rank(), axis)
+	if err != nil {
+		return nil, err
+	}
+	stmt := fn.addOp(op, shape)
+	stmt.Attributes = map[string]any{"iota_dimension": int64(axis)}
 	return stmt.Outputs[0], nil
 }

@@ -157,6 +157,24 @@ func testUniqueOps(t *testing.T, client *pjrt.Client) {
 		output := compileAndExecute(t, client, program, min, x, max)
 		requireBuffersEqual(t, []FlatAndDims{{[]float32{0.1, -1, 1}, []int{3}}}, output)
 	})
+
+	t.Run("Iota", func(t *testing.T) {
+		builder := stablehlo.New(t.Name())
+		fn := builder.NewFunction("main")
+		fn.Return(
+			must(fn.Iota(S.Make(D.F32, 2, 2), 0)),
+			must(fn.Iota(S.Make(D.F32, 2, 2), 1)),
+			must(fn.Iota(S.Make(D.F32, 4), 0)),
+		)
+		program := must(builder.Build())
+		fmt.Printf("%s program:\n%s", t.Name(), program)
+		outputs := compileAndExecute(t, client, program)
+		requireBuffersEqual(t, []FlatAndDims{
+			{[]float32{0, 0, 1, 1}, []int{2, 2}},
+			{[]float32{0, 1, 0, 1}, []int{2, 2}},
+			{[]float32{0, 1, 2, 3}, []int{4}},
+		}, outputs)
+	})
 }
 
 func TestBinaryOps(t *testing.T) {

@@ -32,7 +32,7 @@ import (
 {{- range .}}
 // {{.Name}} implements the corresponding standard unary operation.
 func (fn *Function) {{.Name}}(operand *Value) (*Value, error) {
-	return f.unaryOp(optypes.{{.Name}}, operand)
+	return fn.unaryOp(optypes.{{.Name}}, operand)
 }
 {{- end}}
 `))
