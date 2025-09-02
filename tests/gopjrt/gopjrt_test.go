@@ -175,6 +175,21 @@ func testUniqueOps(t *testing.T, client *pjrt.Client) {
 			{[]float32{0, 1, 2, 3}, []int{4}},
 		}, outputs)
 	})
+
+	t.Run("Reshape", func(t *testing.T) {
+		builder := stablehlo.New(t.Name())
+		fn := builder.NewFunction("main")
+		x := must(fn.Iota(S.Make(D.F32, 3, 2), 0))
+		y := must(fn.Reshape(x, S.Make(D.F32, 2, 3)))
+		fn.Return(y)
+		program := must(builder.Build())
+		fmt.Printf("%s program:\n%s", t.Name(), program)
+		outputs := compileAndExecute(t, client, program)
+		requireBuffersEqual(t, []FlatAndDims{
+			{[]float32{0, 0, 1, 1, 2, 2}, []int{2, 3}},
+		}, outputs)
+	})
+
 }
 
 func TestBinaryOps(t *testing.T) {

@@ -6,6 +6,7 @@ import (
 	"github.com/gomlx/stablehlo/shapeinference"
 	"github.com/gomlx/stablehlo/types"
 	"github.com/gomlx/stablehlo/types/shapes"
+	"github.com/pkg/errors"
 )
 
 // Compare implements the corresponding standard binary operation.
@@ -194,5 +195,23 @@ func (fn *Function) Iota(shape shapes.Shape, axis int) (*Value, error) {
 	}
 	stmt := fn.addOp(op, shape)
 	stmt.Attributes = map[string]any{"iota_dimension": int64(axis)}
+	return stmt.Outputs[0], nil
+}
+
+// Reshape the operand to the given shape.
+// The total size of the new shape must match the original shape.
+//
+// This has no effect on the data, no transposition is performed.
+func (fn *Function) Reshape(operand *Value, shape shapes.Shape) (*Value, error) {
+	op := optypes.Reshape
+	if operand.shape.DType != shape.DType {
+		return nil, errors.Errorf("Reshape() requires the operand and the shape to have the same data type, got operand=%s and shape=%s",
+			operand.shape, shape)
+	}
+	if operand.shape.Size() != shape.Size() {
+		return nil, errors.Errorf("Reshape() requires the total size of the new shape to match the original shape, got operand=%s and shape=%s",
+			operand.shape, shape)
+	}
+	stmt := fn.addOp(op, shape, operand)
 	return stmt.Outputs[0], nil
 }

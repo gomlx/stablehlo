@@ -15,6 +15,11 @@ type Value struct {
 	name  string // Optional name composed of letters, digits and underscore
 }
 
+// Shape returns the shape of the value.
+func (v *Value) Shape() shapes.Shape {
+	return v.shape
+}
+
 // Write writes the value in ToStableHLO text format to the given writer.
 func (v *Value) Write(w io.Writer) error {
 	if v.name != "" {
