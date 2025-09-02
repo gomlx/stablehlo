@@ -705,16 +705,16 @@ func Concatenate(inputs []shapes.Shape, axis int) (output shapes.Shape, err erro
 	return output, nil
 }
 
-// ScatterOp checks that the parameters are consistent. The output shape returned is the unchanged operand -- the scattered
+// Scatter checks that the parameters are consistent. The output shape returned is the unchanged operand -- the scattered
 // updates are applied to the operand, but its shape is unchanged.
 //
 // The Scatter operations indicesAreSorted and uniqueIndices don't play a role in this.
-func ScatterOp(operand, indices, updates shapes.Shape, indexVectorAxis int, updateWindowAxes, insertedWindowAxes, scatterAxesToOperandAxes []int) (output shapes.Shape, err error) {
+func Scatter(operand, indices, updates shapes.Shape, indexVectorAxis int, updateWindowAxes, insertedWindowAxes, scatterAxesToOperandAxes []int) (output shapes.Shape, err error) {
 	if operand.DType == dtypes.InvalidDType || indices.DType == dtypes.InvalidDType || updates.DType == dtypes.InvalidDType {
-		return shapes.Invalid(), errors.Errorf("invalid shape for operand (%s), indices (%s) or updates (%s) for ScatterOp", operand, indices, updates)
+		return shapes.Invalid(), errors.Errorf("invalid shape for operand (%s), indices (%s) or updates (%s) for Scatter", operand, indices, updates)
 	}
 	if operand.DType != updates.DType {
-		return shapes.Invalid(), errors.Errorf("data types (DType) for ScatterOp operand (%s) and updates (%s) must match", operand, updates)
+		return shapes.Invalid(), errors.Errorf("data types (DType) for Scatter operand (%s) and updates (%s) must match", operand, updates)
 	}
 	if !indices.DType.IsInt() {
 		return shapes.Invalid(), errors.Errorf("indices DType (%s) must be an integer type", indices)
@@ -785,13 +785,13 @@ func ScatterOp(operand, indices, updates shapes.Shape, indexVectorAxis int, upda
 	return operand, nil
 }
 
-// SliceOp calculates the output shape for a Slice operation.
+// Slice calculates the output shape for a Slice operation.
 // It checks that starts, limits, and strides have the correct length (matching operand rank),
 // and that the slice parameters are valid for the operand's dimensions.
 // Strides must be positive.
-func SliceOp(operand shapes.Shape, starts, limits, strides []int) (output shapes.Shape, err error) {
+func Slice(operand shapes.Shape, starts, limits, strides []int) (output shapes.Shape, err error) {
 	rank := operand.Rank()
-	opName := "SliceOp"
+	opName := "Slice"
 	if operand.DType == dtypes.InvalidDType {
 		return shapes.Invalid(), errors.Errorf("%s: invalid operand shape %s", opName, operand)
 	}
@@ -836,9 +836,9 @@ func SliceOp(operand shapes.Shape, starts, limits, strides []int) (output shapes
 	return output, nil
 }
 
-// ArgMinMaxOp calculates the output shape for an ArgMinMax operation.
+// ArgMinMax calculates the output shape for an ArgMinMax operation.
 // It will be the shape of the operand minus the "reduce" axis.
-func ArgMinMaxOp(operand shapes.Shape, axis int, outputDType dtypes.DType) (output shapes.Shape, err error) {
+func ArgMinMax(operand shapes.Shape, axis int, outputDType dtypes.DType) (output shapes.Shape, err error) {
 	if !outputDType.IsInt() {
 		err = errors.Errorf("ArgMinMax outputDType must be an integer type, got %s", outputDType)
 		return
@@ -861,30 +861,30 @@ func ArgMinMaxOp(operand shapes.Shape, axis int, outputDType dtypes.DType) (outp
 	return
 }
 
-// ReduceWindowOp returns the expected output shape for the operation.
+// ReduceWindow returns the expected output shape for the operation.
 //
 // Notice it doesn't take as input the reductionType parameter, since it doesn't affect the output shape.
-func ReduceWindowOp(operand shapes.Shape, windowDimensions, strides, baseDilations, windowDilations []int, paddings [][2]int) (shapes.Shape, error) {
+func ReduceWindow(operand shapes.Shape, windowDimensions, strides, baseDilations, windowDilations []int, paddings [][2]int) (shapes.Shape, error) {
 	if !operand.Ok() {
-		return shapes.Invalid(), errors.Errorf("ReduceWindowOp: invalid operand shape %s", operand)
+		return shapes.Invalid(), errors.Errorf("ReduceWindow: invalid operand shape %s", operand)
 	}
 	rank := operand.Rank()
 
 	// Validate lengths of slice parameters against rank.
 	if len(windowDimensions) != 0 && len(windowDimensions) != rank {
-		return shapes.Invalid(), errors.Errorf("ReduceWindowOp: len(windowDimensions)=%d, but operand rank is %d", len(windowDimensions), rank)
+		return shapes.Invalid(), errors.Errorf("ReduceWindow: len(windowDimensions)=%d, but operand rank is %d", len(windowDimensions), rank)
 	}
 	if len(strides) != 0 && len(strides) != rank {
-		return shapes.Invalid(), errors.Errorf("ReduceWindowOp: len(strides)=%d, but operand rank is %d", len(strides), rank)
+		return shapes.Invalid(), errors.Errorf("ReduceWindow: len(strides)=%d, but operand rank is %d", len(strides), rank)
 	}
 	if len(paddings) != 0 && len(paddings) != rank {
-		return shapes.Invalid(), errors.Errorf("ReduceWindowOp: len(paddings)=%d, but operand rank is %d", len(paddings), rank)
+		return shapes.Invalid(), errors.Errorf("ReduceWindow: len(paddings)=%d, but operand rank is %d", len(paddings), rank)
 	}
 	if baseDilations != nil && len(baseDilations) != rank {
-		return shapes.Invalid(), errors.Errorf("ReduceWindowOp: baseDilations is not nil and len(baseDilations)=%d, but operand rank is %d", len(baseDilations), rank)
+		return shapes.Invalid(), errors.Errorf("ReduceWindow: baseDilations is not nil and len(baseDilations)=%d, but operand rank is %d", len(baseDilations), rank)
 	}
 	if windowDilations != nil && len(windowDilations) != rank {
-		return shapes.Invalid(), errors.Errorf("ReduceWindowOp: windowDilations is not nil and len(windowDilations)=%d, but operand rank is %d", len(windowDilations), rank)
+		return shapes.Invalid(), errors.Errorf("ReduceWindow: windowDilations is not nil and len(windowDilations)=%d, but operand rank is %d", len(windowDilations), rank)
 	}
 
 	// If operand is a scalar (rank 0), the output is also a scalar of the same type.
@@ -902,14 +902,14 @@ func ReduceWindowOp(operand shapes.Shape, windowDimensions, strides, baseDilatio
 		if len(windowDimensions) > 0 {
 			windowDim = windowDimensions[i]
 			if windowDim < 1 {
-				return shapes.Invalid(), errors.Errorf("ReduceWindowOp: windowDimensions[%d]=%d must be >= 1 for operand shape %s", i, windowDim, operand)
+				return shapes.Invalid(), errors.Errorf("ReduceWindow: windowDimensions[%d]=%d must be >= 1 for operand shape %s", i, windowDim, operand)
 			}
 		}
 		stride := windowDim
 		if len(strides) > 0 {
 			stride = strides[i]
 			if stride < 1 {
-				return shapes.Invalid(), errors.Errorf("ReduceWindowOp: strides[%d]=%d must be >= 1 for operand shape %s", i, stride, operand)
+				return shapes.Invalid(), errors.Errorf("ReduceWindow: strides[%d]=%d must be >= 1 for operand shape %s", i, stride, operand)
 			}
 		}
 		paddingLow, paddingHigh := 0, 0
@@ -917,7 +917,7 @@ func ReduceWindowOp(operand shapes.Shape, windowDimensions, strides, baseDilatio
 			paddingLow = paddings[i][0]
 			paddingHigh = paddings[i][1]
 			if paddingLow < 0 || paddingHigh < 0 {
-				return shapes.Invalid(), errors.Errorf("ReduceWindowOp: paddings[%d]=[%d, %d] must be non-negative for operand shape %s", i, paddingLow, paddingHigh, operand)
+				return shapes.Invalid(), errors.Errorf("ReduceWindow: paddings[%d]=[%d, %d] must be non-negative for operand shape %s", i, paddingLow, paddingHigh, operand)
 			}
 		}
 
@@ -925,7 +925,7 @@ func ReduceWindowOp(operand shapes.Shape, windowDimensions, strides, baseDilatio
 		if baseDilations != nil {
 			baseDilation = baseDilations[i]
 			if baseDilation < 1 {
-				return shapes.Invalid(), errors.Errorf("ReduceWindowOp: baseDilations[%d]=%d must be >= 1 for operand shape %s", i, baseDilation, operand)
+				return shapes.Invalid(), errors.Errorf("ReduceWindow: baseDilations[%d]=%d must be >= 1 for operand shape %s", i, baseDilation, operand)
 			}
 		}
 
@@ -933,7 +933,7 @@ func ReduceWindowOp(operand shapes.Shape, windowDimensions, strides, baseDilatio
 		if windowDilations != nil {
 			windowDilation = windowDilations[i]
 			if windowDilation < 1 {
-				return shapes.Invalid(), errors.Errorf("ReduceWindowOp: windowDilations[%d]=%d must be >= 1 for operand shape %s", i, windowDilation, operand)
+				return shapes.Invalid(), errors.Errorf("ReduceWindow: windowDilations[%d]=%d must be >= 1 for operand shape %s", i, windowDilation, operand)
 			}
 		}
 
@@ -952,7 +952,7 @@ func ReduceWindowOp(operand shapes.Shape, windowDimensions, strides, baseDilatio
 		// The numerator must be non-negative for the output dimension to be at least 1.
 		if effectiveWindowDim > paddedEffectiveInputDim {
 			return shapes.Invalid(), errors.Errorf(
-				"ReduceWindowOp: effective window dimension %d for axis %d is larger than padded effective input dimension %d. (input_dim: %d, base_dilation: %d, window_dim: %d, window_dilation: %d, padding: [%d,%d]) for operand shape %s",
+				"ReduceWindow: effective window dimension %d for axis %d is larger than padded effective input dimension %d. (input_dim: %d, base_dilation: %d, window_dim: %d, window_dilation: %d, padding: [%d,%d]) for operand shape %s",
 				effectiveWindowDim, i, paddedEffectiveInputDim, inputDim, baseDilation, windowDim, windowDilation, paddingLow, paddingHigh, operand)
 		}
 
@@ -963,14 +963,14 @@ func ReduceWindowOp(operand shapes.Shape, windowDimensions, strides, baseDilatio
 	return shapes.Make(operand.DType, outputDims...), nil
 }
 
-// ConvGeneralOp returns the expected output shape for the ConvGeneral operation.
-func ConvGeneralOp(input, kernel shapes.Shape, axes types.ConvolveAxesConfig,
+// ConvGeneral returns the expected output shape for the ConvGeneral operation.
+func ConvGeneral(input, kernel shapes.Shape, axes types.ConvolveAxesConfig,
 	strides []int, paddings [][2]int,
 	inputDilations, kernelDilations []int,
 	channelGroupCount, batchGroupCount int) (shapes.Shape, error) {
 	// Convenient error returns.
 	errorf := func(format string, args ...any) (shapes.Shape, error) {
-		return shapes.Invalid(), errors.Errorf("ConvGeneralOp:  "+format, args...)
+		return shapes.Invalid(), errors.Errorf("ConvGeneral:  "+format, args...)
 	}
 
 	if !input.Ok() {
@@ -1007,7 +1007,7 @@ func ConvGeneralOp(input, kernel shapes.Shape, axes types.ConvolveAxesConfig,
 	}
 
 	if len(axes.KernelSpatial) != spatialRank {
-		return shapes.Invalid(), errors.Errorf("ConvGeneralOp: axes.KernelSpatial (%v) must provide one value for each spatial axis (%d), kernel shape is %s",
+		return shapes.Invalid(), errors.Errorf("ConvGeneral: axes.KernelSpatial (%v) must provide one value for each spatial axis (%d), kernel shape is %s",
 			axes.InputSpatial, spatialRank, kernel)
 	}
 	kernelAxes := utils.SetWith(axes.KernelInputChannels, axes.KernelOutputChannels)
