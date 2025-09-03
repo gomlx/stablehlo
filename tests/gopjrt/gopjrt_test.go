@@ -548,8 +548,27 @@ func testConstants(t *testing.T, client *pjrt.Client) {
 	t.Run("float64", func(t *testing.T) { testScalar(t, 1.234e-9) })
 	t.Run("int64", func(t *testing.T) { testScalar(t, int64(-3)) })
 	t.Run("uint8", func(t *testing.T) { testScalar(t, uint8(3)) })
-	t.Run("bool", func(t *testing.T) { testScalar(t, true) })
-	t.Run("bool", func(t *testing.T) { testScalar(t, false) })
+	t.Run("bool-true", func(t *testing.T) { testScalar(t, true) })
+	t.Run("bool-false", func(t *testing.T) { testScalar(t, false) })
 	t.Run("complex64", func(t *testing.T) { testScalar(t, complex64(7-3i)) })
 	t.Run("complex128", func(t *testing.T) { testScalar(t, complex64(-7+3i)) })
+
+	testTensor := func(t *testing.T, flat any, dimensions ...int) {
+		builder := stablehlo.New(t.Name())
+		fn := builder.Main()
+		c, err := fn.NewConstantFromFlat(flat, dimensions...)
+		require.NoError(t, err)
+		fn.Return(c)
+		program := must(builder.Build())
+		fmt.Printf("%s program:\n%s", t.Name(), program)
+		output := compileAndExecute(t, client, program)[0]
+		gotFlat, gotDims, err := output.ToFlatDataAndDimensions()
+		require.NoError(t, err)
+		require.Equal(t, dimensions, gotDims)
+		require.Equal(t, flat, gotFlat)
+	}
+
+	t.Run("1D-float32", func(t *testing.T) { testTensor(t, []float32{1, 2, 3, 5, 7}, 5) })
+	t.Run("2D-complex64", func(t *testing.T) { testTensor(t, []complex64{1, 2, 3, 5i, 7i, 11i}, 2, 3) })
+	t.Run("3D-bool", func(t *testing.T) { testTensor(t, []bool{false, true, false, true}, 2, 1, 2) })
 }

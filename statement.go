@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -229,16 +231,65 @@ func podToStableHLO(pod any) string {
 	}
 }
 
-// TensorLiteral represents a literal tensor value, used to define constants.
+// tensorLiteral represents a literal tensor value, used to define constants.
 //
 // It has a different representation than other literals.
-type TensorLiteral struct {
+type tensorLiteral struct {
+	// value is either a scalar value or a flat slice of the values.
 	value any
+
+	// dims has the dimensions of the tensor or nil if the value is a scalar.
+	dims []int
+}
+
+// newTensorLiteral creates a new tensorLiteral that can be used to render constants.
+//
+// Args:
+// - value is either a scalar value or a flat slice of the values.
+// - dims has the dimensions of the tensor or nil if the value is a scalar.
+func newTensorLiteral(value any, dims ...int) tensorLiteral {
+	return tensorLiteral{value: value, dims: dims}
 }
 
 // ToStableHLO returns the string representation of the tensor literal.
-func (t TensorLiteral) ToStableHLO() string {
-	return fmt.Sprintf("dense<%s> : %s",
-		podToStableHLO(t.value),
-		shapes.Make(dtypes.FromAny(t.value)).ToStableHLO())
+func (t tensorLiteral) ToStableHLO() string {
+	valueV := reflect.ValueOf(t.value)
+	var shape shapes.Shape
+	if valueV.Kind() != reflect.Slice {
+		// Scalar value:
+		shape.DType = dtypes.FromGoType(valueV.Type())
+		return fmt.Sprintf("dense<%s> : %s", podToStableHLO(t.value), shape.ToStableHLO())
+	}
+
+	shape.DType = dtypes.FromGoType(valueV.Type().Elem())
+	shape.Dimensions = slices.Clone(t.dims)
+	var flatIdx int
+	var sb strings.Builder
+	recursiveTensorToStableHLO(valueV, shape, flatIdx, 0, &sb)
+	return fmt.Sprintf("dense<%s> : %s", sb.String(), shape.ToStableHLO())
+}
+
+func recursiveTensorToStableHLO(valueV reflect.Value, shape shapes.Shape, flatIdx, axis int, sb *strings.Builder) int {
+	sb.WriteString("[")
+	if axis == shape.Rank()-1 {
+		// Case 1: the last axis we actually print the values.
+		for axisIdx := range shape.Dimensions[axis] {
+			if axisIdx > 0 {
+				sb.WriteString(", ")
+			}
+			sb.WriteString(podToStableHLO(valueV.Index(flatIdx).Interface()))
+			flatIdx++
+		}
+
+	} else {
+		// Case 2: we recursively print the sub-tensors.
+		for axisIdx := range shape.Dimensions[axis] {
+			if axisIdx > 0 {
+				sb.WriteString(", ")
+			}
+			flatIdx = recursiveTensorToStableHLO(valueV, shape, flatIdx, axis+1, sb)
+		}
+	}
+	sb.WriteString("]")
+	return flatIdx
 }

@@ -3,6 +3,7 @@ package stablehlo
 import (
 	"fmt"
 	"io"
+	"reflect"
 
 	"github.com/gomlx/gopjrt/dtypes"
 	"github.com/gomlx/stablehlo/internal/optypes"
@@ -78,7 +79,7 @@ func (fn *Function) NewScalarConstant(value any) (*Value, error) {
 	c := &Statement{
 		OpType: optypes.Constant,
 		Attributes: map[string]any{
-			"value": TensorLiteral{value},
+			"value": newTensorLiteral(value),
 		},
 		Outputs: []*Value{fn.newValue(shape)},
 	}
@@ -86,10 +87,27 @@ func (fn *Function) NewScalarConstant(value any) (*Value, error) {
 	return c.Outputs[0], nil
 }
 
-// NewConstantFromFlat creates a new constant statement from a flat array with the raw values and the dimensions of the shape.
-//func (fn *Function) NewConstantFromFlat(flat any, dimensions ...int) (*Value, error) {
-//
-//}
+// NewConstantFromFlat creates a new constant statement from a flat slice with the raw values and the dimensions of the shape.
+func (fn *Function) NewConstantFromFlat(flat any, dimensions ...int) (*Value, error) {
+	flatV := reflect.ValueOf(flat)
+	dtype := dtypes.FromGoType(flatV.Type().Elem())
+	if dtype == dtypes.INVALID {
+		return nil, errors.Errorf("unsupported constant flat values type %T -- expected a slice of a basic data type", flat)
+	}
+	shape := shapes.Make(dtype, dimensions...)
+	if shape.Size() != flatV.Len() {
+		return nil, errors.Errorf("flat values size %d doesn't match shape size %d (%s)", flatV.Len(), shape.Size(), shape)
+	}
+	c := &Statement{
+		OpType: optypes.Constant,
+		Attributes: map[string]any{
+			"value": newTensorLiteral(flat, dimensions...),
+		},
+		Outputs: []*Value{fn.newValue(shape)},
+	}
+	fn.Statements = append(fn.Statements, c)
+	return c.Outputs[0], nil
+}
 
 // Return adds a return statement to the function with the given return values.
 // There must be at least one return value.
