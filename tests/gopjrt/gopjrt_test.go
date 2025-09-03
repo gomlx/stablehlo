@@ -572,6 +572,7 @@ func testConstants(t *testing.T, client *pjrt.Client) {
 		require.Equal(t, flat, gotFlat)
 	}
 
+	t.Run("0D-int8", func(t *testing.T) { testTensor(t, []int8{-3}) })
 	t.Run("1D-float32", func(t *testing.T) { testTensor(t, []float32{1, 2, 3, 5, 7}, 5) })
 	t.Run("2D-complex64", func(t *testing.T) { testTensor(t, []complex64{1, 2, 3, 5i, 7i, 11i}, 2, 3) })
 	t.Run("3D-bool", func(t *testing.T) { testTensor(t, []bool{false, true, false, true}, 2, 1, 2) })

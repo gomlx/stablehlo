@@ -99,11 +99,14 @@ func (fn *Function) ConstantFromFlatAndDimensions(flat any, dimensions ...int) (
 		return nil, errors.Errorf("flat values size %d doesn't match shape size %d (%s)", flatV.Len(), shape.Size(), shape)
 	}
 	c := &Statement{
-		OpType: optypes.Constant,
-		Attributes: map[string]any{
-			"value": newTensorLiteral(flat, dimensions...),
-		},
-		Outputs: []*Value{fn.newValue(shape)},
+		OpType:     optypes.Constant,
+		Attributes: make(map[string]any, 1),
+		Outputs:    []*Value{fn.newValue(shape)},
+	}
+	if shape.IsScalar() {
+		c.Attributes["value"] = newTensorLiteral(flatV.Index(0).Interface())
+	} else {
+		c.Attributes["value"] = newTensorLiteral(flat, dimensions...)
 	}
 	fn.Statements = append(fn.Statements, c)
 	return c.Outputs[0], nil
@@ -120,7 +123,6 @@ func (fn *Function) Return(firstValue *Value, otherValues ...*Value) {
 	allValues = append(allValues, otherValues...)
 	outputShapes := make([]shapes.Shape, len(allValues))
 	for i, value := range allValues {
-		fmt.Printf("%d: %s\n", i, value.shape)
 		outputShapes[i] = value.shape
 	}
 	fn.Outputs = outputShapes
