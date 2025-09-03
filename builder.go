@@ -21,12 +21,13 @@ type Builder struct {
 
 // New creates a new Builder object holding a computation graph in construction.
 //
-// From a builder you can create functtions.
+// From a builder you can create functions.
 // For each function you create operations (ops) one by one, until you defined the desired computation.
 //
-// You have to define the "main" function for your StableHLO program.
+// You have to define the "main" function for your StableHLO program: you can use Builder.Main to do so, or
+// Builder.NewFunction("main",...), it's the same.
 //
-// Once you are all set, call Build and it will return the StableHLO program as a string, that can
+// Once you are all set, call Builder.Build and it will return the StableHLO program as a []byte that can
 // be used with PJRT.
 //
 // See github.com/gomlx/gopjrt for a Go API to PJRT.
@@ -43,19 +44,45 @@ type elementWriter interface {
 
 // NewFunction creates a new function and adds it to the program.
 // The function outputs will be determined by the last statement in the function body.
+//
+// The function name must be unique in the program.
+//
+// The inputs are the values that the function will receive as arguments.
+// The values are not added to the program, they are just used as inputs.
+//
+// You can also add new inputs later by calling Function.AddInputs.
+//
+// The function body is defined by calling ops on the function object.
+//
+// See Function.
 func (b *Builder) NewFunction(name string, inputs ...*Value) *Function {
 	fn := &Function{
-		Name:   name,
-		Inputs: inputs,
-		values: slices.Clone(inputs),
+		Builder: b,
+		Name:    name,
+		Inputs:  inputs,
+		values:  slices.Clone(inputs),
 	}
 	b.functions = append(b.functions, fn)
 	return fn
 }
 
+const MainFunctionName = "main"
+
+// Main creates the main function of the program.
+// It is an alias to Builder.NewFunction("main", inputs...).
+//
+// The main function is the entry point of the program, and it's the only function that can be called from outside the program.
+//
+// Every program must have a main function.
+//
+// Like with NewFunction, you can add new inputs later by calling Function.AddInputs.
+func (b *Builder) Main(inputs ...*Value) *Function {
+	return b.NewFunction(MainFunctionName, inputs...)
+}
+
 // Write the StableHLO program (a readable string) to the given writer.
 //
-// It will write incomplete programs (without a main function or empty statements) without an error,
+// It will write incomplete programs (without a main function or empty statements) without an error
 // to help debugging.
 //
 // See Builder.Build to check and output the program.
@@ -87,7 +114,7 @@ func (b *Builder) Write(writer io.Writer) error {
 
 // Build checks the validity and builds the StableHLO program.
 //
-// If you want the output of an incomplete program (without the checing), use Builder.Write instead.
+// If you want the output of an incomplete program (without the checking), use Builder.Write instead.
 func (b *Builder) Build() ([]byte, error) {
 	hasMain := false
 	for _, fn := range b.functions {

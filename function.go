@@ -12,6 +12,8 @@ import (
 
 // Function represents a `func.func` in ToStableHLO.
 type Function struct {
+	Builder *Builder
+
 	// Name of the function. It should not include the "@" prefix.
 	Name string
 

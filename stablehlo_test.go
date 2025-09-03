@@ -20,7 +20,7 @@ func must[T any](value T, err error) T {
 func TestBuilder(t *testing.T) {
 	t.Run("no inputs", func(t *testing.T) {
 		b := New(t.Name())
-		fn := b.NewFunction("main")
+		fn := b.Main()
 		c1 := must(fn.NewConstant(1.0))
 		c2 := must(fn.NewConstant(2.0))
 		sum := must(fn.Add(c1, c2))
@@ -44,7 +44,7 @@ func TestBuilder(t *testing.T) {
 		builder := New(t.Name())
 		shape := shapes.Make(dtypes.Float64)
 		lhs, rhs := NamedValue("lhs", shape), NamedValue("rhs", shape)
-		fn := builder.NewFunction("main", lhs, rhs)
+		fn := builder.Main(lhs, rhs)
 		sum := must(fn.Add(lhs, rhs))
 		fn.Return(sum)
 		program := string(must(builder.Build()))
