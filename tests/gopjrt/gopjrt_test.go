@@ -120,8 +120,8 @@ func testUniqueOps(t *testing.T, client *pjrt.Client) {
 	t.Run("Constant", func(t *testing.T) {
 		b := stablehlo.New(t.Name())
 		fn := b.NewFunction("main")
-		c1 := must(fn.NewScalarConstant(1.0))
-		c2 := must(fn.NewScalarConstant(2.0))
+		c1 := must(fn.ConstantFromScalar(1.0))
+		c2 := must(fn.ConstantFromScalar(2.0))
 		sum := must(fn.Add(c1, c2))
 		fn.Return(sum)
 		program := must(b.Build())
@@ -208,7 +208,7 @@ func testUniqueOps(t *testing.T, client *pjrt.Client) {
 	t.Run("BroadcastInDim<scalar>", func(t *testing.T) {
 		builder := stablehlo.New(t.Name())
 		fn := builder.NewFunction("main")
-		x := must(fn.NewScalarConstant(float32(7.0)))
+		x := must(fn.ConstantFromScalar(float32(7.0)))
 		y := must(fn.BroadcastInDim(x, S.Make(D.F32, 3), nil))
 		fn.Return(y)
 		program := must(builder.Build())
@@ -531,7 +531,7 @@ func testConstants(t *testing.T, client *pjrt.Client) {
 	testScalar := func(t *testing.T, scalar any) {
 		builder := stablehlo.New(t.Name())
 		fn := builder.Main()
-		c, err := fn.NewScalarConstant(scalar)
+		c, err := fn.ConstantFromScalar(scalar)
 		require.NoError(t, err)
 		fn.Return(c)
 		program := must(builder.Build())
@@ -556,7 +556,7 @@ func testConstants(t *testing.T, client *pjrt.Client) {
 	testTensor := func(t *testing.T, flat any, dimensions ...int) {
 		builder := stablehlo.New(t.Name())
 		fn := builder.Main()
-		c, err := fn.NewConstantFromFlatAndDimensions(flat, dimensions...)
+		c, err := fn.ConstantFromFlatAndDimensions(flat, dimensions...)
 		require.NoError(t, err)
 		fn.Return(c)
 		program := must(builder.Build())

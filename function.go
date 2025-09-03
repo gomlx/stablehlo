@@ -68,8 +68,8 @@ func (fn *Function) NewNamedInput(name string, shape shapes.Shape) *Value {
 	return value
 }
 
-// NewScalarConstant creates a new constant statement and returns the resulting value.
-func (fn *Function) NewScalarConstant(value any) (*Value, error) {
+// ConstantFromScalar creates a new constant statement and returns the resulting value.
+func (fn *Function) ConstantFromScalar(value any) (*Value, error) {
 	// The shape of the constant is inferred from the value.
 	dtype := dtypes.FromAny(value)
 	if dtype == dtypes.INVALID {
@@ -87,8 +87,8 @@ func (fn *Function) NewScalarConstant(value any) (*Value, error) {
 	return c.Outputs[0], nil
 }
 
-// NewConstantFromFlatAndDimensions creates a new constant statement from a flat slice with the raw values and the dimensions of the shape.
-func (fn *Function) NewConstantFromFlatAndDimensions(flat any, dimensions ...int) (*Value, error) {
+// ConstantFromFlatAndDimensions creates a new constant statement from a flat slice with the raw values and the dimensions of the shape.
+func (fn *Function) ConstantFromFlatAndDimensions(flat any, dimensions ...int) (*Value, error) {
 	flatV := reflect.ValueOf(flat)
 	dtype := dtypes.FromGoType(flatV.Type().Elem())
 	if dtype == dtypes.INVALID {

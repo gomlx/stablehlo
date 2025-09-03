@@ -21,8 +21,8 @@ func TestBuilder(t *testing.T) {
 	t.Run("no inputs", func(t *testing.T) {
 		b := New(t.Name())
 		fn := b.Main()
-		c1 := must(fn.NewScalarConstant(1.0))
-		c2 := must(fn.NewScalarConstant(2.0))
+		c1 := must(fn.ConstantFromScalar(1.0))
+		c2 := must(fn.ConstantFromScalar(2.0))
 		sum := must(fn.Add(c1, c2))
 		fn.Return(sum)
 		program := string(must(b.Build()))
@@ -67,7 +67,7 @@ func TestBuilder_Errors(t *testing.T) {
 	t.Run("no main", func(t *testing.T) {
 		b := New("test_program")
 		fn := b.NewFunction("not_main", nil)
-		c1 := must(fn.NewScalarConstant(1.0))
+		c1 := must(fn.ConstantFromScalar(1.0))
 		fn.Return(c1)
 		_, err := b.Build()
 		require.Error(t, err)
