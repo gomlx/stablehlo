@@ -50,7 +50,7 @@ type elementWriter interface {
 // The inputs are the values that the function will receive as arguments.
 // The values are not added to the program, they are just used as inputs.
 //
-// You can also add new inputs later by calling Function.AddInputs.
+// You can also add new inputs later by calling Function.NewInput.
 //
 // The function body is defined by calling ops on the function object.
 //
@@ -75,7 +75,7 @@ const MainFunctionName = "main"
 //
 // Every program must have a main function.
 //
-// Like with NewFunction, you can add new inputs later by calling Function.AddInputs.
+// Like with NewFunction, you can add new inputs later by calling Function.NewInput.
 func (b *Builder) Main(inputs ...*Value) *Function {
 	return b.NewFunction(MainFunctionName, inputs...)
 }

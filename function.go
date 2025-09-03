@@ -44,6 +44,29 @@ func (fn *Function) newValue(shape shapes.Shape) *Value {
 	return v
 }
 
+// NewInput creates a new input parameter for a function.
+// The order matter, since during execution of a compiled function,
+// the input parameters must be given in the same order they were created.
+//
+// These add to the inputs already created during the function creation.
+//
+// It picks a default unique name for the input parameter, you can also
+// provide a name with NewNamedInput.
+func (fn *Function) NewInput(shape shapes.Shape) *Value {
+	return fn.NewNamedInput(fmt.Sprintf("input_%d", len(fn.Inputs)), shape)
+}
+
+// NewNamedInput creates a new input parameter for a function with the given name -- it
+// must be a unique input name.
+//
+// Names are used in the StableHLO code and may be helpful for debugging, but
+// otherwise have no impact.
+func (fn *Function) NewNamedInput(name string, shape shapes.Shape) *Value {
+	value := NamedValue(name, shape)
+	fn.Inputs = append(fn.Inputs, value)
+	return value
+}
+
 // NewConstant creates a new constant statement and returns the resulting value.
 func (fn *Function) NewConstant(value any) (*Value, error) {
 	// The shape of the constant is inferred from the value.
@@ -65,6 +88,9 @@ func (fn *Function) NewConstant(value any) (*Value, error) {
 
 // Return adds a return statement to the function with the given return values.
 // There must be at least one return value.
+//
+// There can be only one return statement from a Function, and it must be the last
+// operation of a function.
 func (fn *Function) Return(firstValue *Value, otherValues ...*Value) {
 	allValues := make([]*Value, 1, len(otherValues)+1)
 	allValues[0] = firstValue

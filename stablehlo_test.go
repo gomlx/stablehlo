@@ -43,8 +43,10 @@ func TestBuilder(t *testing.T) {
 	t.Run("with inputs", func(t *testing.T) {
 		builder := New(t.Name())
 		shape := shapes.Make(dtypes.Float64)
-		lhs, rhs := NamedValue("lhs", shape), NamedValue("rhs", shape)
-		fn := builder.Main(lhs, rhs)
+		// lhs is provided during the Main function creation, and rhs is added later.
+		lhs := NamedValue("lhs", shape)
+		fn := builder.Main(lhs)
+		rhs := fn.NewNamedInput("rhs", shape)
 		sum := must(fn.Add(lhs, rhs))
 		fn.Return(sum)
 		program := string(must(builder.Build()))
