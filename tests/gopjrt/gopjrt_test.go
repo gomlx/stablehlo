@@ -117,17 +117,21 @@ func TestUniqueOps(t *testing.T) {
 }
 
 func testUniqueOps(t *testing.T, client *pjrt.Client) {
-	t.Run("Constant", func(t *testing.T) {
+	t.Run("Return-multi-output", func(t *testing.T) {
 		b := stablehlo.New(t.Name())
 		fn := b.NewFunction("main")
 		c1 := must(fn.ConstantFromScalar(1.0))
 		c2 := must(fn.ConstantFromScalar(2.0))
 		sum := must(fn.Add(c1, c2))
-		fn.Return(sum)
+		fn.Return(c1, c2, sum)
 		program := must(b.Build())
 		fmt.Printf("%s program:\n%s", t.Name(), program)
 		output := compileAndExecute(t, client, program)
-		requireBuffersEqual(t, []FlatAndDims{{[]float64{3}, nil}}, output)
+		requireBuffersEqual(t, []FlatAndDims{
+			{[]float64{1}, nil},
+			{[]float64{2}, nil},
+			{[]float64{3}, nil},
+		}, output)
 	})
 
 	t.Run("Complex", func(t *testing.T) {
