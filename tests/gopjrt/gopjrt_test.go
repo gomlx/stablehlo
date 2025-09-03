@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"iter"
 	"math"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -119,8 +120,8 @@ func testUniqueOps(t *testing.T, client *pjrt.Client) {
 	t.Run("Constant", func(t *testing.T) {
 		b := stablehlo.New(t.Name())
 		fn := b.NewFunction("main")
-		c1 := must(fn.NewConstant(1.0))
-		c2 := must(fn.NewConstant(2.0))
+		c1 := must(fn.NewScalarConstant(1.0))
+		c2 := must(fn.NewScalarConstant(2.0))
 		sum := must(fn.Add(c1, c2))
 		fn.Return(sum)
 		program := must(b.Build())
@@ -207,7 +208,7 @@ func testUniqueOps(t *testing.T, client *pjrt.Client) {
 	t.Run("BroadcastInDim<scalar>", func(t *testing.T) {
 		builder := stablehlo.New(t.Name())
 		fn := builder.NewFunction("main")
-		x := must(fn.NewConstant(float32(7.0)))
+		x := must(fn.NewScalarConstant(float32(7.0)))
 		y := must(fn.BroadcastInDim(x, S.Make(D.F32, 3), nil))
 		fn.Return(y)
 		program := must(builder.Build())
@@ -516,4 +517,39 @@ func testUnaryOps(t *testing.T, client *pjrt.Client) {
 	t.Run("Imag_Complex128", func(t *testing.T) {
 		testUnaryOp(t, "Imag", (*stablehlo.Function).Imag, D.Complex128, []complex128{complex(3.0, 4.0)}, []float64{4.0})
 	})
+}
+
+func TestConstants(t *testing.T) {
+	for pluginName, client := range pjrtClientsIterator(t) {
+		t.Run(pluginName, func(t *testing.T) {
+			testConstants(t, client)
+		})
+	}
+}
+
+func testConstants(t *testing.T, client *pjrt.Client) {
+	testScalar := func(t *testing.T, scalar any) {
+		builder := stablehlo.New(t.Name())
+		fn := builder.Main()
+		c, err := fn.NewScalarConstant(scalar)
+		require.NoError(t, err)
+		fn.Return(c)
+		program := must(builder.Build())
+		fmt.Printf("%s program:\n%s", t.Name(), program)
+		output := compileAndExecute(t, client, program)[0]
+		gotFlat, gotDim, err := output.ToFlatDataAndDimensions()
+		require.NoError(t, err)
+		require.Len(t, gotDim, 0)
+		gotScalar := reflect.ValueOf(gotFlat).Index(0).Interface()
+		require.Equal(t, scalar, gotScalar)
+	}
+
+	t.Run("float32", func(t *testing.T) { testScalar(t, float32(3.0)) })
+	t.Run("float64", func(t *testing.T) { testScalar(t, 1.234e-9) })
+	t.Run("int64", func(t *testing.T) { testScalar(t, int64(-3)) })
+	t.Run("uint8", func(t *testing.T) { testScalar(t, uint8(3)) })
+	t.Run("bool", func(t *testing.T) { testScalar(t, true) })
+	t.Run("bool", func(t *testing.T) { testScalar(t, false) })
+	t.Run("complex64", func(t *testing.T) { testScalar(t, complex64(7-3i)) })
+	t.Run("complex128", func(t *testing.T) { testScalar(t, complex64(-7+3i)) })
 }

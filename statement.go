@@ -143,28 +143,11 @@ func literalToStableHLO(attr any) string {
 	switch v := attr.(type) {
 	case string:
 		return fmt.Sprintf("%q", v)
-	case float32, float64:
-		var f float64
-		if f32, ok := v.(float32); ok {
-			f = float64(f32)
-		} else {
-			f = v.(float64)
-		}
-		shape := shapes.Make(dtypes.FromAny(v))
-		format := "dense<%g> : %s"
-		if f == math.Trunc(f) {
-			// f is an integer, make sure we add a decimal point.
-			format = "dense<%.1f> : %s"
-		}
-		return fmt.Sprintf(format, v, shape.ToStableHLO())
-	case int, int8, int16, int32, int64, uint8, uint16, uint32, uint64:
+	case bool, float32, float64, int, int8, int16, int32, int64, uint8, uint16, uint32, uint64:
 		dtype := dtypes.FromAny(v)
-		return fmt.Sprintf("%d : %s", v, utils.DTypeToStableHLO(dtype))
-	case bool:
-		if v {
-			return "true"
-		}
-		return "false"
+		return fmt.Sprintf("%s : %s",
+			podToStableHLO(v),
+			utils.DTypeToStableHLO(dtype))
 
 	case hasToStableHLO:
 		// For types that implement their own conversion to stablehlo, use that.
@@ -197,4 +180,65 @@ func intSliceToArrayI64StableHLO(ints []int) literalStr {
 	}
 	sb.WriteString(">")
 	return literalStr(sb.String())
+}
+
+// floatToStableHLO converts a float to a string. f must be a float32 or float64.
+func floatToStableHLO(fAny any) string {
+	var f float64
+	if f32, ok := fAny.(float32); ok {
+		f = float64(f32)
+	} else {
+		f = fAny.(float64)
+	}
+	format := "%g"
+	if f == math.Trunc(f) {
+		// f is an integer, make sure we add a decimal point.
+		format = "%.1f"
+	}
+	return fmt.Sprintf(format, f)
+}
+
+// podToStableHLO convert a POD (plain-old-data) value (scalar floats, ints, bool and complex) to a stableHLO string,
+// with no types attached.
+func podToStableHLO(pod any) string {
+	switch v := pod.(type) {
+	case float32, float64:
+		return floatToStableHLO(v)
+
+	case int, int8, int16, int32, int64, uint8, uint16, uint32, uint64:
+		return fmt.Sprintf("%d", v)
+
+	case bool:
+		if v {
+			return "true"
+		}
+		return "false"
+
+	case complex64, complex128:
+		var c complex128
+		if c64, ok := v.(complex64); ok {
+			c = complex128(c64)
+		} else {
+			c = v.(complex128)
+		}
+		return fmt.Sprintf("(%s, %s)",
+			floatToStableHLO(real(c)), floatToStableHLO(imag(c)))
+
+	default:
+		return fmt.Sprintf("*don't know how to present data type*: %t %#v", v, v)
+	}
+}
+
+// TensorLiteral represents a literal tensor value, used to define constants.
+//
+// It has a different representation than other literals.
+type TensorLiteral struct {
+	value any
+}
+
+// ToStableHLO returns the string representation of the tensor literal.
+func (t TensorLiteral) ToStableHLO() string {
+	return fmt.Sprintf("dense<%s> : %s",
+		podToStableHLO(t.value),
+		shapes.Make(dtypes.FromAny(t.value)).ToStableHLO())
 }

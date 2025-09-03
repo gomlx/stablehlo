@@ -67,8 +67,8 @@ func (fn *Function) NewNamedInput(name string, shape shapes.Shape) *Value {
 	return value
 }
 
-// NewConstant creates a new constant statement and returns the resulting value.
-func (fn *Function) NewConstant(value any) (*Value, error) {
+// NewScalarConstant creates a new constant statement and returns the resulting value.
+func (fn *Function) NewScalarConstant(value any) (*Value, error) {
 	// The shape of the constant is inferred from the value.
 	dtype := dtypes.FromAny(value)
 	if dtype == dtypes.INVALID {
@@ -78,13 +78,18 @@ func (fn *Function) NewConstant(value any) (*Value, error) {
 	c := &Statement{
 		OpType: optypes.Constant,
 		Attributes: map[string]any{
-			"value": value,
+			"value": TensorLiteral{value},
 		},
 		Outputs: []*Value{fn.newValue(shape)},
 	}
 	fn.Statements = append(fn.Statements, c)
 	return c.Outputs[0], nil
 }
+
+// NewConstantFromFlat creates a new constant statement from a flat array with the raw values and the dimensions of the shape.
+//func (fn *Function) NewConstantFromFlat(flat any, dimensions ...int) (*Value, error) {
+//
+//}
 
 // Return adds a return statement to the function with the given return values.
 // There must be at least one return value.

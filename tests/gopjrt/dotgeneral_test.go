@@ -39,7 +39,7 @@ func testDotGeneral(t *testing.T, client *pjrt.Client) {
 	t.Run("BatchContractingCross", func(t *testing.T) {
 		builder := stablehlo.New(t.Name())
 		fn := builder.NewFunction("main")
-		one := must(fn.NewConstant(float32(1)))
+		one := must(fn.NewScalarConstant(float32(1)))
 		lhs := must(fn.Iota(S.Make(D.F32, 2*3*1*5), 0))
 		lhs = must(fn.Add(lhs, must(fn.BroadcastInDim(one, lhs.Shape(), nil))))
 		lhs = must(fn.Reshape(lhs, S.Make(D.F32, 2, 3, 1, 5)))
@@ -57,7 +57,7 @@ func testDotGeneral(t *testing.T, client *pjrt.Client) {
 	t.Run("BatchContractingCross(f32)", func(t *testing.T) {
 		builder := stablehlo.New(t.Name())
 		fn := builder.NewFunction("main")
-		one := must(fn.NewConstant(float32(1)))
+		one := must(fn.NewScalarConstant(float32(1)))
 		lhs := must(fn.Iota(S.Make(D.F32, 2*3*1*5), 0))
 		lhs = must(fn.Add(lhs, must(fn.BroadcastInDim(one, lhs.Shape(), nil))))
 		lhs = must(fn.Reshape(lhs, S.Make(D.F32, 2, 3, 1, 5)))
@@ -86,7 +86,7 @@ func testDotGeneral(t *testing.T, client *pjrt.Client) {
 		t.Run("BatchContractingCross(tf32)", func(t *testing.T) {
 			builder := stablehlo.New(t.Name())
 			fn := builder.NewFunction("main")
-			one := must(fn.NewConstant(float32(1)))
+			one := must(fn.NewScalarConstant(float32(1)))
 			lhs := must(fn.Iota(S.Make(D.F32, 2*3*1*5), 0))
 			lhs = must(fn.Add(lhs, must(fn.BroadcastInDim(one, lhs.Shape(), nil))))
 			lhs = must(fn.Reshape(lhs, S.Make(D.F32, 2, 3, 1, 5)))
