@@ -556,7 +556,7 @@ func testConstants(t *testing.T, client *pjrt.Client) {
 	testTensor := func(t *testing.T, flat any, dimensions ...int) {
 		builder := stablehlo.New(t.Name())
 		fn := builder.Main()
-		c, err := fn.NewConstantFromFlat(flat, dimensions...)
+		c, err := fn.NewConstantFromFlatAndDimensions(flat, dimensions...)
 		require.NoError(t, err)
 		fn.Return(c)
 		program := must(builder.Build())

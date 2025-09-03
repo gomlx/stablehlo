@@ -87,8 +87,8 @@ func (fn *Function) NewScalarConstant(value any) (*Value, error) {
 	return c.Outputs[0], nil
 }
 
-// NewConstantFromFlat creates a new constant statement from a flat slice with the raw values and the dimensions of the shape.
-func (fn *Function) NewConstantFromFlat(flat any, dimensions ...int) (*Value, error) {
+// NewConstantFromFlatAndDimensions creates a new constant statement from a flat slice with the raw values and the dimensions of the shape.
+func (fn *Function) NewConstantFromFlatAndDimensions(flat any, dimensions ...int) (*Value, error) {
 	flatV := reflect.ValueOf(flat)
 	dtype := dtypes.FromGoType(flatV.Type().Elem())
 	if dtype == dtypes.INVALID {
