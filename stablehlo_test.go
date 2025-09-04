@@ -74,3 +74,17 @@ func TestBuilder_Errors(t *testing.T) {
 		assert.Contains(t, err.Error(), "program must have a main function")
 	})
 }
+
+func TestNormalizeIdentifier(t *testing.T) {
+	testCases := []struct {
+		input, want string
+	}{
+		{"abc123", "abc123"},
+		{"arg#2", "arg_2"},
+		{"0abc", "_0abc"},
+	}
+	for _, tc := range testCases {
+		got := NormalizeIdentifier(tc.input)
+		assert.Equal(t, tc.want, got)
+	}
+}
