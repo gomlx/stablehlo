@@ -138,7 +138,7 @@ func testUniqueOps(t *testing.T, client *pjrt.Client) {
 		builder := stablehlo.New(t.Name())
 		shape := S.Make(D.Float64)
 		lhsV, rhsV := stablehlo.NamedValue("lhs", shape), stablehlo.NamedValue("rhs", shape)
-		fn := builder.NewFunction("main", lhsV, rhsV)
+		fn := builder.Main(lhsV, rhsV)
 		fn.Return(must(fn.Complex(lhsV, rhsV)))
 		program := must(builder.Build())
 		fmt.Printf("%s program:\n%s", t.Name(), program)
@@ -152,7 +152,7 @@ func testUniqueOps(t *testing.T, client *pjrt.Client) {
 		builder := stablehlo.New(t.Name())
 		minV, maxV := stablehlo.NamedValue("min", S.Make(D.Float32)), stablehlo.NamedValue("max", S.Make(D.Float32))
 		xV := stablehlo.NamedValue("x", S.Make(D.Float32, 3))
-		fn := builder.NewFunction("main", minV, xV, maxV)
+		fn := builder.Main(minV, xV, maxV)
 		fn.Return(must(fn.Clamp(minV, xV, maxV)))
 		program := must(builder.Build())
 		fmt.Printf("%s program:\n%s", t.Name(), program)
@@ -165,7 +165,7 @@ func testUniqueOps(t *testing.T, client *pjrt.Client) {
 
 	t.Run("Iota", func(t *testing.T) {
 		builder := stablehlo.New(t.Name())
-		fn := builder.NewFunction("main")
+		fn := builder.Main()
 		fn.Return(
 			must(fn.Iota(S.Make(D.F32, 2, 2), 0)),
 			must(fn.Iota(S.Make(D.F32, 2, 2), 1)),
@@ -181,9 +181,25 @@ func testUniqueOps(t *testing.T, client *pjrt.Client) {
 		}, outputs)
 	})
 
+	t.Run("IsFinite", func(t *testing.T) {
+		builder := stablehlo.New(t.Name())
+		fn := builder.Main()
+		input := fn.NewNamedInput("x", S.Make(D.F64, 6))
+		fn.Return(
+			must(fn.IsFinite(input)),
+		)
+		program := must(builder.Build())
+		fmt.Printf("%s program:\n%s", t.Name(), program)
+		v := must(client.BufferFromHost().FromFlatDataWithDimensions([]float64{0, -1, 1, math.Inf(1), math.Inf(-1), math.NaN()}, []int{6}).Done())
+		outputs := compileAndExecute(t, client, program, v)
+		requireBuffersEqual(t, []FlatAndDims{
+			{[]bool{true, true, true, false, false, false}, []int{6}},
+		}, outputs)
+	})
+
 	t.Run("Reshape", func(t *testing.T) {
 		builder := stablehlo.New(t.Name())
-		fn := builder.NewFunction("main")
+		fn := builder.Main()
 		x := must(fn.Iota(S.Make(D.F32, 3, 2), 0))
 		y := must(fn.Reshape(x, S.Make(D.F32, 2, 3)))
 		fn.Return(y)
@@ -197,7 +213,7 @@ func testUniqueOps(t *testing.T, client *pjrt.Client) {
 
 	t.Run("BroadcastInDim", func(t *testing.T) {
 		builder := stablehlo.New(t.Name())
-		fn := builder.NewFunction("main")
+		fn := builder.Main()
 		x := must(fn.Iota(S.Make(D.F32, 3), 0))
 		y := must(fn.BroadcastInDim(x, S.Make(D.F32, 2, 3), []int{1}))
 		fn.Return(y)
@@ -211,7 +227,7 @@ func testUniqueOps(t *testing.T, client *pjrt.Client) {
 
 	t.Run("BroadcastInDim<scalar>", func(t *testing.T) {
 		builder := stablehlo.New(t.Name())
-		fn := builder.NewFunction("main")
+		fn := builder.Main()
 		x := must(fn.ConstantFromScalar(float32(7.0)))
 		y := must(fn.BroadcastInDim(x, S.Make(D.F32, 3), nil))
 		fn.Return(y)
@@ -240,7 +256,7 @@ func testBinaryOps(t *testing.T, client *pjrt.Client) {
 		builder := stablehlo.New(t.Name())
 		shape := S.Make(dtype)
 		lhsV, rhsV := stablehlo.NamedValue("lhs", shape), stablehlo.NamedValue("rhs", shape)
-		fn := builder.NewFunction("main", lhsV, rhsV)
+		fn := builder.Main(lhsV, rhsV)
 		result := must(op(fn, lhsV, rhsV))
 		fn.Return(result)
 		program := must(builder.Build())
@@ -340,7 +356,7 @@ func testCompare(t *testing.T, client *pjrt.Client) {
 		builder := stablehlo.New(t.Name())
 		shape := S.Make(dtype)
 		lhsV, rhsV := stablehlo.NamedValue("lhs", shape), stablehlo.NamedValue("rhs", shape)
-		fn := builder.NewFunction("main", lhsV, rhsV)
+		fn := builder.Main(lhsV, rhsV)
 		result := must(fn.Compare(lhsV, rhsV, direction, compareType))
 		fn.Return(result)
 		program := must(builder.Build())
@@ -399,7 +415,7 @@ func testUnaryOps(t *testing.T, client *pjrt.Client) {
 		builder := stablehlo.New(t.Name())
 		shape := S.Make(dtype)
 		inputV := stablehlo.NamedValue("input", shape)
-		fn := builder.NewFunction("main", inputV)
+		fn := builder.Main(inputV)
 		result := must(op(fn, inputV))
 		fn.Return(result)
 		program := must(builder.Build())

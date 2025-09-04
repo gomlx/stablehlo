@@ -1302,3 +1302,14 @@ func dotGeneralFindSizes(shape shapes.Shape, contractingAxes, batchAxes []int) (
 	}
 	return
 }
+
+func IsFinite(operand shapes.Shape) (output shapes.Shape, err error) {
+	dtype := operand.DType
+	if !dtype.IsFloat() {
+		err = errors.Errorf("IsFinite: operand data type %s is a floating point type", dtype)
+		return
+	}
+	output = operand.Clone()
+	output.DType = dtypes.Bool
+	return
+}

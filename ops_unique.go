@@ -56,6 +56,18 @@ func (fn *Function) Imag(complex *Value) (*Value, error) {
 	return fn.addOp(op, outputShape, complex).Outputs[0], nil
 }
 
+// IsFinite tests whether each element of operand is finite, i.e., is not positive or negative infinity, and is not NaN.
+// It returns an array of boolean values with the same shape as the input, where each element is true if and only if
+// the corresponding input element is finite.
+func (fn *Function) IsFinite(x *Value) (*Value, error) {
+	op := optypes.IsFinite
+	outputShape, err := shapeinference.IsFinite(x.shape)
+	if err != nil {
+		return nil, err
+	}
+	return fn.addOp(op, outputShape, x).Outputs[0], nil
+}
+
 // Clamp returns the minimum(maximum(x, min), max).
 //
 // The values max and min can either be a scalar or have the same shape as x.

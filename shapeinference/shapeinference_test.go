@@ -411,6 +411,21 @@ func TestArgMinMax(t *testing.T) {
 	}, "Error Case 3 Failed: Negative axis")
 }
 
+func TestIsFinite(t *testing.T) {
+	// Positive case: float64 tensor.
+	f64Shape := S(dtypes.Float64, 2, 3)
+	output, err := IsFinite(f64Shape)
+	require.NoError(t, err)
+	expected := S(Bool, 2, 3)
+	require.True(t, expected.Equal(output))
+
+	// Check non-float type.
+	_, err = IsFinite(S(Bool))
+	require.Error(t, err)
+	_, err = IsFinite(S(I32))
+	require.Error(t, err)
+}
+
 func TestReduceWindow(t *testing.T) {
 	type testCase struct {
 		name                 string

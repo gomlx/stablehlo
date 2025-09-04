@@ -37,6 +37,7 @@ const (
 	ExponentialMinusOne
 	Floor
 	Imag
+	IsFinite
 	Iota
 	Log
 	LogPlusOne
@@ -95,7 +96,6 @@ const (
 	GetTupleElement
 	If
 	Infeed
-	IsFinite
 	OptimizationBarrier
 	Outfeed
 	Pad
