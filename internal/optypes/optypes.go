@@ -68,8 +68,6 @@ const (
 	Xor
 
 	// Here the ones not implemented yet:
-
-	ArgMinMax
 	BatchNormForInference
 	BatchNormForTraining
 	BatchNormGradient
