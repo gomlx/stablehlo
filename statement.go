@@ -135,6 +135,11 @@ type hasToStableHLO interface {
 // literalStr represents a value already rendered in StableHLO format.
 type literalStr string
 
+// literalStrF format the string into a literalStr.
+func literalStrF(format string, args ...any) literalStr {
+	return literalStr(fmt.Sprintf(format, args...))
+}
+
 // ToStableHLO returns the string representation of the literal.
 func (str literalStr) ToStableHLO() string {
 	return string(str)
@@ -145,11 +150,14 @@ func literalToStableHLO(attr any) string {
 	switch v := attr.(type) {
 	case string:
 		return fmt.Sprintf("%q", v)
-	case bool, float32, float64, int, int8, int16, int32, int64, uint8, uint16, uint32, uint64:
+	case float32, float64, int, int8, int16, int32, int64, uint8, uint16, uint32, uint64:
 		dtype := dtypes.FromAny(v)
 		return fmt.Sprintf("%s : %s",
 			podToStableHLO(v),
 			utils.DTypeToStableHLO(dtype))
+
+	case bool:
+		return fmt.Sprintf("%s", podToStableHLO(v))
 
 	case hasToStableHLO:
 		// For types that implement their own conversion to stablehlo, use that.

@@ -107,45 +107,82 @@ func TestUnaryOp(t *testing.T) {
 }
 
 func TestGather(t *testing.T) {
-	// Test 1:
-	operand := S(F32, 4, 3, 2, 2)
-	startIndices := S(I8, 3, 3, 2)
-	indexVectorAxis := 1
-	offsetOutputAxes := []int{0, 3}
-	collapsedSliceAxes := []int{0, 2}
-	startIndexMap := []int{0, 2, 3}
-	sliceSizes := []int{1, 3, 1, 1}
-	output, err := Gather(operand, startIndices, indexVectorAxis,
-		offsetOutputAxes, collapsedSliceAxes, startIndexMap, sliceSizes, false)
-	require.NoError(t, err)
-	fmt.Printf("\tTest 1: outputShape=%s\n", output)
-	require.NoError(t, output.Check(F32, 3, 3, 2, 1))
+	t.Run("1", func(t *testing.T) {
+		operand := S(F32, 4, 3, 2, 2)
+		startIndices := S(I8, 3, 3, 2)
+		indexVectorAxis := 1
+		offsetOutputAxes := []int{0, 3}
+		collapsedSliceAxes := []int{0, 2}
+		operandBatchingAxes := []int{}
+		startIndicesBatchingAxes := []int{}
+		startIndexMap := []int{0, 2, 3}
+		sliceSizes := []int{1, 3, 1, 1}
+		output, err := Gather(operand, startIndices, indexVectorAxis,
+			offsetOutputAxes, collapsedSliceAxes, operandBatchingAxes,
+			startIndicesBatchingAxes, startIndexMap,
+			sliceSizes, false)
+		require.NoError(t, err)
+		fmt.Printf("\tTest 1: outputShape=%s\n", output)
+		require.NoError(t, output.Check(F32, 3, 3, 2, 1))
+	})
 
-	// Test 2:
-	operand = S(F32, 3, 4, 5, 6)
-	startIndices = S(U64, 7, 3, 8)
-	indexVectorAxis = 1
-	offsetOutputAxes = []int{1, 2}
-	collapsedSliceAxes = []int{1, 2}
-	startIndexMap = []int{1, 2, 3}
-	sliceSizes = []int{3, 1, 1, 1}
-	output, err = Gather(operand, startIndices, indexVectorAxis, offsetOutputAxes, collapsedSliceAxes, startIndexMap, sliceSizes, true)
-	require.NoError(t, err)
-	fmt.Printf("\tTest 2: outputShape=%s\n", output)
-	require.NoError(t, output.Check(F32, 7, 3, 1, 8))
+	t.Run("2", func(t *testing.T) {
+		operand := S(F32, 3, 4, 5, 6)
+		startIndices := S(U64, 7, 3, 8)
+		indexVectorAxis := 1
+		offsetOutputAxes := []int{1, 2}
+		collapsedSliceAxes := []int{1, 2}
+		operandBatchingAxes := []int{}
+		startIndicesBatchingAxes := []int{}
+		startIndexMap := []int{1, 2, 3}
+		sliceSizes := []int{3, 1, 1, 1}
+		output, err := Gather(operand, startIndices, indexVectorAxis,
+			offsetOutputAxes, collapsedSliceAxes, operandBatchingAxes,
+			startIndicesBatchingAxes, startIndexMap,
+			sliceSizes, false)
+		require.NoError(t, err)
+		fmt.Printf("\tTest 2: outputShape=%s\n", output)
+		require.NoError(t, output.Check(F32, 7, 3, 1, 8))
+	})
 
-	// Test 3:
-	operand = S(F32, 8, 16)
-	startIndices = S(U64, 8, 1)
-	indexVectorAxis = 1
-	offsetOutputAxes = []int{1}
-	collapsedSliceAxes = []int{0}
-	startIndexMap = []int{0}
-	sliceSizes = []int{1, 16}
-	output, err = Gather(operand, startIndices, indexVectorAxis, offsetOutputAxes, collapsedSliceAxes, startIndexMap, sliceSizes, true)
-	require.NoError(t, err)
-	fmt.Printf("\tTest 3: outputShape=%s\n", output)
-	require.NoError(t, output.Check(F32, 8, 16))
+	t.Run("3", func(t *testing.T) {
+		operand := S(F32, 8, 16)
+		startIndices := S(U64, 8, 1)
+		indexVectorAxis := 1
+		offsetOutputAxes := []int{1}
+		collapsedSliceAxes := []int{0}
+		operandBatchingAxes := []int{}
+		startIndicesBatchingAxes := []int{}
+		startIndexMap := []int{0}
+		sliceSizes := []int{1, 16}
+		output, err := Gather(operand, startIndices, indexVectorAxis,
+			offsetOutputAxes, collapsedSliceAxes, operandBatchingAxes,
+			startIndicesBatchingAxes, startIndexMap,
+			sliceSizes, false)
+		require.NoError(t, err)
+		fmt.Printf("\tTest 3: outputShape=%s\n", output)
+		require.NoError(t, output.Check(F32, 8, 16))
+	})
+
+	// Test from StableHLO's specification example in https://openxla.org/stablehlo/spec#gather
+	t.Run("WithBatch", func(t *testing.T) {
+		operand := S(F32, 2, 3, 4, 2)
+		startIndices := S(dtypes.Int64, 2, 2, 3, 2)
+		indexVectorAxis := 3
+		offsetOutputAxes := []int{3, 4}
+		collapsedSliceAxes := []int{1}
+		operandBatchingAxes := []int{0}
+		startIndicesBatchingAxes := []int{1}
+		startIndexMap := []int{2, 1}
+		sliceSizes := []int{1, 1, 2, 2}
+		output, err := Gather(operand, startIndices, indexVectorAxis,
+			offsetOutputAxes, collapsedSliceAxes, operandBatchingAxes,
+			startIndicesBatchingAxes, startIndexMap,
+			sliceSizes, false)
+		require.NoError(t, err)
+		fmt.Printf("\tTest 3: outputShape=%s\n", output)
+		require.NoError(t, output.Check(F32, 2, 2, 3, 2, 2))
+	})
 }
 
 func TestScatter(t *testing.T) {

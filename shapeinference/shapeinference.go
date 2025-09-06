@@ -544,8 +544,10 @@ func ReduceOp(operand shapes.Shape, axes []int) (output shapes.Shape, err error)
 }
 
 // Gather returns the output shape of a Gather operation.
-func Gather(operand, startIndices shapes.Shape, indexVectorAxis int, offsetOutputAxes, collapsedSliceAxes,
-	startIndexMap, sliceSizes []int, indicesAreSorted bool) (output shapes.Shape, err error) {
+func Gather(operand, startIndices shapes.Shape, indexVectorAxis int,
+	offsetOutputAxes, collapsedSliceAxes, operandBatchingAxes,
+	startIndicesBatchingAxes, startIndexMap,
+	sliceSizes []int, indicesAreSorted bool) (output shapes.Shape, err error) {
 	//fmt.Printf("Gather parameters:\n"+
 	//	"  operand: %v\n"+
 	//	"  startIndices: %v\n"+
@@ -563,6 +565,7 @@ func Gather(operand, startIndices shapes.Shape, indexVectorAxis int, offsetOutpu
 		return output, errors.Errorf("Gather() requires a non-scalar operand, got %s", operand)
 	}
 
+	// Check collapsedSliceAxes are all valid.
 	setCollapsedAxes := utils.MakeSet[int]()
 	for _, collapsedSliceAxis := range collapsedSliceAxes {
 		if collapsedSliceAxis < 0 || collapsedSliceAxis >= operand.Rank() {
@@ -572,6 +575,41 @@ func Gather(operand, startIndices shapes.Shape, indexVectorAxis int, offsetOutpu
 			return output, errors.Errorf("collapsed slice axis %d is defined more than once for operand %s", collapsedSliceAxis, operand)
 		}
 		setCollapsedAxes.Insert(collapsedSliceAxis)
+	}
+
+	// Check that batching axes are all valid, and that the batching axes in operand and startIndices match.
+	setOperandBatchingAxes := utils.MakeSet[int]()
+	for _, batchAxis := range operandBatchingAxes {
+		if batchAxis < 0 || batchAxis >= operand.Rank() {
+			return output, errors.Errorf("operand batch axis %d is out of range for operand %s", batchAxis, operand)
+		}
+		if setOperandBatchingAxes.Has(batchAxis) {
+			return output, errors.Errorf("operand batch axis %d is defined more than once for operand %s", batchAxis, operand)
+		}
+		setCollapsedAxes.Insert(batchAxis)
+	}
+	setStartIndicesBatchingAxes := utils.MakeSet[int]()
+	for _, batchAxis := range startIndicesBatchingAxes {
+		if batchAxis < 0 || batchAxis >= startIndices.Rank() {
+			return output, errors.Errorf("startIndices batch axis %d is out of range for startIndices %s", batchAxis, startIndices)
+		}
+		if setStartIndicesBatchingAxes.Has(batchAxis) {
+			return output, errors.Errorf("startIndices batch axis %d is defined more than once for startIndices %s", batchAxis, startIndices)
+		}
+		if batchAxis == indexVectorAxis {
+			return output, errors.Errorf("startIndices batch axis %d is the same as indexVectorAxis %d -- the same axis cannot be both", batchAxis, indexVectorAxis)
+		}
+		setStartIndicesBatchingAxes.Insert(batchAxis)
+	}
+	if len(operandBatchingAxes) != len(startIndicesBatchingAxes) {
+		return output, errors.Errorf("operandBatchingAxes and startIndicesBatchingAxes must have the same number of axes (length), got %d and %d", len(operandBatchingAxes), len(startIndicesBatchingAxes))
+	}
+	for ii, operandBatchAxis := range operandBatchingAxes {
+		startIndicesBatchAxis := startIndicesBatchingAxes[ii]
+		if operand.Dim(operandBatchAxis) != startIndices.Dim(startIndicesBatchAxis) {
+			return output, errors.Errorf("operand batch axis %d has dimension %d, but startIndices batch axis %d has dimension %d -- they must match",
+				operandBatchAxis, operand.Dim(operandBatchAxis), startIndicesBatchAxis, startIndices.Dim(startIndicesBatchAxis))
+		}
 	}
 
 	// Check slice sizes.
@@ -591,20 +629,35 @@ func Gather(operand, startIndices shapes.Shape, indexVectorAxis int, offsetOutpu
 			return output, errors.Errorf("collapsed slice axis %d must have sliceSize 1, but got %d", collapseAxis, sliceSizes[collapseAxis])
 		}
 	}
-	if operand.Rank() != len(collapsedSliceAxes)+len(offsetOutputAxes) {
-		return output, errors.Errorf("the number of collapsedSliceAxes (%d) + the number of offsetOutputAxes (%d) must be equal to the number of axes in the operand (operand.Rank()=%d)",
-			len(collapsedSliceAxes), len(offsetOutputAxes), operand.Rank())
+	for batchAxis := range operandBatchingAxes {
+		if sliceSizes[batchAxis] != 1 {
+			return output, errors.Errorf("operand's batching axis %d must have sliceSize 1, but got %d", batchAxis, sliceSizes[batchAxis])
+		}
 	}
 
-	// Check indexVectorAxis: it is ok if it is equal to startIndices.rank, in which case we assume implicit extra axes of dimension 1.
+	// Check that the operand's axes are all used.
+	if operand.Rank() != len(offsetOutputAxes)+len(collapsedSliceAxes)+len(operandBatchingAxes) {
+		return output, errors.Errorf("the number of collapsedSliceAxes (%d) + the number of offsetOutputAxes (%d) + the number of operandsBatchingAxes (%d) must be equal to the number of axes in the operand (operand.Rank()=%d)",
+			len(collapsedSliceAxes), len(offsetOutputAxes), len(operandBatchingAxes), operand.Rank())
+	}
+
+	// Check indexVectorAxis: it is ok if it is equal to startIndices.rank, in which case we assume an implicit extra axis of dimension 1.
 	if indexVectorAxis < 0 || indexVectorAxis > operand.Rank() {
 		return output, errors.Errorf("indexVectorAxis=%d is out of range for operand %s", indexVectorAxis, operand)
 	}
 
 	// Check startIndexMap is set for the dimensions of indexVectorAxis in startIndices.
-	if len(startIndexMap) != startIndices.Dimensions[indexVectorAxis] {
-		return output, errors.Errorf("startIndexMap must have one value per dimension of indexVectorAxis, so it length (%d) must match startIndices.Dimensions[%d] (%d)",
-			len(startIndexMap), indexVectorAxis, startIndices.Dimensions[indexVectorAxis])
+	numIndexedAxes := 1
+	if indexVectorAxis < startIndices.Rank() {
+		numIndexedAxes = startIndices.Dimensions[indexVectorAxis]
+	}
+	if len(startIndexMap) != numIndexedAxes {
+		if indexVectorAxis == startIndices.Rank() {
+			return output, errors.Errorf("when indexVectorAxis==startIndices.Rank() we assume only one axis is being indexed, so startIndexMap be of length 1, got %d instead",
+				len(startIndexMap))
+		}
+		return output, errors.Errorf("startIndexMap must have one value per dimension of indexVectorAxis, so its length (%d) must match startIndices.Dimensions[%d] (==%d)",
+			len(startIndexMap), indexVectorAxis, numIndexedAxes)
 	}
 	for idx, operandAxis := range startIndexMap {
 		if operandAxis < 0 || operandAxis >= operand.Rank() {
@@ -614,9 +667,9 @@ func Gather(operand, startIndices shapes.Shape, indexVectorAxis int, offsetOutpu
 
 	// The number of batch axes is usually the number of startIndices - 1, except if indexVectorAxis==rank,
 	// in which case we assume an extra one in the end.
-	batchRank := startIndices.Rank() - 1
-	if indexVectorAxis == startIndices.Rank() {
-		batchRank++
+	batchRank := startIndices.Rank()
+	if indexVectorAxis < startIndices.Rank() {
+		batchRank--
 	}
 
 	// Build output shape: the order is defined as:
@@ -642,9 +695,15 @@ func Gather(operand, startIndices shapes.Shape, indexVectorAxis int, offsetOutpu
 			// This is a collapsed axis and not used as an offset.
 			continue
 		}
+		if setOperandBatchingAxes.Has(axis) {
+			// This is a batch axis, and not used as an offset.
+			continue
+		}
 		offsetDims = append(offsetDims, sliceSize)
 	}
 	offsetDimsIdx := 0
+
+	// Batch axes' dimensions are set from the inputIndices.
 	batchDimsIdx := 0
 	for axis := range output.Dimensions {
 		if setOffsetOutputAxes.Has(axis) {
@@ -652,8 +711,9 @@ func Gather(operand, startIndices shapes.Shape, indexVectorAxis int, offsetOutpu
 			output.Dimensions[axis] = offsetDims[offsetDimsIdx]
 			offsetDimsIdx++
 		} else {
-			// Take a batch dimension:
+			// Take a batch dimension from startIndices:
 			if batchDimsIdx == indexVectorAxis {
+				// Skip the index axis.
 				batchDimsIdx++
 			}
 			output.Dimensions[axis] = startIndices.Dimensions[batchDimsIdx]

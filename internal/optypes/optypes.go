@@ -36,6 +36,7 @@ const (
 	Exponential
 	ExponentialMinusOne
 	Floor
+	Gather
 	Imag
 	IsFinite
 	Iota
@@ -89,7 +90,6 @@ const (
 	DynamicReshape
 	DynamicUpdateSlice
 	Fft
-	Gather
 	GetDimensionSize
 	GetTupleElement
 	If

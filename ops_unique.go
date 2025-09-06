@@ -261,3 +261,101 @@ func (fn *Function) BroadcastInDim(operand *Value, target shapes.Shape, axesMapp
 	stmt.Attributes = map[string]any{"broadcast_dimensions": intSliceToArrayI64StableHLO(axesMapping)}
 	return stmt.Outputs[0], nil
 }
+
+// Gather is a powerful but cumbersome Gather operation.
+// Full details in https://openxla.org/stablehlo/spec#gather.
+//
+// The output of Gather has the same DType of the operand, from where we are pulling the data.
+//
+// Its output shape will be composed of 2 parts:
+//
+//   - Batch axes: they come from operandBatchingAxes/startIndicesBatchingAxes (they correspond to each other)
+//     and from the other axes of startIndices, except the "indexVectorAxis" (usually the last)
+//     that is used as the indices into the operand. (*)
+//   - "Offset axes": these are axes that come from the operand, the sizes given by sliceSizes.
+//     Notice that if sliceSizes for an axis is 1, and that axis is present in the collapsedSliceAxes list, this
+//     axis gets omitted in the output.
+//
+// So in general output.Rank() = startIndices.Rank() - 1 + len(offsetAxes).
+//
+// (*) One exception is if indexVectorAxis == startIndices.Rank(), in which case we assume there is an
+// extra virtual axis in startIndices of size 1, in which case output.Rank() = startIndices.Rank() + len(offsetAxes).
+//
+// (*) One exception is if indexVectorAxis == startIndices.Rank(), in which case we assume there is an
+// extra implicit axis in startIndices of size 1, in which case output.Rank() = startIndices.Rank() + len(offsetAxes).
+//
+// Arguments:
+//   - operand: the values from where we are gathering. The output DType will follow the operand one.
+//   - startIndices: are the indices we want to gather. The axis pointed by indexVector
+//     lists the indices of the slice to be gathered in the operand array (their values are mapped to the axis
+//     in the operand according to startIndexMap).
+//     All other axes are "batch dimensions" and they will have equivalent axes (same dimensions) in the output.
+//   - indexVectorAxis: which of the axis in startIndices is collected and used as the start index for slices
+//     to be gathered in the operand.
+//     It is typically the last axis of startIndices, so startIndices.Shape.Rank()-1.
+//     There is a special case where indexVectorAxis == startIndices.Rank() in which case we assume there is an
+//     extra virtual axis in startIndices of size 1, in which case output.Rank() = startIndices.Rank() + len(offsetAxes).
+//   - offsetOutputAxes: _output_ axes (not the operand's) that will hold the "offset slices", slices that are not
+//     collapsed. It points in which position (axis) in the output these slices should show up.
+//     The len(offsetOutputAxes) must match the dimension of indexVectorAxis (== startIndices.Dimensions[indexVectorAxis]).
+//     Notice all axes in the operand will either become an "offset axis" in the output,
+//     of optionally collapsed (or "squeezed") in the output, if included in collapsedSliceAxes.
+//     The axes in the output (given in offsetAxes) to the axes in the operand (the axes not present in collapsedSliceAxes) sequentially.
+//     One must have Rank(operand) == len(collapsedSliceAxes) + len(offsetAxes) + len(operandBatchingAxes).
+//   - collapsedSliceAxes: _operand_ axes (for which sliceSizes are 1) not to be included in the output.
+//     One must have sliceSizes[collapsedSliceAxes[i]] == 1 for all i.
+//   - operandBatchingAxes: operand's batching axes that have corresponding batching axes in the startIndices, and that
+//     will also be included in the output.
+//     One must have sliceSizes[operandBatchingAxes[i]] == 1 for all i.
+//     Also, one must have Rank(operand) == len(operandBatchingAxes) + len(collapsedSliceAxes) + len(offsetOutputAxes).
+//   - startIndicesBatchingAxes: startIndices' batching axes have corresponding batching axes in the operand, and that
+//     will also be included in the output.
+//   - startIndexMap: this maps which value in startIndices is used for which axis in the operand, select the slice to be gathered.
+//     Notice len(startIndexMap) must match the startIndices.Dimensions[indexVectorAxis].
+//     Also, len(startIndexMap) == len(offsetOutputAxes) -- offsetOutputAxes maps the same axes in the output.
+//     E.g.: if startIndices.shape=(2, 3), indexVectorAxis=1, and operand.rank=4 and startIndexMap=[]int{0, 1, 2},
+//     this means each row of the startIndices will point to the first 3 axes (0,1 and 2) in the operand.
+//     For those axes in the operand not explicitly set (so if len(startIndexMap) < operand.Rank()), and not part
+//     of operandBatchingAxes, the corresponding axis start index is considered to be 0, and one sets the sliceSizes
+//     to take the slice one wants (typically the full slice).
+//   - sliceSizes: a size for each operand's axis, so len(sliceSize) = operand.Rank().
+//     once the start index from where to gather is resolved, this defines how much data in each axis
+//     to gather.
+//     Constraints: sliceSizes[collapsedSliceAxes[i]] == 1, and sliceSizes[operandBatchingAxes[j]] == 1, for all i, j.
+//   - indicesAreSorted: can be set to true if it's guaranteed that startIndices are sorted (in ascending order,
+//     after scattering its values according to start_index_map) by the user. This allows for some optimizations
+//     in some platforms.
+func (fn *Function) Gather(operand, startIndices *Value, indexVectorAxis int,
+	offsetOutputAxes, collapsedSliceAxes, operandBatchingAxes,
+	startIndicesBatchingAxes, startIndexMap,
+	sliceSizes []int, indicesAreSorted bool) (*Value, error) {
+	op := optypes.Gather
+	outputShape, err := shapeinference.Gather(
+		operand.shape, startIndices.shape, indexVectorAxis,
+		offsetOutputAxes, collapsedSliceAxes, operandBatchingAxes,
+		startIndicesBatchingAxes, startIndexMap,
+		sliceSizes, indicesAreSorted)
+	if err != nil {
+		return nil, err
+	}
+	stmt := fn.addOp(op, outputShape, operand, startIndices)
+	stmt.Attributes = map[string]any{
+		"dimension_numbers": literalStrF(
+			`#stablehlo.gather<
+      offset_dims = %s,
+      collapsed_slice_dims = %s,
+      operand_batching_dims = %s,
+      start_indices_batching_dims = %s,
+      start_index_map = %s,
+      index_vector_dim = %d>`,
+			intSliceToStableHLO(offsetOutputAxes),
+			intSliceToStableHLO(collapsedSliceAxes),
+			intSliceToStableHLO(operandBatchingAxes),
+			intSliceToStableHLO(startIndicesBatchingAxes),
+			intSliceToStableHLO(startIndexMap),
+			indexVectorAxis),
+		"slice_sizes":        intSliceToArrayI64StableHLO(sliceSizes),
+		"indices_are_sorted": indicesAreSorted,
+	}
+	return stmt.Outputs[0], nil
+}

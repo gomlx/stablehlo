@@ -239,6 +239,30 @@ func testUniqueOps(t *testing.T, client *pjrt.Client) {
 		}, outputs)
 	})
 
+	t.Run("Gather", func(t *testing.T) {
+		builder := stablehlo.New(t.Name())
+		fn := builder.Main()
+		x := must(fn.Iota(S.Make(D.F32, 3*5), 0))
+		x = must(fn.Reshape(x, S.Make(D.F32, 3, 5)))
+		indices := must(fn.ConstantFromFlatAndDimensions([]int{2, 0}, 2, 1))
+		offsetOutputAxes := []int{1}
+		collapsedSliceAxes := []int{0}
+		var operandBatchingAxes, startIndicesBatchingAxes []int
+		startIndexMap := []int{0}
+		sliceSizes := []int{1, 5}
+		y := must(fn.Gather(x, indices, 1,
+			offsetOutputAxes, collapsedSliceAxes, operandBatchingAxes,
+			startIndicesBatchingAxes, startIndexMap,
+			sliceSizes, false))
+		fn.Return(y)
+		program := must(builder.Build())
+		fmt.Printf("%s program:\n%s", t.Name(), program)
+		outputs := compileAndExecute(t, client, program)
+		requireBuffersEqual(t, []FlatAndDims{
+			{[]float32{ /* row=0: */ 10, 11, 12, 13, 14 /* row=1: */, 0, 1, 2, 3, 4}, []int{2, 5}},
+		}, outputs)
+	})
+
 }
 
 func TestBinaryOps(t *testing.T) {
