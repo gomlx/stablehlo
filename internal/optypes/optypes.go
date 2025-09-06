@@ -62,6 +62,7 @@ const (
 	ShiftRightLogical
 	Sign
 	Sine
+	Slice
 	Sqrt
 	Subtract
 	Tan
@@ -109,7 +110,6 @@ const (
 	Select
 	SelectAndScatter
 	Send
-	Slice
 	Transpose
 	TriangularSolve
 	Tuple

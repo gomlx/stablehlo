@@ -108,15 +108,15 @@ func requireBuffersEqual(t *testing.T, expected []FlatAndDims, got []*pjrt.Buffe
 	}
 }
 
-func TestUniqueOps(t *testing.T) {
+func TestOps(t *testing.T) {
 	for pluginName, client := range pjrtClientsIterator(t) {
 		t.Run(pluginName, func(t *testing.T) {
-			testUniqueOps(t, client)
+			testOps(t, client)
 		})
 	}
 }
 
-func testUniqueOps(t *testing.T, client *pjrt.Client) {
+func testOps(t *testing.T, client *pjrt.Client) {
 	t.Run("Return-multi-output", func(t *testing.T) {
 		b := stablehlo.New(t.Name())
 		fn := b.NewFunction("main")
@@ -263,6 +263,23 @@ func testUniqueOps(t *testing.T, client *pjrt.Client) {
 		}, outputs)
 	})
 
+	//	Slice(x={0, 1, 2, 3, 4}, starts={2}, limits={4}, strides=nil) -> {2, 3}
+	//	Slice(x={0, 1, 2, 3, 4}, starts={2}, limits={5}, strides={2}) -> {2, 4}
+	t.Run("Slice", func(t *testing.T) {
+		builder := stablehlo.New(t.Name())
+		fn := builder.Main()
+		x := must(fn.Iota(S.Make(D.F32, 5), 0))
+		y0 := must(fn.Slice(x, []int{2}, []int{4}, nil))
+		y1 := must(fn.Slice(x, []int{2}, []int{5}, []int{2}))
+		fn.Return(y0, y1)
+		program := must(builder.Build())
+		fmt.Printf("%s program:\n%s", t.Name(), program)
+		outputs := compileAndExecute(t, client, program)
+		requireBuffersEqual(t, []FlatAndDims{
+			{[]float32{2, 3}, []int{2}},
+			{[]float32{2, 4}, []int{2}},
+		}, outputs)
+	})
 }
 
 func TestBinaryOps(t *testing.T) {

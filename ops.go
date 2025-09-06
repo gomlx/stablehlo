@@ -392,3 +392,33 @@ func (fn *Function) Gather(operand, startIndices *Value, indexVectorAxis int,
 	}
 	return stmt.Outputs[0], nil
 }
+
+// Slice extracts a subarray from the input array.
+// The subarray is of the same rank as the input and contains the values inside a bounding box within the input array
+// where the dimensions and indices of the bounding box are given as arguments to the slice operation.
+// The strides set the input stride of the slice in each axis and must be >= 1.
+// It is optional, and if missing, it is assumed to be 1 for every dimension.
+// Examples:
+//
+//	Slice(x={0, 1, 2, 3, 4}, starts={2}, limits={4}, strides=nil) -> {2, 3}
+//	Slice(x={0, 1, 2, 3, 4}, starts={2}, limits={5}, strides={2}) -> {2, 4}
+func (fn *Function) Slice(x *Value, starts, limits, strides []int) (*Value, error) {
+	op := optypes.Slice
+	if len(strides) == 0 {
+		strides = make([]int, x.shape.Rank())
+		for i := range strides {
+			strides[i] = 1
+		}
+	}
+	outputShape, err := shapeinference.Slice(x.shape, starts, limits, strides)
+	if err != nil {
+		return nil, err
+	}
+	stmt := fn.addOp(op, outputShape, x)
+	stmt.Attributes = map[string]any{
+		"start_indices": intSliceToArrayI64StableHLO(starts),
+		"limit_indices": intSliceToArrayI64StableHLO(limits),
+		"strides":       intSliceToArrayI64StableHLO(strides),
+	}
+	return stmt.Outputs[0], nil
+}
