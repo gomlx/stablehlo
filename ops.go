@@ -422,3 +422,32 @@ func (fn *Function) Slice(x *Value, starts, limits, strides []int) (*Value, erro
 	}
 	return stmt.Outputs[0], nil
 }
+
+// Concatenate operands on the given axis.
+//
+// All axes that are not being concatenated must match dimensions, except on the axes being concatenated.
+// It doesn't work with scalars -- use ExpandAxes.
+// If there is only one operand, it is returned and this is a no-op.
+func (fn *Function) Concatenate(axis int, operands ...*Value) (*Value, error) {
+	if len(operands) == 0 {
+		return nil, errors.New("Concatenate requires at least one operand")
+	}
+	op := optypes.Concatenate
+	operandsShapes := make([]shapes.Shape, len(operands))
+	for i, operand := range operands {
+		operandsShapes[i] = operand.shape
+	}
+	outputShape, err := shapeinference.Concatenate(operandsShapes, axis)
+	if err != nil {
+		return nil, err
+	}
+	adjustedAxis, err := shapeinference.AdjustAxisToRank(operands[0].shape.Rank(), axis)
+	if err != nil {
+		return nil, errors.WithMessagef(err, "Concatenate axis is invalid for operands %s", operands)
+	}
+	stmt := fn.addOp(op, outputShape, operands...)
+	stmt.Attributes = map[string]any{
+		"dimension": int64(adjustedAxis),
+	}
+	return stmt.Outputs[0], nil
+}

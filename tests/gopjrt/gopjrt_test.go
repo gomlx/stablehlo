@@ -280,6 +280,22 @@ func testOps(t *testing.T, client *pjrt.Client) {
 			{[]float32{2, 4}, []int{2}},
 		}, outputs)
 	})
+
+	t.Run("Concatenate", func(t *testing.T) {
+		builder := stablehlo.New(t.Name())
+		fn := builder.Main()
+		x := must(fn.Iota(S.Make(D.F32, 2, 3), 1))
+		y := must(fn.Iota(S.Make(D.F32, 2, 1), 0))
+		z := must(fn.Concatenate(1, x, y))
+		fn.Return(z)
+		program := must(builder.Build())
+		fmt.Printf("%s program:\n%s", t.Name(), program)
+		outputs := compileAndExecute(t, client, program)
+		requireBuffersEqual(t, []FlatAndDims{
+			{[]float32{0, 1, 2, 0, 0, 1, 2, 1}, []int{2, 4}},
+		}, outputs)
+	})
+
 }
 
 func TestBinaryOps(t *testing.T) {

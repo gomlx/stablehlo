@@ -28,6 +28,7 @@ const (
 	Clamp
 	Compare
 	Complex
+	Concatenate
 	Cosine
 	CountLeadingZeros
 	Divide
@@ -79,7 +80,6 @@ const (
 	CollectiveBroadcast
 	CollectivePermute
 	Composite
-	Concatenate
 	Convert
 	Convolution
 	CustomCall
