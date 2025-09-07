@@ -122,8 +122,10 @@ func testOps(t *testing.T, client *pjrt.Client) {
 		fn := b.NewFunction("main")
 		c1 := must(fn.ConstantFromScalar(1.0))
 		c2 := must(fn.ConstantFromScalar(2.0))
+		c3 := must(fn.ConstantFromScalar(float32(math.Inf(-1))))
+		c4 := must(fn.ConstantFromScalar(math.Inf(1)))
 		sum := must(fn.Add(c1, c2))
-		fn.Return(c1, c2, sum)
+		fn.Return(c1, c2, sum, c3, c4)
 		program := must(b.Build())
 		fmt.Printf("%s program:\n%s", t.Name(), program)
 		output := compileAndExecute(t, client, program)
@@ -131,6 +133,8 @@ func testOps(t *testing.T, client *pjrt.Client) {
 			{[]float64{1}, nil},
 			{[]float64{2}, nil},
 			{[]float64{3}, nil},
+			{[]float32{float32(math.Inf(-1))}, nil},
+			{[]float64{math.Inf(1)}, nil},
 		}, output)
 	})
 

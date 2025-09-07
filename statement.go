@@ -102,10 +102,10 @@ func (s *Statement) Write(writer io.Writer, indentation string) error {
 			for key, value := range s.Attributes {
 				literalValue := literalToStableHLO(value)
 				if strings.Index(literalValue, "\n") == -1 {
-					w(" { %s = %s }", key, literalToStableHLO(value))
+					w(" { %s = %s }", key, literalValue)
 				} else {
 					literalValue = strings.ReplaceAll(literalValue, "\n", "\n"+nextIndentation)
-					w(" {\n%s%s = %s\n  }", nextIndentation, key, literalToStableHLO(value))
+					w(" {\n%s%s = %s\n  }", nextIndentation, key, literalValue)
 				}
 			}
 		} else {
@@ -222,13 +222,44 @@ func intSliceToArrayI64StableHLO(ints []int) literalStr {
 	return literalStr(sb.String())
 }
 
+func float32IsFinite(f float32) bool {
+	return !math.IsInf(float64(f), 0) && !math.IsNaN(float64(f))
+}
+
+func float32AsHex(f float32) string {
+	return fmt.Sprintf("%#x", math.Float32bits(f))
+}
+
+func float64IsFinite(f float64) bool {
+	return !math.IsInf(f, 0) && !math.IsNaN(f)
+}
+
+func float64AsHex(f float64) string {
+	return fmt.Sprintf("%#x", math.Float64bits(f))
+}
+
 // floatToStableHLO converts a float to a string. f must be a float32 or float64.
 func floatToStableHLO(fAny any) string {
 	var f float64
 	if f32, ok := fAny.(float32); ok {
+		if !float32IsFinite(f32) {
+			return float32AsHex(f32)
+		}
 		f = float64(f32)
 	} else {
 		f = fAny.(float64)
+		if !float64IsFinite(fAny.(float64)) {
+			return float64AsHex(fAny.(float64))
+		}
+	}
+	if math.IsNaN(f) {
+		return "nan"
+	}
+	if math.IsInf(f, 0) {
+		return "+inf"
+	}
+	if math.IsInf(f, 1) {
+		return "-inf"
 	}
 	format := "%g"
 	if f == math.Trunc(f) {
