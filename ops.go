@@ -19,9 +19,11 @@ func (fn *Function) addOp(opType optypes.OpType, outputShape shapes.Shape, input
 	}
 
 	stmt := &Statement{
-		OpType:  opType,
-		Inputs:  inputs,
-		Outputs: []*Value{fn.newValue(outputShape)},
+		Builder:  fn.Builder,
+		Function: fn,
+		OpType:   opType,
+		Inputs:   inputs,
+		Outputs:  []*Value{fn.newValue(outputShape)},
 	}
 	fn.Statements = append(fn.Statements, stmt)
 	return stmt
@@ -213,36 +215,37 @@ func (b *DotGeneralBuilder) Done() (*Value, error) {
 		return nil, err
 	}
 	stmt := b.fn.addOp(op, outputShape, b.lhs, b.rhs)
-	dotConfig := fmt.Sprintf(`#stablehlo.dot<
-      lhs_batching_dimensions = %s,
-      rhs_batching_dimensions = %s,
-      lhs_contracting_dimensions = %s,
-      rhs_contracting_dimensions = %s
-    >`, intSliceToStableHLO(b.lhsBatchAxes), intSliceToStableHLO(b.rhsBatchAxes),
-		intSliceToStableHLO(b.lhsContractingAxes), intSliceToStableHLO(b.rhsContractingAxes))
 	stmt.Attributes = map[string]any{
-		"dot_dimension_numbers": literalStr(dotConfig),
+		"dot_dimension_numbers": literalStrF(
+			"#stablehlo.dot<\n"+
+				"\tlhs_batching_dimensions = %s,\n"+
+				"\trhs_batching_dimensions = %s,\n"+
+				"\tlhs_contracting_dimensions = %s,\n"+
+				"\trhs_contracting_dimensions = %s\n>",
+			intSliceToStableHLO(b.lhsBatchAxes),
+			intSliceToStableHLO(b.rhsBatchAxes),
+			intSliceToStableHLO(b.lhsContractingAxes),
+			intSliceToStableHLO(b.rhsContractingAxes)),
 	}
 	precisionConfig := fmt.Sprintf("[#stablehlo<precision %s>, #stablehlo<precision %s>]",
 		b.precision[0].ToStableHLO(), b.precision[1].ToStableHLO())
 	stmt.Attributes["precision_config"] = literalStr(precisionConfig)
 	if b.algorithm != nil {
-		algorithmConfig := fmt.Sprintf(`#stablehlo.dot_algorithm<
-      lhs_precision_type = %s,
-      rhs_precision_type = %s,
-      accumulation_type = %s,
-      lhs_component_count = %d,
-      rhs_component_count = %d,
-      num_primitive_operations = %d,
-      allow_imprecise_accumulation = %v
-    >`, b.algorithm.LhsPrecisionType.ToStableHLO(),
+		stmt.Attributes["algorithm"] = literalStrF("#stablehlo.dot_algorithm<\n"+
+			"\tlhs_precision_type = %s,\n"+
+			"\trhs_precision_type = %s,\n"+
+			"\taccumulation_type = %s,\n"+
+			"\tlhs_component_count = %d,\n"+
+			"\trhs_component_count = %d,\n"+
+			"\tnum_primitive_operations = %d,\n"+
+			"\tallow_imprecise_accumulation = %v>",
+			b.algorithm.LhsPrecisionType.ToStableHLO(),
 			b.algorithm.RhsPrecisionType.ToStableHLO(),
 			b.algorithm.AccumulationType.ToStableHLO(),
 			b.algorithm.LhsComponentCount,
 			b.algorithm.RhsComponentCount,
 			b.algorithm.NumPrimitiveOperations,
 			b.algorithm.AllowImpreciseAccumulation)
-		stmt.Attributes["algorithm"] = literalStr(algorithmConfig)
 	}
 	return stmt.Outputs[0], nil
 }
@@ -374,13 +377,13 @@ func (fn *Function) Gather(operand, startIndices *Value, indexVectorAxis int,
 	stmt := fn.addOp(op, outputShape, operand, startIndices)
 	stmt.Attributes = map[string]any{
 		"dimension_numbers": literalStrF(
-			`#stablehlo.gather<
-      offset_dims = %s,
-      collapsed_slice_dims = %s,
-      operand_batching_dims = %s,
-      start_indices_batching_dims = %s,
-      start_index_map = %s,
-      index_vector_dim = %d>`,
+			"#stablehlo.gather<\n"+
+				"\toffset_dims = %s,\n"+
+				"\tcollapsed_slice_dims = %s,\n"+
+				"\toperand_batching_dims = %s,\n"+
+				"\tstart_indices_batching_dims = %s,\n"+
+				"\tstart_index_map = %s,\n"+
+				"\tindex_vector_dim = %d>",
 			intSliceToStableHLO(offsetOutputAxes),
 			intSliceToStableHLO(collapsedSliceAxes),
 			intSliceToStableHLO(operandBatchingAxes),

@@ -30,6 +30,10 @@ type Function struct {
 	// values holds all the values (e.g. %0, %1, %arg0) created in the function's scope.
 	values []*Value
 
+	// IsInline indicates if the function is inlined in a statement.
+	// Inlined functions don't necessarily have a name, and are rendered slightly differently.
+	IsInline bool
+
 	// nextID is the next ID to be assigned to a new value.
 	nextID int
 }
@@ -77,7 +81,9 @@ func (fn *Function) ConstantFromScalar(value any) (*Value, error) {
 	}
 	shape := shapes.Make(dtype)
 	c := &Statement{
-		OpType: optypes.Constant,
+		Builder:  fn.Builder,
+		Function: fn,
+		OpType:   optypes.Constant,
 		Attributes: map[string]any{
 			"value": newTensorLiteral(value),
 		},
@@ -99,6 +105,8 @@ func (fn *Function) ConstantFromFlatAndDimensions(flat any, dimensions ...int) (
 		return nil, errors.Errorf("flat values size %d doesn't match shape size %d (%s)", flatV.Len(), shape.Size(), shape)
 	}
 	c := &Statement{
+		Builder:    fn.Builder,
+		Function:   fn,
 		OpType:     optypes.Constant,
 		Attributes: make(map[string]any, 1),
 		Outputs:    []*Value{fn.newValue(shape)},
@@ -128,13 +136,15 @@ func (fn *Function) Return(firstValue *Value, otherValues ...*Value) {
 	fn.Outputs = outputShapes
 
 	stmt := &Statement{
-		OpType: optypes.FuncReturn,
-		Inputs: allValues,
+		Builder:  fn.Builder,
+		Function: fn,
+		OpType:   optypes.FuncReturn,
+		Inputs:   allValues,
 	}
 	fn.Statements = append(fn.Statements, stmt)
 }
 
-func (fn *Function) Write(writer io.Writer) error {
+func (fn *Function) Write(writer io.Writer, indentation string) error {
 	var err error
 	w := func(format string, args ...any) {
 		if err != nil {
@@ -143,20 +153,21 @@ func (fn *Function) Write(writer io.Writer) error {
 		}
 		_, err = fmt.Fprintf(writer, format, args...)
 	}
-	we := func(e elementWriter) {
+	we := func(e elementWriter, indentation string) {
 		if err != nil {
 			// No op if an error was encountered earlier
 			return
 		}
-		err = e.Write(writer)
+		err = e.Write(writer, indentation)
 	}
+	nextIndent := indentation + IndentationStep
 
-	w("func.func @%s(", fn.Name)
+	w("%sfunc.func @%s(", indentation, fn.Name)
 	for i, input := range fn.Inputs {
 		if i > 0 {
 			w(", ")
 		}
-		we(input)
+		we(input, nextIndent)
 		w(": %s", input.shape.ToStableHLO())
 	}
 	w(") -> ")
@@ -175,7 +186,7 @@ func (fn *Function) Write(writer io.Writer) error {
 	w(" {\n")
 
 	for _, stmt := range fn.Statements {
-		we(stmt)
+		we(stmt, nextIndent)
 		w("\n")
 	}
 

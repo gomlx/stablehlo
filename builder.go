@@ -61,7 +61,7 @@ func New(name string) *Builder {
 
 // elementWriter represents elements of ToStableHLO that know how to write themselves.
 type elementWriter interface {
-	Write(w io.Writer) error
+	Write(w io.Writer, indentation string) error
 }
 
 // NewFunction creates a new function and adds it to the program.
@@ -102,6 +102,23 @@ func (b *Builder) Main(inputs ...*Value) *Function {
 	return b.NewFunction(MainFunctionName, inputs...)
 }
 
+// NewInlineFunction creates an unnamed inline function that can be used as an argument to operations like
+// Reduce, ReduceWindow, ScatterAndUpdate, etc.
+//
+// After created, the InlineFunction should not be changed. But it can be used multiple times.
+//
+// The inputs are the values that the function will receive as arguments.
+// You can also add new inputs later by calling Function.NewInput.
+//
+// The function body is defined by calling ops on the function object.
+func (b *Builder) NewInlineFunction(inputs ...*Value) *Function {
+	inlineFn := b.NewFunction("", inputs...)
+	inlineFn.IsInline = true
+	return inlineFn
+}
+
+const IndentationStep = "  "
+
 // Write the StableHLO program (a readable string) to the given writer.
 //
 // It will write incomplete programs (without a main function or empty statements) without an error
@@ -109,6 +126,7 @@ func (b *Builder) Main(inputs ...*Value) *Function {
 //
 // See Builder.Build to check and output the program.
 func (b *Builder) Write(writer io.Writer) error {
+	indentation := ""
 	var err error
 	w := func(format string, args ...any) {
 		if err != nil {
@@ -117,18 +135,18 @@ func (b *Builder) Write(writer io.Writer) error {
 		}
 		_, err = fmt.Fprintf(writer, format, args...)
 	}
-	we := func(e elementWriter) {
+	we := func(e elementWriter, indentation string) {
 		if err != nil {
 			// No op if an error was encountered earlier
 			return
 		}
-		err = e.Write(writer)
+		err = e.Write(writer, indentation)
 	}
 	for i, fn := range b.functions {
 		if i > 0 {
 			w("\n\n")
 		}
-		we(fn)
+		we(fn, indentation)
 	}
 	w("\n")
 	return err

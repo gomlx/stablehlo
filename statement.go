@@ -17,6 +17,9 @@ import (
 
 // Statement represents a single operation line in ToStableHLO.
 type Statement struct {
+	Builder  *Builder
+	Function *Function
+
 	// OpType is the type of the operation.
 	OpType optypes.OpType
 
@@ -26,12 +29,15 @@ type Statement struct {
 	// Attributes of the operation.
 	Attributes map[string]any
 
+	// Function parameters (for statements with operations like Reduce, ReduceWindow, ScatterAndUpdate, etc.).
+	FunctionParameters []*Function
+
 	// Outputs of the operation. It may be nil for operations like func.return.
 	Outputs []*Value
 }
 
 // Write writes a string representation of the statement to the given writer.
-func (s *Statement) Write(writer io.Writer) error {
+func (s *Statement) Write(writer io.Writer, indentation string) error {
 	var err error
 	w := func(format string, args ...any) {
 		if err != nil {
@@ -40,22 +46,23 @@ func (s *Statement) Write(writer io.Writer) error {
 		}
 		_, err = fmt.Fprintf(writer, format, args...)
 	}
-	we := func(e elementWriter) {
+	we := func(e elementWriter, indentation string) {
 		if err != nil {
 			// No op if an error was encountered earlier
 			return
 		}
-		err = e.Write(writer)
+		err = e.Write(writer, indentation)
 	}
+	nextIndentation := indentation + IndentationStep
 
 	// Output values are written first:
-	w("  ") // Indentation of functions.
+	w("%s", indentation) // IndentationStep of functions.
 	if len(s.Outputs) > 0 {
 		for i, output := range s.Outputs {
 			if i > 0 {
 				w(", ")
 			}
-			we(output)
+			we(output, nextIndentation)
 		}
 		w(" = ")
 	}
@@ -66,7 +73,7 @@ func (s *Statement) Write(writer io.Writer) error {
 		if i > 0 {
 			w(", ")
 		}
-		we(input)
+		we(input, nextIndentation)
 	}
 	w(")")
 
@@ -78,7 +85,8 @@ func (s *Statement) Write(writer io.Writer) error {
 				if strings.Index(literalValue, "\n") == -1 {
 					w(" { %s = %s }", key, literalToStableHLO(value))
 				} else {
-					w(" {\n    %s = %s\n  }", key, literalToStableHLO(value))
+					literalValue = strings.ReplaceAll(literalValue, "\n", "\n"+nextIndentation)
+					w(" {\n%s%s = %s\n  }", nextIndentation, key, literalToStableHLO(value))
 				}
 			}
 		} else {
@@ -90,9 +98,9 @@ func (s *Statement) Write(writer io.Writer) error {
 					w(",")
 				}
 				first = false
-				w("\n    %s = %s", key, literalToStableHLO(value))
+				w("\n%s%s = %s", nextIndentation, key, literalToStableHLO(value))
 			}
-			w("\n  }")
+			w("\n%s}", indentation)
 		}
 	}
 
@@ -136,8 +144,11 @@ type hasToStableHLO interface {
 type literalStr string
 
 // literalStrF format the string into a literalStr.
+// It also replaces tabs by IndentionStep.
 func literalStrF(format string, args ...any) literalStr {
-	return literalStr(fmt.Sprintf(format, args...))
+	str := fmt.Sprintf(format, args...)
+	str = strings.ReplaceAll(str, "\t", IndentationStep)
+	return literalStr(str)
 }
 
 // ToStableHLO returns the string representation of the literal.

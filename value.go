@@ -21,7 +21,8 @@ func (v *Value) Shape() shapes.Shape {
 }
 
 // Write writes the value in ToStableHLO text format to the given writer.
-func (v *Value) Write(w io.Writer) error {
+func (v *Value) Write(w io.Writer, indentation string) error {
+	_ = indentation
 	if v.name != "" {
 		_, err := fmt.Fprintf(w, "%%%s", v.name)
 		return err
