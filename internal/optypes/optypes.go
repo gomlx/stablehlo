@@ -54,6 +54,7 @@ const (
 	Power
 	Real
 	Remainder
+	Reduce
 	Reshape
 	RoundNearestAfz
 	RoundNearestEven
@@ -100,7 +101,6 @@ const (
 	Pad
 	PartitionId
 	Recv
-	Reduce
 	ReducePrecision
 	ReduceScatter
 	ReduceWindow
