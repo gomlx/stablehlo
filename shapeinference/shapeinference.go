@@ -518,31 +518,6 @@ func BroadcastInDim(operand, output shapes.Shape, axesMapping []int) error {
 	return nil
 }
 
-// ReduceOp works for the ReduceMax, ReduceMin, ReduceSum and ReduceProduct ops.
-func ReduceOp(operand shapes.Shape, axes []int) (output shapes.Shape, err error) {
-	if len(axes) == 0 {
-		return operand, nil
-	}
-	output = shapes.Make(operand.DType)
-	outputRank := operand.Rank() - len(axes)
-	if outputRank > 0 {
-		// Copy over dimensions that will stay.
-		output.Dimensions = make([]int, 0, outputRank)
-		for _, axis := range axes {
-			if axis < 0 || axis >= operand.Rank() {
-				return shapes.Invalid(), errors.Errorf("Reduce operation require each axis to be 0 <= axis < rank, but got invalid axis %d for shape %s", axis, operand)
-			}
-		}
-		axesSet := utils.SetWith(axes...)
-		for axis, dim := range operand.Dimensions {
-			if !axesSet.Has(axis) {
-				output.Dimensions = append(output.Dimensions, dim)
-			}
-		}
-	}
-	return
-}
-
 // Gather returns the output shape of a Gather operation.
 func Gather(operand, startIndices shapes.Shape, indexVectorAxis int,
 	offsetOutputAxes, collapsedSliceAxes, operandBatchingAxes,
@@ -696,7 +671,7 @@ func Gather(operand, startIndices shapes.Shape, indexVectorAxis int,
 			continue
 		}
 		if setOperandBatchingAxes.Has(axis) {
-			// This is a batch axis, and not used as an offset.
+			// This is a batch axis and not used as an offset.
 			continue
 		}
 		offsetDims = append(offsetDims, sliceSize)
@@ -1371,5 +1346,84 @@ func IsFinite(operand shapes.Shape) (output shapes.Shape, err error) {
 	}
 	output = operand.Clone()
 	output.DType = dtypes.Bool
+	return
+}
+
+// Reduce returns the operation's output shapes and checks all shapes and dtypes are valid.
+// The axes are also normalized to positive in-place.
+func Reduce(inputs, initialValues, reductionInputs, reductionOutputs []shapes.Shape, axes []int) (outputs []shapes.Shape, err error) {
+	// Check inputs and initialValues.
+	numReductions := len(inputs)
+	if numReductions == 0 {
+		return nil, errors.New("Reduce requires at least one input")
+	}
+	if len(initialValues) != numReductions {
+		return nil, errors.Errorf("Reduce requires the same number of initial values as inputs, got %d initial values and %d inputs",
+			len(initialValues), len(inputs))
+	}
+	baseDimensions := inputs[0].Dimensions
+	for i, input := range inputs {
+		if input.DType != initialValues[i].DType {
+			return nil, errors.Errorf("Reduce requires the same dtype for initial values and inputs, got %s and %s for input #%d",
+				initialValues[i].DType, input.DType, i)
+		}
+		if !slices.Equal(input.Dimensions, baseDimensions) {
+			return nil, errors.Errorf("Reduce requires the same shape (dimensions only) for all inputs, got %s and %s for inputs #0 and #%d",
+				inputs[0], input, i)
+		}
+	}
+
+	// Check that all reduction inputs and outputs are valid.
+	if len(reductionInputs) != 2*numReductions {
+		return nil, errors.Errorf("The reduction function for the Reduce operation must have 2 inputs for each initialValue, but reduction has %d inputs for 2*%d=%d initial values",
+			len(reductionInputs), len(initialValues), 2*len(initialValues))
+	}
+	if len(reductionOutputs) != numReductions {
+		return nil, errors.Errorf("The reduction function for the Reduce operation must have 1 output for each initialValue, but reduction has %d outputs for %d initial values",
+			len(reductionOutputs), len(initialValues))
+	}
+	for i := range numReductions {
+		if reductionInputs[i].DType != reductionInputs[i+numReductions].DType || reductionInputs[i].DType != reductionOutputs[i].DType {
+			return nil, errors.Errorf("Reduce requires the same dtype for lhs[i], rhs[i] inputs and output[i], got lhs[%d]=%s and rhs[%d+%d]=%s and output[%d]=%s",
+				i, reductionInputs[i], i, numReductions, reductionInputs[i+numReductions], i, reductionOutputs[i])
+		}
+	}
+
+	// Check the axis are valid.
+	rank := inputs[0].Rank()
+	if len(axes) > rank {
+		return nil, errors.Errorf("input for Reduce has rank=%d, but %d axes for reduction were given", rank, len(axes))
+	}
+	axesSet := utils.MakeSet[int]()
+	for i, axis := range axes {
+		adjustedAxis, err := AdjustAxisToRank(rank, axis)
+		if err != nil {
+			return nil, errors.WithMessagef(err, "invalid value for axes[%d]=%d for Reduce, inputs[0].shape=%s)",
+				i, axis, inputs[0])
+		}
+		if axesSet.Has(adjustedAxis) {
+			return nil, errors.Errorf("duplicate value for axes[%d]=%d for Reduce, axes=%v)",
+				i, axis, axes)
+		}
+		axesSet.Insert(adjustedAxis)
+		axes[i] = adjustedAxis
+	}
+
+	// Build the output shapes.
+	reducedDims := slices.Clone(inputs[0].Dimensions)
+	var toAxis int
+	for axis, dim := range reducedDims {
+		if axesSet.Has(axis) {
+			// This axis will be reduced, and it disappears from the output shape.
+			continue
+		}
+		reducedDims[toAxis] = dim
+		toAxis++
+	}
+	reducedDims = reducedDims[:toAxis]
+	outputs = make([]shapes.Shape, len(inputs))
+	for ii, outputBase := range reductionOutputs {
+		outputs[ii] = shapes.Make(outputBase.DType, reducedDims...)
+	}
 	return
 }

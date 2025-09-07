@@ -296,6 +296,57 @@ func testOps(t *testing.T, client *pjrt.Client) {
 		}, outputs)
 	})
 
+	t.Run("Reduce", func(t *testing.T) {
+		builder := stablehlo.New(t.Name())
+		fn := builder.Main()
+		x := must(fn.Iota(S.Make(D.F32, 2*3), 0))
+		x = must(fn.Reshape(x, S.Make(D.F32, 2, 3)))
+		zero := must(fn.ConstantFromScalar(float32(0)))
+		reductionFn := builder.NewInlineFunction()
+		lhs := reductionFn.NewNamedInput("lhs", S.Make(D.F32))
+		rhs := reductionFn.NewNamedInput("rhs", S.Make(D.F32))
+		reductionFn.Return(must(reductionFn.Add(lhs, rhs)))
+		r0 := must(fn.Reduce(x, zero, reductionFn, 1))
+		r1 := must(fn.Reduce(x, zero, reductionFn, 0))
+		fn.Return(r0, r1)
+		program := must(builder.Build())
+		fmt.Printf("%s program:\n%s", t.Name(), program)
+		outputs := compileAndExecute(t, client, program)
+		requireBuffersEqual(t, []FlatAndDims{
+			{[]float32{3, 12}, []int{2}},
+			{[]float32{3, 5, 7}, []int{3}},
+		}, outputs)
+	})
+
+	t.Run("MultiReduce", func(t *testing.T) {
+		builder := stablehlo.New(t.Name())
+		fn := builder.Main()
+		x := must(fn.Iota(S.Make(D.F32, 2*3), 0))
+		x = must(fn.Reshape(x, S.Make(D.F32, 2, 3)))
+		y := must(fn.Iota(S.Make(D.Int32, 2*3), 0))
+		y = must(fn.Reshape(y, S.Make(D.Int32, 2, 3)))
+		zeroF32 := must(fn.ConstantFromScalar(float32(0)))
+		zeroI32 := must(fn.ConstantFromScalar(int32(0)))
+		reductionFn := builder.NewInlineFunction()
+		lhs0 := reductionFn.NewNamedInput("lhs0", S.Make(D.F32))
+		lhs1 := reductionFn.NewNamedInput("lhs1", S.Make(D.Int32))
+		rhs0 := reductionFn.NewNamedInput("rhs0", S.Make(D.F32))
+		rhs1 := reductionFn.NewNamedInput("rhs1", S.Make(D.Int32))
+		reductionFn.Return(
+			must(reductionFn.Add(lhs0, rhs0)),
+			must(reductionFn.Add(lhs1, rhs1)))
+		results := must(fn.MultiReduce(
+			[]*stablehlo.Value{x, y},
+			[]*stablehlo.Value{zeroF32, zeroI32}, reductionFn, 1))
+		fn.Return(results[0], results[1])
+		program := must(builder.Build())
+		fmt.Printf("%s program:\n%s", t.Name(), program)
+		outputs := compileAndExecute(t, client, program)
+		requireBuffersEqual(t, []FlatAndDims{
+			{[]float32{3, 12}, []int{2}},
+			{[]int32{3, 12}, []int{2}},
+		}, outputs)
+	})
 }
 
 func TestBinaryOps(t *testing.T) {

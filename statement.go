@@ -29,11 +29,17 @@ type Statement struct {
 	// Attributes of the operation.
 	Attributes map[string]any
 
-	// Function parameters (for statements with operations like Reduce, ReduceWindow, ScatterAndUpdate, etc.).
-	FunctionParameters []*Function
+	// FunctionParameters for statements with operations like Reduce, ReduceWindow, ScatterAndUpdate, etc.
+	FunctionParameters      []*Function
+	FunctionParametersNames []string
 
 	// Outputs of the operation. It may be nil for operations like func.return.
 	Outputs []*Value
+}
+
+func (s *Statement) AddFunctionParameter(name string, inlineFn *Function) {
+	s.FunctionParameters = append(s.FunctionParameters, inlineFn)
+	s.FunctionParametersNames = append(s.FunctionParametersNames, name)
 }
 
 // Write writes a string representation of the statement to the given writer.
@@ -76,6 +82,19 @@ func (s *Statement) Write(writer io.Writer, indentation string) error {
 		we(input, nextIndentation)
 	}
 	w(")")
+
+	// Write function parameters:
+	if len(s.FunctionParameters) > 0 {
+		w(" ({\n%s", nextIndentation)
+		for i, param := range s.FunctionParameters {
+			if i > 0 {
+				w("%s}, {\n%s", indentation, nextIndentation)
+			}
+			w("^%s", s.FunctionParametersNames[i])
+			we(param, nextIndentation+IndentationStep)
+		}
+		w("%s})", indentation)
+	}
 
 	// Write attributes:
 	if len(s.Attributes) > 0 {

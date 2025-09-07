@@ -17,6 +17,9 @@ type Builder struct {
 
 	// functions holds all the functions created in the builder's scope.
 	functions []*Function
+
+	// inlineUniqueID is a counter used to generate unique names for inlined functions values.
+	inlineUniqueID int
 }
 
 // NormalizeIdentifier converts the name of an identifier (function name or function input parameter
@@ -142,11 +145,18 @@ func (b *Builder) Write(writer io.Writer) error {
 		}
 		err = e.Write(writer, indentation)
 	}
-	for i, fn := range b.functions {
-		if i > 0 {
+
+	// Write non-inline functions:
+	var count int
+	for _, fn := range b.functions {
+		if fn.IsInline {
+			continue
+		}
+		if count > 0 {
 			w("\n\n")
 		}
 		we(fn, indentation)
+		count++
 	}
 	w("\n")
 	return err

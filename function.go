@@ -39,12 +39,21 @@ type Function struct {
 }
 
 // newValue creates a new value with the given shape and assigns it to the next available id.
-func (fn *Function) newValue(shape shapes.Shape) *Value {
-	v := &Value{
-		id:    fn.nextID,
-		shape: shape,
+func (fn *Function) newValue(shape shapes.Shape) (v *Value) {
+	if fn.IsInline {
+		v = &Value{
+			name:  fmt.Sprintf("inline_%d", fn.Builder.inlineUniqueID),
+			shape: shape,
+		}
+		fn.Builder.inlineUniqueID++
+	} else {
+		// Normal function values are identified by an id only.
+		v = &Value{
+			id:    fn.nextID,
+			shape: shape,
+		}
+		fn.nextID++
 	}
-	fn.nextID++
 	fn.values = append(fn.values, v)
 	return v
 }
@@ -162,7 +171,12 @@ func (fn *Function) Write(writer io.Writer, indentation string) error {
 	}
 	nextIndent := indentation + IndentationStep
 
-	w("%sfunc.func @%s(", indentation, fn.Name)
+	normalFunction := !fn.IsInline
+	if normalFunction {
+		w("%sfunc.func @%s(", indentation, fn.Name)
+	} else if fn.IsInline {
+		w("(")
+	}
 	for i, input := range fn.Inputs {
 		if i > 0 {
 			w(", ")
@@ -170,26 +184,33 @@ func (fn *Function) Write(writer io.Writer, indentation string) error {
 		we(input, nextIndent)
 		w(": %s", input.shape.ToStableHLO())
 	}
-	w(") -> ")
-	if len(fn.Outputs) > 1 {
-		w("(")
-	}
-	for i, output := range fn.Outputs {
-		if i > 0 {
-			w(", ")
+
+	if fn.IsInline {
+		w(") :\n")
+	} else if normalFunction {
+		w(") -> ")
+		if len(fn.Outputs) > 1 {
+			w("(")
 		}
-		w("%s", output.ToStableHLO())
+		for i, output := range fn.Outputs {
+			if i > 0 {
+				w(", ")
+			}
+			w("%s", output.ToStableHLO())
+		}
+		if len(fn.Outputs) > 1 {
+			w(")")
+		}
+		w(" {\n")
 	}
-	if len(fn.Outputs) > 1 {
-		w(")")
-	}
-	w(" {\n")
 
 	for _, stmt := range fn.Statements {
 		we(stmt, nextIndent)
 		w("\n")
 	}
 
-	w("}")
+	if normalFunction {
+		w("}")
+	}
 	return err
 }

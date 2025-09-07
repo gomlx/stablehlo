@@ -2,6 +2,7 @@ package stablehlo
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/gomlx/gopjrt/dtypes"
 	"github.com/gomlx/stablehlo/internal/optypes"
@@ -13,17 +14,29 @@ import (
 
 // addOp adds a new operation to the function.
 func (fn *Function) addOp(opType optypes.OpType, outputShape shapes.Shape, inputs ...*Value) *Statement {
-	inputShapes := make([]shapes.Shape, len(inputs))
-	for i, input := range inputs {
-		inputShapes[i] = input.shape
-	}
-
 	stmt := &Statement{
 		Builder:  fn.Builder,
 		Function: fn,
 		OpType:   opType,
 		Inputs:   inputs,
 		Outputs:  []*Value{fn.newValue(outputShape)},
+	}
+	fn.Statements = append(fn.Statements, stmt)
+	return stmt
+}
+
+// addMultiOp adds a new operation with multiple outputs to the function.
+func (fn *Function) addMultiOp(opType optypes.OpType, outputShapes []shapes.Shape, inputs []*Value) *Statement {
+	outputs := make([]*Value, len(outputShapes))
+	for i, shape := range outputShapes {
+		outputs[i] = fn.newValue(shape)
+	}
+	stmt := &Statement{
+		Builder:  fn.Builder,
+		Function: fn,
+		OpType:   opType,
+		Inputs:   inputs,
+		Outputs:  outputs,
 	}
 	fn.Statements = append(fn.Statements, stmt)
 	return stmt
@@ -60,6 +73,14 @@ func (fn *Function) Compare(lhs, rhs *Value, direction types.ComparisonDirection
 		"comparison_direction": direction,
 	}
 	return stmt.Outputs[0], nil
+}
+
+func valuesToShapes(values []*Value) []shapes.Shape {
+	s := make([]shapes.Shape, len(values))
+	for i, v := range values {
+		s[i] = v.shape
+	}
+	return s
 }
 
 // Complex returns the complex value by concatenating the real and imaginary parts element-wise.
@@ -453,4 +474,59 @@ func (fn *Function) Concatenate(axis int, operands ...*Value) (*Value, error) {
 		"dimension": int64(adjustedAxis),
 	}
 	return stmt.Outputs[0], nil
+}
+
+// Reduce reduces the input along the given axes.
+//
+// Each resulting value is initialized with initValue (e.g.: for a sum, it's 0, for a product it's 1), and
+// then each value is combined with it using the reduction function.
+//
+// The reduction function must be created with Builder.NewInlineFunction, and it should take as input scalar
+// values be associative and commutative.
+//
+// The initialValue and x must have the same DType. This initial dtype must be promotable to the dtype accepted
+// by the reductions function. The result dtype is the same as the output of the reduction function.
+// So one could reduce-sum a 4bit quantized tensor directly into a Float32.
+//
+// See MultiReduce for a version that accepts multiple inputs and outputs.
+func (fn *Function) Reduce(x, initialValue *Value, reduction *Function, axes ...int) (*Value, error) {
+	results, err := fn.MultiReduce([]*Value{x}, []*Value{initialValue}, reduction, axes...)
+	if err != nil {
+		return nil, err
+	}
+	return results[0], nil
+}
+
+// MultiReduce reduces the input along the given axes.
+//
+// Each resulting value i is initialized with initValues[i] (e.g.: for a sum, it's 0, for a product it is 1),
+// and then each value is combined with it using the reduction function.
+//
+// The reduction function must be created with Builder.NewInlineFunction.
+// If there are N inputs and initialValues, the reduction function should have a signature
+// (lhs_1, ... lhs_N, rhs_1, ... lhs_N) and output (out_1 ... out_N), where lhs_i and rhs_i are scalars
+// taken from the inputs.
+//
+// It returns N results for each aggregated value.
+//
+// See Reduce for a version that accepts a single input.
+//
+// TODO: promotion of types doesn't seem to be working according to the spec in
+// https://openxla.org/stablehlo/spec#reduce.
+func (fn *Function) MultiReduce(inputs, initialValues []*Value, reduction *Function, axes ...int) ([]*Value, error) {
+	op := optypes.Reduce
+	outputsShapes, err := shapeinference.Reduce(
+		valuesToShapes(inputs), valuesToShapes(initialValues),
+		valuesToShapes(reduction.Inputs), reduction.Outputs,
+		axes)
+	if err != nil {
+		return nil, err
+	}
+	allInputs := append(slices.Clone(inputs), initialValues...)
+	stmt := fn.addMultiOp(op, outputsShapes, allInputs)
+	stmt.Attributes = map[string]any{
+		"dimensions": intSliceToArrayI64StableHLO(axes),
+	}
+	stmt.AddFunctionParameter("reduction", reduction)
+	return stmt.Outputs, nil
 }

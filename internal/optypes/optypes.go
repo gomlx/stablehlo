@@ -125,7 +125,7 @@ var (
 	// stableHLOMappings maps OpType to the corresponding StableHLO name, when the default
 	// "snake case" doesn't work.
 	stableHLOMappings = map[OpType]string{
-		FuncReturn: "func.return",
+		FuncReturn: "stablehlo.return",
 		Erf:        "chlo.erf",
 	}
 )
