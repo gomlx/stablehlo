@@ -22,6 +22,7 @@ const (
 	Add
 	And
 	Atan2
+	BitcastConvert
 	BroadcastInDim
 	Cbrt
 	Ceil
@@ -75,7 +76,6 @@ const (
 	BatchNormForInference
 	BatchNormForTraining
 	BatchNormGradient
-	BitcastConvert
 	Case
 	Cholesky
 	CollectiveBroadcast

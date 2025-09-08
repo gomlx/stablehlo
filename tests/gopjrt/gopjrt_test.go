@@ -375,6 +375,28 @@ func testOps(t *testing.T, client *pjrt.Client) {
 			{[]float32{0, -1, -2}, []int{3}},
 		}, outputs)
 	})
+
+	t.Run("BitcastConvert", func(t *testing.T) {
+		builder := New(t.Name())
+		fn := builder.Main()
+		c0 := must1(fn.ConstantFromFlatAndDimensions([]uint16{0xbeef, 0xdead}, 1, 2))
+		c1 := must1(fn.ConstantFromScalar(uint32(0xdeadbeef)))
+		c2 := must1(fn.ConstantFromScalar(uint32(0x7F800000)))
+		must(fn.Return(
+			must1(BitcastConvert(c0, D.Uint32)),
+			must1(BitcastConvert(c1, D.Uint16)),
+			must1(BitcastConvert(c2, D.F32)),
+		))
+		program := must1(builder.Build())
+		fmt.Printf("%s program:\n%s", t.Name(), program)
+		outputs := compileAndExecute(t, client, program)
+		requireBuffersEqual(t, []FlatAndDims{
+			{[]uint32{0xdeadbeef}, []int{1}},
+			{[]uint16{0xbeef, 0xdead}, []int{2}},
+			{[]float32{float32(math.Inf(1))}, nil},
+		}, outputs)
+	})
+
 }
 
 func TestBinaryOps(t *testing.T) {

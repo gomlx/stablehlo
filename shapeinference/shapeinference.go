@@ -1417,3 +1417,30 @@ func Reduce(inputs, initialValues, reductionInputs, reductionOutputs []shapes.Sh
 	}
 	return
 }
+
+func BitcastConvert(operand shapes.Shape, targetDType dtypes.DType) (outputShape shapes.Shape, err error) {
+	if operand.DType == dtypes.INVALID {
+		return shapes.Invalid(), errors.New("BitcastConvert: operand data type is invalid")
+	}
+	sourceDType := operand.DType
+	outputShape = operand.Clone()
+	outputShape.DType = targetDType
+	if sourceDType.Bits() == targetDType.Bits() {
+		// No changes in shape.
+		return
+	}
+	if sourceDType.Bits() > targetDType.Bits() {
+		// Convert to a smaller data type, append to a new dimension.
+		newDim := sourceDType.Bits() / targetDType.Bits()
+		outputShape.Dimensions = append(outputShape.Dimensions, newDim)
+		return
+	}
+
+	// Convert to a larger data type, shrink the last dimension.
+	if outputShape.Dim(-1) != (targetDType.Bits()+sourceDType.Bits()-1)/sourceDType.Bits() {
+		return shapes.Invalid(), errors.Errorf("BitcastConvert: cannot convert from %d x %s (%d bits) to %s (%d bits)",
+			outputShape.Dim(-1), sourceDType, sourceDType.Bits(), targetDType, targetDType.Bits())
+	}
+	outputShape.Dimensions = outputShape.Dimensions[:len(outputShape.Dimensions)-1]
+	return
+}
