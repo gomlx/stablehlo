@@ -639,3 +639,26 @@ func MultiReduce(inputs, initialValues []*Value, reduction *Function, axes ...in
 	stmt.AddFunctionParameter("reduction", reduction)
 	return stmt.Outputs, nil
 }
+
+// Select takes element-wise values from onTrue or onFalse depending on the value of the pred (must be boolean).
+//
+// The pred must be boolean and can be a scalar or have the same shape as isTrue and isFalse.
+// isTrue and isFalse must have the same shape and dtypes.
+func Select(pred, onTrue, onFalse *Value) (*Value, error) {
+	op := optypes.Select
+	fn := pred.fn
+	if fn.Returned {
+		return nil, errors.Errorf("cannot add operation %s after returning, in function %q",
+			op, fn.Name)
+	}
+	if onTrue.fn != fn || onFalse.fn != fn {
+		return nil, errors.Errorf("cannot add operation %s to function %q, because operands are from different functions (%q, %q and %q)",
+			op, fn.Name, fn.Name, onTrue.fn.Name, onFalse.fn.Name)
+	}
+	outputShape, err := shapeinference.Select(pred.shape, onTrue.shape, onFalse.shape)
+	if err != nil {
+		return nil, err
+	}
+	stmt := fn.addOp(op, outputShape, pred, onTrue, onFalse)
+	return stmt.Outputs[0], nil
+}

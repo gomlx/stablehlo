@@ -356,6 +356,25 @@ func testOps(t *testing.T, client *pjrt.Client) {
 			{[]int32{3, 12}, []int{2}},
 		}, outputs)
 	})
+
+	t.Run("Select", func(t *testing.T) {
+		builder := New(t.Name())
+		fn := builder.Main()
+		pred0 := must1(fn.ConstantFromFlatAndDimensions([]bool{true, false, true}, 3))
+		pred1 := must1(fn.ConstantFromScalar(false))
+		onTrue := must1(fn.Iota(S.Make(D.F32, 3), 0))
+		onFalse := must1(Negate(onTrue))
+		result0 := must1(Select(pred0, onTrue, onFalse))
+		result1 := must1(Select(pred1, onTrue, onFalse))
+		must(fn.Return(result0, result1))
+		program := must1(builder.Build())
+		fmt.Printf("%s program:\n%s", t.Name(), program)
+		outputs := compileAndExecute(t, client, program)
+		requireBuffersEqual(t, []FlatAndDims{
+			{[]float32{0, -1, 2}, []int{3}},
+			{[]float32{0, -1, -2}, []int{3}},
+		}, outputs)
+	})
 }
 
 func TestBinaryOps(t *testing.T) {

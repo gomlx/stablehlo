@@ -310,40 +310,30 @@ func UnaryOp(opType optypes.OpType, operand shapes.Shape) (output shapes.Shape, 
 	return
 }
 
-// Where returns the shape resulting from the Where operation.
+// Select returns the shape resulting from the Select operation.
 //
-// Shape constraints for the operation:
-//
-//  1. The onTrue and onFalse must have the exact same shape, or one can be a scalar.
-//  2. The condition must either be a scalar or match the shape of onTrue or onFalse, except for the DType that
-//     must be Bool.
-func Where(condition, onTrue, onFalse shapes.Shape) (output shapes.Shape, err error) {
-	if condition.DType != dtypes.Bool {
-		err = errors.Errorf("condition for Where() must be a boolean, got %s instead", condition)
+// The pred must be boolean and can be a scalar or have the same shape as isTrue and isFalse.
+// isTrue and isFalse must have the same shape and dtypes.
+func Select(pred, onTrue, onFalse shapes.Shape) (output shapes.Shape, err error) {
+	if pred.DType != dtypes.Bool {
+		err = errors.Errorf("pred for Select() must be a boolean, got %s instead", pred)
 		return
 	}
-	if !onTrue.IsScalar() && !onFalse.IsScalar() && !onTrue.Equal(onFalse) {
-		err = errors.Errorf("onTrue (%s) and onFalse (%s) values for Where() must either be scalar or match each other's shape",
+	if !onTrue.Equal(onFalse) {
+		err = errors.Errorf("onTrue (%s) and onFalse (%s) values for Select() must have the same shape",
 			onTrue, onFalse)
 		return
 	}
-
-	output = onTrue
-	if output.IsScalar() {
-		output = onFalse
-		if output.IsScalar() && !condition.IsScalar() {
-			output = condition.Clone()
-			output.DType = onTrue.DType
-		}
+	if !pred.IsScalar() && pred.CheckDims(onTrue.Dimensions...) != nil {
+		err = errors.Errorf("pred for Select() must either be a scalar or match onTrue and onFalse shapes, instead got shapes pred=%s, onTrue=%s and onFalse=%s",
+			pred, onTrue, onFalse)
 	}
-
-	if !condition.IsScalar() && slices.Compare(condition.Dimensions, output.Dimensions) != 0 {
-		err = errors.Errorf("condition for Where() must either be a scalar or match the output shape (not the DType), instead got shapes condition=%s, onTrue=%s and onFalse=%s",
-			condition, onTrue, onFalse)
+	if !onTrue.IsScalar() && !onFalse.IsScalar() && !onTrue.Equal(onFalse) {
+		err = errors.Errorf("onTrue (%s) and onFalse (%s) values for Select() must either be scalar or match each other's shape",
+			onTrue, onFalse)
 		return
 	}
-
-	return
+	return onTrue.Clone(), nil
 }
 
 // Reshape to the given dimensions: trivial output shape, but this function also checks
