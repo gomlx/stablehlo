@@ -276,7 +276,7 @@ func (b *DotGeneralBuilder) Done() (*Value, error) {
 // returns [[0 0][1 1]].
 func (fn *Function) Iota(shape shapes.Shape, axis int) (*Value, error) {
 	op := optypes.Iota
-	adjustedAxis, err := shapeinference.AdjustAxisToRank(shape.Rank(), axis)
+	adjustedAxis, err := shapeinference.AdjustAxisToRank(axis, shape.Rank())
 	if err != nil {
 		return nil, errors.WithMessagef(err, "Iota axis is invalid for shape %s", shape)
 	}
@@ -465,7 +465,7 @@ func (fn *Function) Concatenate(axis int, operands ...*Value) (*Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	adjustedAxis, err := shapeinference.AdjustAxisToRank(operands[0].shape.Rank(), axis)
+	adjustedAxis, err := shapeinference.AdjustAxisToRank(axis, operands[0].shape.Rank())
 	if err != nil {
 		return nil, errors.WithMessagef(err, "Concatenate axis is invalid for operands %s", operands)
 	}

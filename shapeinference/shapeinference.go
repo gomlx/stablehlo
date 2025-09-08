@@ -499,7 +499,7 @@ func BroadcastInDim(operand, output shapes.Shape, axesMapping []int) error {
 	}
 	usedAxis := utils.MakeSet[int](len(axesMapping))
 	for operandAxis, targetAxis := range axesMapping {
-		targetAxis, err := AdjustAxisToRank(targetRank, targetAxis)
+		targetAxis, err := AdjustAxisToRank(targetAxis, targetRank)
 		if err != nil {
 			return errors.WithMessagef(err, "invalid axes mapping of operand axis %d to output axis %d, output output is %s", operandAxis, targetAxis, output)
 		}
@@ -1200,7 +1200,7 @@ func ConvGeneral(input, kernel shapes.Shape, axes types.ConvolveAxesConfig,
 }
 
 // AdjustAxisToRank returns a positive axis, adjusting negative numbers to the correct rank.
-func AdjustAxisToRank(rank, axis int) (int, error) {
+func AdjustAxisToRank(axis, rank int) (int, error) {
 	if axis < -rank || axis >= rank {
 		return -1, errors.Errorf("axis %d is out of range for the rank %d", axis, rank)
 	}
@@ -1237,28 +1237,28 @@ func DotGeneral(
 
 	// Validate and adjust axes.
 	for ii, axis := range lhsContractingAxes {
-		lhsContractingAxes[ii], err = AdjustAxisToRank(lhsRank, axis)
+		lhsContractingAxes[ii], err = AdjustAxisToRank(axis, lhsRank)
 		if err != nil {
 			err = errors.WithMessagef(err, "while adjusting contractingAxes for DotGeneral(lhs=%s, lhsContractingAxes=%v)", lhs, lhsContractingAxes)
 			return
 		}
 	}
 	for ii, axis := range lhsBatchAxes {
-		lhsBatchAxes[ii], err = AdjustAxisToRank(lhsRank, axis)
+		lhsBatchAxes[ii], err = AdjustAxisToRank(axis, lhsRank)
 		if err != nil {
 			err = errors.WithMessagef(err, "while adjusting batchAxes for DotGeneral(lhs=%s, lhsBatchAxes=%v)", lhs, lhsBatchAxes)
 			return
 		}
 	}
 	for ii, axis := range rhsContractingAxes {
-		rhsContractingAxes[ii], err = AdjustAxisToRank(rhsRank, axis)
+		rhsContractingAxes[ii], err = AdjustAxisToRank(axis, rhsRank)
 		if err != nil {
 			err = errors.WithMessagef(err, "while adjusting contractingAxes for DotGeneral(rhs=%s, rhsContractingAxes=%v)", rhs, rhsContractingAxes)
 			return
 		}
 	}
 	for ii, axis := range rhsBatchAxes {
-		rhsBatchAxes[ii], err = AdjustAxisToRank(rhsRank, axis)
+		rhsBatchAxes[ii], err = AdjustAxisToRank(axis, rhsRank)
 		if err != nil {
 			err = errors.WithMessagef(err, "while adjusting batchAxes for DotGeneral(rhs=%s, rhsBatchAxes=%v)", rhs, rhsBatchAxes)
 			return
@@ -1396,7 +1396,7 @@ func Reduce(inputs, initialValues, reductionInputs, reductionOutputs []shapes.Sh
 	}
 	axesSet := utils.MakeSet[int]()
 	for i, axis := range axes {
-		adjustedAxis, err := AdjustAxisToRank(rank, axis)
+		adjustedAxis, err := AdjustAxisToRank(axis, rank)
 		if err != nil {
 			return nil, errors.WithMessagef(err, "invalid value for axes[%d]=%d for Reduce, inputs[0].shape=%s)",
 				i, axis, inputs[0])
