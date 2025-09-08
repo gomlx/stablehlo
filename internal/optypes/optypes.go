@@ -70,6 +70,7 @@ const (
 	Subtract
 	Tan
 	Tanh
+	Transpose
 	Xor
 
 	// Here the ones not implemented yet:
@@ -110,7 +111,6 @@ const (
 	Select
 	SelectAndScatter
 	Send
-	Transpose
 	TriangularSolve
 	Tuple
 	UniformDequantize

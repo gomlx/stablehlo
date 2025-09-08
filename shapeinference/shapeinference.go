@@ -412,11 +412,11 @@ func Clamp(min, operand, max shapes.Shape) (output shapes.Shape, err error) {
 // Transpose all axes of the operand.
 // There must be one value in permutations for each axis in the operand.
 // The output will have: output.Shape.Dimension[ii] = operand.Shape.Dimension[permutations[i]].
-func Transpose(operand shapes.Shape, permutations []int) (output shapes.Shape, err error) {
+func Transpose(operand shapes.Shape, permutation []int) (output shapes.Shape, err error) {
 	rank := operand.Rank()
-	if len(permutations) != rank {
-		err = errors.Errorf("Transpose() requires all axes permutations to be defined, operand has shape %s, but %d permutations were given",
-			operand, len(permutations))
+	if len(permutation) != rank {
+		err = errors.Errorf("Transpose() requires all axes permutation to be defined, operand has shape %s, but %d permutation were given",
+			operand, len(permutation))
 		return
 	}
 	if rank == 0 {
@@ -424,7 +424,7 @@ func Transpose(operand shapes.Shape, permutations []int) (output shapes.Shape, e
 	}
 
 	// Check permutation axes are within range and unique.
-	axesSet := slices.Clone(permutations)
+	axesSet := slices.Clone(permutation)
 	slices.Sort(axesSet)
 	for ii, srcAxis := range axesSet {
 		if srcAxis < 0 || srcAxis >= rank {
@@ -433,15 +433,15 @@ func Transpose(operand shapes.Shape, permutations []int) (output shapes.Shape, e
 			return
 		}
 		if ii > 0 && srcAxis == axesSet[ii-1] {
-			err = errors.Errorf("invalid permutations given to Transpose(%s, %v), there cannot be any repeated axis, each must appear exactly once",
-				operand, permutations)
+			err = errors.Errorf("invalid permutation given to Transpose(%s, %v), there cannot be any repeated axis, each must appear exactly once",
+				operand, permutation)
 			return
 		}
 	}
 
 	output = operand.Clone()
 	for axis := range output.Dimensions {
-		srcAxis := permutations[axis]
+		srcAxis := permutation[axis]
 		output.Dimensions[axis] = operand.Dimensions[srcAxis]
 	}
 	return

@@ -397,6 +397,19 @@ func testOps(t *testing.T, client *pjrt.Client) {
 		}, outputs)
 	})
 
+	t.Run("Transpose", func(t *testing.T) {
+		builder := New(t.Name())
+		fn := builder.Main()
+		x := must1(fn.Iota(S.Make(D.F32, 2*3), 0))
+		x = must1(Reshape(x, S.Make(D.F32, 2, 3)))
+		must(fn.Return(must1(Transpose(x, 1, 0))))
+		program := must1(builder.Build())
+		fmt.Printf("%s program:\n%s", t.Name(), program)
+		outputs := compileAndExecute(t, client, program)
+		requireBuffersEqual(t, []FlatAndDims{
+			{[]float32{0, 3, 1, 4, 2, 5}, []int{3, 2}},
+		}, outputs)
+	})
 }
 
 func TestBinaryOps(t *testing.T) {

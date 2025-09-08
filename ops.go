@@ -691,3 +691,26 @@ func BitcastConvert(operand *Value, targetDtype dtypes.DType) (*Value, error) {
 	stmt := fn.addOp(op, outputShape, operand)
 	return stmt.Outputs[0], nil
 }
+
+// Transpose axes of x.
+//
+// There should be one value in permutation for each axis in x (len(permutation) == rank(x)).
+//
+// The output will have: output.Shape.Dimension[ii] = x.Shape.Dimension[permutations[i]].
+func Transpose(x *Value, permutation ...int) (*Value, error) {
+	op := optypes.Transpose
+	fn := x.fn
+	if fn.Returned {
+		return nil, errors.Errorf("cannot add operation %s after returning, in function %q",
+			op, fn.Name)
+	}
+	outputShape, err := shapeinference.Transpose(x.shape, permutation)
+	if err != nil {
+		return nil, err
+	}
+	stmt := fn.addOp(op, outputShape, x)
+	stmt.Attributes = map[string]any{
+		"permutation": intSliceToArrayI64StableHLO(permutation),
+	}
+	return stmt.Outputs[0], nil
+}
