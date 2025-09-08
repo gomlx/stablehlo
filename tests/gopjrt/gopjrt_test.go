@@ -32,6 +32,13 @@ func must1[T any](value T, err error) T {
 	return value
 }
 
+func must2[T1, T2 any](value1 T1, value2 T2, err error) (T1, T2) {
+	if err != nil {
+		panic(err)
+	}
+	return value1, value2
+}
+
 func getPluginNames() []string {
 	names := strings.Split(*flagPluginNames, "|")
 	var to int
@@ -410,6 +417,42 @@ func testOps(t *testing.T, client *pjrt.Client) {
 			{[]float32{0, 3, 1, 4, 2, 5}, []int{3, 2}},
 		}, outputs)
 	})
+
+	for _, algo := range []types.RngBitGeneratorAlgorithm{types.RngDefault, types.RngThreeFry, types.RngPhilox} {
+		t.Run(fmt.Sprintf("RngBitGenerator-%s", algo), func(t *testing.T) {
+			builder := New(t.Name())
+			fn := builder.Main()
+			state := must1(fn.ConstantFromFlatAndDimensions([]uint64{42, 1}, 2))
+			const numSamples = 10_000
+			_, noiseV := must2(RngBitGenerator(state, S.Make(D.Uint64, numSamples), algo))
+			must(fn.Return(noiseV))
+			program := must1(builder.Build())
+			fmt.Printf("%s program:\n%s", t.Name(), program)
+			outputs := compileAndExecute(t, client, program)
+			flat, dims, err := outputs[0].ToFlatDataAndDimensions()
+			require.NoError(t, err)
+			require.Equal(t, []int{numSamples}, dims)
+			noise := flat.([]uint64)
+			// Count bits in each uint64
+			var totalBits int
+			for _, n := range noise {
+				// Count 1 bits using Hamming weight
+				n = n - ((n >> 1) & 0x5555555555555555)
+				n = (n & 0x3333333333333333) + ((n >> 2) & 0x3333333333333333)
+				n = (n + (n >> 4)) & 0x0f0f0f0f0f0f0f0f
+				n = n + (n >> 8)
+				n = n + (n >> 16)
+				n = n + (n >> 32)
+				totalBits += int(n & 0x7f)
+			}
+			// We expect roughly 32 bits per number +/- 2 standard deviations
+			expectedBits := 32 * numSamples
+			fmt.Printf("\tgot %d bits set, expected %d\n", totalBits, expectedBits)
+			margin := 2 * numSamples
+			require.Greater(t, totalBits, expectedBits-margin)
+			require.Less(t, totalBits, expectedBits+margin)
+		})
+	}
 }
 
 func TestBinaryOps(t *testing.T) {

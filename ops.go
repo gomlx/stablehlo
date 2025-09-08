@@ -3,6 +3,7 @@ package stablehlo
 import (
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/gomlx/gopjrt/dtypes"
 	"github.com/gomlx/stablehlo/internal/optypes"
@@ -713,4 +714,30 @@ func Transpose(x *Value, permutation ...int) (*Value, error) {
 		"permutation": intSliceToArrayI64StableHLO(permutation),
 	}
 	return stmt.Outputs[0], nil
+}
+
+// RngBitGeneratorStateShape used by the RngBitGenerator operation.
+// It's a fixed value, defined by PJRT spect and should not be changes.
+var RngBitGeneratorStateShape = shapes.Make(dtypes.Uint64, 2)
+
+// RngBitGenerator generates the given shape filled with random bits.
+// It takes the current random number generator (RNG) state, see RngState or RngStateFromSeed.
+// The algorithm is hard-coded to use Philox algorithm for now.
+//
+// It returns the new state of the RNG and the generated values (with random bits) with the given shape.
+func RngBitGenerator(state *Value, shape shapes.Shape, algorithm types.RngBitGeneratorAlgorithm) (newState, values *Value, err error) {
+	op := optypes.RngBitGenerator
+	fn := state.fn
+	if fn.Returned {
+		return nil, nil, errors.Errorf("cannot add operation %s after returning, in function %q",
+			op, fn.Name)
+	}
+	if !state.shape.Equal(RngBitGeneratorStateShape) {
+		return nil, nil, errors.Errorf("the state for RngBitGenerator must have shape %s, got %s", RngBitGeneratorStateShape, state.shape)
+	}
+	stmt := fn.addMultiOp(optypes.RngBitGenerator, []shapes.Shape{RngBitGeneratorStateShape, shape}, []*Value{state})
+	stmt.Attributes = map[string]any{
+		"rng_algorithm": literalStrF("#stablehlo<rng_algorithm %s>", strings.ToUpper(algorithm.String())),
+	}
+	return stmt.Outputs[0], stmt.Outputs[1], nil
 }

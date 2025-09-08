@@ -157,3 +157,14 @@ type DotGeneralAlgorithm struct {
 	// (e.g. CUBLASLT_MATMUL_DESC_FAST_ACCUM).
 	AllowImpreciseAccumulation bool
 }
+
+// RngBitGeneratorAlgorithm used by the RngBitGenerator operation.
+type RngBitGeneratorAlgorithm int
+
+const (
+	RngDefault RngBitGeneratorAlgorithm = iota
+	RngPhilox
+	RngThreeFry
+)
+
+//go:generate go tool enumer -type=RngBitGeneratorAlgorithm -trimprefix=Rng -transform=snake ops.go
