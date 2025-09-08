@@ -19,7 +19,13 @@ import (
 
 var flagPluginNames = flag.String("plugins", "cpu", "List (|-separated) of PRJT plugin names or full paths. E.g. \"cpu|cuda\"")
 
-func must[T any](value T, err error) T {
+func must(err error) {
+	if err != nil {
+		panic(err)
+	}
+}
+
+func must1[T any](value T, err error) T {
 	if err != nil {
 		panic(err)
 	}
@@ -120,13 +126,13 @@ func testOps(t *testing.T, client *pjrt.Client) {
 	t.Run("Return-multi-output", func(t *testing.T) {
 		b := stablehlo.New(t.Name())
 		fn := b.NewFunction("main")
-		c1 := must(fn.ConstantFromScalar(1.0))
-		c2 := must(fn.ConstantFromScalar(2.0))
-		c3 := must(fn.ConstantFromScalar(float32(math.Inf(-1))))
-		c4 := must(fn.ConstantFromScalar(math.Inf(1)))
-		sum := must(fn.Add(c1, c2))
-		fn.Return(c1, c2, sum, c3, c4)
-		program := must(b.Build())
+		c1 := must1(fn.ConstantFromScalar(1.0))
+		c2 := must1(fn.ConstantFromScalar(2.0))
+		c3 := must1(fn.ConstantFromScalar(float32(math.Inf(-1))))
+		c4 := must1(fn.ConstantFromScalar(math.Inf(1)))
+		sum := must1(fn.Add(c1, c2))
+		must(fn.Return(c1, c2, sum, c3, c4))
+		program := must1(b.Build())
 		fmt.Printf("%s program:\n%s", t.Name(), program)
 		output := compileAndExecute(t, client, program)
 		requireBuffersEqual(t, []FlatAndDims{
@@ -141,41 +147,42 @@ func testOps(t *testing.T, client *pjrt.Client) {
 	t.Run("Complex", func(t *testing.T) {
 		builder := stablehlo.New(t.Name())
 		shape := S.Make(D.Float64)
-		lhsV, rhsV := stablehlo.NamedValue("lhs", shape), stablehlo.NamedValue("rhs", shape)
-		fn := builder.Main(lhsV, rhsV)
-		fn.Return(must(fn.Complex(lhsV, rhsV)))
-		program := must(builder.Build())
+		fn := builder.Main()
+		lhsV, rhsV := fn.NamedInput("lhs", shape), fn.NamedInput("rhs", shape)
+		must(fn.Return(must1(fn.Complex(lhsV, rhsV))))
+		program := must1(builder.Build())
 		fmt.Printf("%s program:\n%s", t.Name(), program)
-		a := must(client.BufferFromHost().FromFlatDataWithDimensions([]float64{1.0}, nil).Done())
-		b := must(client.BufferFromHost().FromFlatDataWithDimensions([]float64{-1.0}, nil).Done())
+		a := must1(client.BufferFromHost().FromFlatDataWithDimensions([]float64{1.0}, nil).Done())
+		b := must1(client.BufferFromHost().FromFlatDataWithDimensions([]float64{-1.0}, nil).Done())
 		output := compileAndExecute(t, client, program, a, b)
 		requireBuffersEqual(t, []FlatAndDims{{[]complex128{1 - 1i}, nil}}, output)
 	})
 
 	t.Run("Clamp", func(t *testing.T) {
 		builder := stablehlo.New(t.Name())
-		minV, maxV := stablehlo.NamedValue("min", S.Make(D.Float32)), stablehlo.NamedValue("max", S.Make(D.Float32))
-		xV := stablehlo.NamedValue("x", S.Make(D.Float32, 3))
-		fn := builder.Main(minV, xV, maxV)
-		fn.Return(must(fn.Clamp(minV, xV, maxV)))
-		program := must(builder.Build())
+		fn := builder.Main()
+		minV := fn.NamedInput("min", S.Make(D.Float32))
+		xV := fn.NamedInput("x", S.Make(D.Float32, 3))
+		maxV := fn.NamedInput("max", S.Make(D.Float32))
+		must(fn.Return(must1(fn.Clamp(minV, xV, maxV))))
+		program := must1(builder.Build())
 		fmt.Printf("%s program:\n%s", t.Name(), program)
-		min := must(client.BufferFromHost().FromFlatDataWithDimensions([]float32{-1.0}, nil).Done())
-		max := must(client.BufferFromHost().FromFlatDataWithDimensions([]float32{1.0}, nil).Done())
-		x := must(client.BufferFromHost().FromFlatDataWithDimensions([]float32{0.1, -2.2, 3.3}, []int{3}).Done())
-		output := compileAndExecute(t, client, program, min, x, max)
+		minArg := must1(client.BufferFromHost().FromFlatDataWithDimensions([]float32{-1.0}, nil).Done())
+		maxArg := must1(client.BufferFromHost().FromFlatDataWithDimensions([]float32{1.0}, nil).Done())
+		x := must1(client.BufferFromHost().FromFlatDataWithDimensions([]float32{0.1, -2.2, 3.3}, []int{3}).Done())
+		output := compileAndExecute(t, client, program, minArg, x, maxArg)
 		requireBuffersEqual(t, []FlatAndDims{{[]float32{0.1, -1, 1}, []int{3}}}, output)
 	})
 
 	t.Run("Iota", func(t *testing.T) {
 		builder := stablehlo.New(t.Name())
 		fn := builder.Main()
-		fn.Return(
-			must(fn.Iota(S.Make(D.F32, 2, 2), 0)),
-			must(fn.Iota(S.Make(D.F32, 2, 2), 1)),
-			must(fn.Iota(S.Make(D.F32, 4), 0)),
-		)
-		program := must(builder.Build())
+		must(fn.Return(
+			must1(fn.Iota(S.Make(D.F32, 2, 2), 0)),
+			must1(fn.Iota(S.Make(D.F32, 2, 2), 1)),
+			must1(fn.Iota(S.Make(D.F32, 4), 0)),
+		))
+		program := must1(builder.Build())
 		fmt.Printf("%s program:\n%s", t.Name(), program)
 		outputs := compileAndExecute(t, client, program)
 		requireBuffersEqual(t, []FlatAndDims{
@@ -188,13 +195,13 @@ func testOps(t *testing.T, client *pjrt.Client) {
 	t.Run("IsFinite", func(t *testing.T) {
 		builder := stablehlo.New(t.Name())
 		fn := builder.Main()
-		input := fn.NewNamedInput("x", S.Make(D.F64, 6))
-		fn.Return(
-			must(fn.IsFinite(input)),
-		)
-		program := must(builder.Build())
+		input := fn.NamedInput("x", S.Make(D.F64, 6))
+		must(fn.Return(
+			must1(fn.IsFinite(input)),
+		))
+		program := must1(builder.Build())
 		fmt.Printf("%s program:\n%s", t.Name(), program)
-		v := must(client.BufferFromHost().FromFlatDataWithDimensions([]float64{0, -1, 1, math.Inf(1), math.Inf(-1), math.NaN()}, []int{6}).Done())
+		v := must1(client.BufferFromHost().FromFlatDataWithDimensions([]float64{0, -1, 1, math.Inf(1), math.Inf(-1), math.NaN()}, []int{6}).Done())
 		outputs := compileAndExecute(t, client, program, v)
 		requireBuffersEqual(t, []FlatAndDims{
 			{[]bool{true, true, true, false, false, false}, []int{6}},
@@ -204,10 +211,10 @@ func testOps(t *testing.T, client *pjrt.Client) {
 	t.Run("Reshape", func(t *testing.T) {
 		builder := stablehlo.New(t.Name())
 		fn := builder.Main()
-		x := must(fn.Iota(S.Make(D.F32, 3, 2), 0))
-		y := must(fn.Reshape(x, S.Make(D.F32, 2, 3)))
-		fn.Return(y)
-		program := must(builder.Build())
+		x := must1(fn.Iota(S.Make(D.F32, 3, 2), 0))
+		y := must1(fn.Reshape(x, S.Make(D.F32, 2, 3)))
+		must(fn.Return(y))
+		program := must1(builder.Build())
 		fmt.Printf("%s program:\n%s", t.Name(), program)
 		outputs := compileAndExecute(t, client, program)
 		requireBuffersEqual(t, []FlatAndDims{
@@ -218,10 +225,10 @@ func testOps(t *testing.T, client *pjrt.Client) {
 	t.Run("BroadcastInDim", func(t *testing.T) {
 		builder := stablehlo.New(t.Name())
 		fn := builder.Main()
-		x := must(fn.Iota(S.Make(D.F32, 3), 0))
-		y := must(fn.BroadcastInDim(x, S.Make(D.F32, 2, 3), []int{1}))
-		fn.Return(y)
-		program := must(builder.Build())
+		x := must1(fn.Iota(S.Make(D.F32, 3), 0))
+		y := must1(fn.BroadcastInDim(x, S.Make(D.F32, 2, 3), []int{1}))
+		must(fn.Return(y))
+		program := must1(builder.Build())
 		fmt.Printf("%s program:\n%s", t.Name(), program)
 		outputs := compileAndExecute(t, client, program)
 		requireBuffersEqual(t, []FlatAndDims{
@@ -232,10 +239,10 @@ func testOps(t *testing.T, client *pjrt.Client) {
 	t.Run("BroadcastInDim<scalar>", func(t *testing.T) {
 		builder := stablehlo.New(t.Name())
 		fn := builder.Main()
-		x := must(fn.ConstantFromScalar(float32(7.0)))
-		y := must(fn.BroadcastInDim(x, S.Make(D.F32, 3), nil))
-		fn.Return(y)
-		program := must(builder.Build())
+		x := must1(fn.ConstantFromScalar(float32(7.0)))
+		y := must1(fn.BroadcastInDim(x, S.Make(D.F32, 3), nil))
+		must(fn.Return(y))
+		program := must1(builder.Build())
 		fmt.Printf("%s program:\n%s", t.Name(), program)
 		outputs := compileAndExecute(t, client, program)
 		requireBuffersEqual(t, []FlatAndDims{
@@ -246,20 +253,20 @@ func testOps(t *testing.T, client *pjrt.Client) {
 	t.Run("Gather", func(t *testing.T) {
 		builder := stablehlo.New(t.Name())
 		fn := builder.Main()
-		x := must(fn.Iota(S.Make(D.F32, 3*5), 0))
-		x = must(fn.Reshape(x, S.Make(D.F32, 3, 5)))
-		indices := must(fn.ConstantFromFlatAndDimensions([]int{2, 0}, 2, 1))
+		x := must1(fn.Iota(S.Make(D.F32, 3*5), 0))
+		x = must1(fn.Reshape(x, S.Make(D.F32, 3, 5)))
+		indices := must1(fn.ConstantFromFlatAndDimensions([]int{2, 0}, 2, 1))
 		offsetOutputAxes := []int{1}
 		collapsedSliceAxes := []int{0}
 		var operandBatchingAxes, startIndicesBatchingAxes []int
 		startIndexMap := []int{0}
 		sliceSizes := []int{1, 5}
-		y := must(fn.Gather(x, indices, 1,
+		y := must1(fn.Gather(x, indices, 1,
 			offsetOutputAxes, collapsedSliceAxes, operandBatchingAxes,
 			startIndicesBatchingAxes, startIndexMap,
 			sliceSizes, false))
-		fn.Return(y)
-		program := must(builder.Build())
+		must(fn.Return(y))
+		program := must1(builder.Build())
 		fmt.Printf("%s program:\n%s", t.Name(), program)
 		outputs := compileAndExecute(t, client, program)
 		requireBuffersEqual(t, []FlatAndDims{
@@ -272,11 +279,11 @@ func testOps(t *testing.T, client *pjrt.Client) {
 	t.Run("Slice", func(t *testing.T) {
 		builder := stablehlo.New(t.Name())
 		fn := builder.Main()
-		x := must(fn.Iota(S.Make(D.F32, 5), 0))
-		y0 := must(fn.Slice(x, []int{2}, []int{4}, nil))
-		y1 := must(fn.Slice(x, []int{2}, []int{5}, []int{2}))
-		fn.Return(y0, y1)
-		program := must(builder.Build())
+		x := must1(fn.Iota(S.Make(D.F32, 5), 0))
+		y0 := must1(fn.Slice(x, []int{2}, []int{4}, nil))
+		y1 := must1(fn.Slice(x, []int{2}, []int{5}, []int{2}))
+		must(fn.Return(y0, y1))
+		program := must1(builder.Build())
 		fmt.Printf("%s program:\n%s", t.Name(), program)
 		outputs := compileAndExecute(t, client, program)
 		requireBuffersEqual(t, []FlatAndDims{
@@ -288,11 +295,11 @@ func testOps(t *testing.T, client *pjrt.Client) {
 	t.Run("Concatenate", func(t *testing.T) {
 		builder := stablehlo.New(t.Name())
 		fn := builder.Main()
-		x := must(fn.Iota(S.Make(D.F32, 2, 3), 1))
-		y := must(fn.Iota(S.Make(D.F32, 2, 1), 0))
-		z := must(fn.Concatenate(1, x, y))
-		fn.Return(z)
-		program := must(builder.Build())
+		x := must1(fn.Iota(S.Make(D.F32, 2, 3), 1))
+		y := must1(fn.Iota(S.Make(D.F32, 2, 1), 0))
+		z := must1(fn.Concatenate(1, x, y))
+		must(fn.Return(z))
+		program := must1(builder.Build())
 		fmt.Printf("%s program:\n%s", t.Name(), program)
 		outputs := compileAndExecute(t, client, program)
 		requireBuffersEqual(t, []FlatAndDims{
@@ -303,17 +310,17 @@ func testOps(t *testing.T, client *pjrt.Client) {
 	t.Run("Reduce", func(t *testing.T) {
 		builder := stablehlo.New(t.Name())
 		fn := builder.Main()
-		x := must(fn.Iota(S.Make(D.F32, 2*3), 0))
-		x = must(fn.Reshape(x, S.Make(D.F32, 2, 3)))
-		zero := must(fn.ConstantFromScalar(float32(0)))
-		reductionFn := builder.NewInlineFunction()
-		lhs := reductionFn.NewNamedInput("lhs", S.Make(D.F32))
-		rhs := reductionFn.NewNamedInput("rhs", S.Make(D.F32))
-		reductionFn.Return(must(reductionFn.Add(lhs, rhs)))
-		r0 := must(fn.Reduce(x, zero, reductionFn, 1))
-		r1 := must(fn.Reduce(x, zero, reductionFn, 0))
-		fn.Return(r0, r1)
-		program := must(builder.Build())
+		x := must1(fn.Iota(S.Make(D.F32, 2*3), 0))
+		x = must1(fn.Reshape(x, S.Make(D.F32, 2, 3)))
+		zero := must1(fn.ConstantFromScalar(float32(0)))
+		reductionFn := fn.Closure()
+		lhs := reductionFn.NamedInput("lhs", S.Make(D.F32))
+		rhs := reductionFn.NamedInput("rhs", S.Make(D.F32))
+		must(reductionFn.Return(must1(reductionFn.Add(lhs, rhs))))
+		r0 := must1(fn.Reduce(x, zero, reductionFn, 1))
+		r1 := must1(fn.Reduce(x, zero, reductionFn, 0))
+		must(fn.Return(r0, r1))
+		program := must1(builder.Build())
 		fmt.Printf("%s program:\n%s", t.Name(), program)
 		outputs := compileAndExecute(t, client, program)
 		requireBuffersEqual(t, []FlatAndDims{
@@ -325,25 +332,25 @@ func testOps(t *testing.T, client *pjrt.Client) {
 	t.Run("MultiReduce", func(t *testing.T) {
 		builder := stablehlo.New(t.Name())
 		fn := builder.Main()
-		x := must(fn.Iota(S.Make(D.F32, 2*3), 0))
-		x = must(fn.Reshape(x, S.Make(D.F32, 2, 3)))
-		y := must(fn.Iota(S.Make(D.Int32, 2*3), 0))
-		y = must(fn.Reshape(y, S.Make(D.Int32, 2, 3)))
-		zeroF32 := must(fn.ConstantFromScalar(float32(0)))
-		zeroI32 := must(fn.ConstantFromScalar(int32(0)))
-		reductionFn := builder.NewInlineFunction()
-		lhs0 := reductionFn.NewNamedInput("lhs0", S.Make(D.F32))
-		lhs1 := reductionFn.NewNamedInput("lhs1", S.Make(D.Int32))
-		rhs0 := reductionFn.NewNamedInput("rhs0", S.Make(D.F32))
-		rhs1 := reductionFn.NewNamedInput("rhs1", S.Make(D.Int32))
-		reductionFn.Return(
-			must(reductionFn.Add(lhs0, rhs0)),
-			must(reductionFn.Add(lhs1, rhs1)))
-		results := must(fn.MultiReduce(
+		x := must1(fn.Iota(S.Make(D.F32, 2*3), 0))
+		x = must1(fn.Reshape(x, S.Make(D.F32, 2, 3)))
+		y := must1(fn.Iota(S.Make(D.Int32, 2*3), 0))
+		y = must1(fn.Reshape(y, S.Make(D.Int32, 2, 3)))
+		zeroF32 := must1(fn.ConstantFromScalar(float32(0)))
+		zeroI32 := must1(fn.ConstantFromScalar(int32(0)))
+		reductionFn := fn.Closure()
+		lhs0 := reductionFn.NamedInput("lhs0", S.Make(D.F32))
+		lhs1 := reductionFn.NamedInput("lhs1", S.Make(D.Int32))
+		rhs0 := reductionFn.NamedInput("rhs0", S.Make(D.F32))
+		rhs1 := reductionFn.NamedInput("rhs1", S.Make(D.Int32))
+		must(reductionFn.Return(
+			must1(reductionFn.Add(lhs0, rhs0)),
+			must1(reductionFn.Add(lhs1, rhs1))))
+		results := must1(fn.MultiReduce(
 			[]*stablehlo.Value{x, y},
 			[]*stablehlo.Value{zeroF32, zeroI32}, reductionFn, 1))
-		fn.Return(results[0], results[1])
-		program := must(builder.Build())
+		must(fn.Return(results[0], results[1]))
+		program := must1(builder.Build())
 		fmt.Printf("%s program:\n%s", t.Name(), program)
 		outputs := compileAndExecute(t, client, program)
 		requireBuffersEqual(t, []FlatAndDims{
@@ -367,14 +374,14 @@ func testBinaryOps(t *testing.T, client *pjrt.Client) {
 		dtype D.DType, lhs, rhs any, expected any) {
 		builder := stablehlo.New(t.Name())
 		shape := S.Make(dtype)
-		lhsV, rhsV := stablehlo.NamedValue("lhs", shape), stablehlo.NamedValue("rhs", shape)
-		fn := builder.Main(lhsV, rhsV)
-		result := must(op(fn, lhsV, rhsV))
-		fn.Return(result)
-		program := must(builder.Build())
+		fn := builder.Main()
+		lhsV, rhsV := fn.NamedInput("lhs", shape), fn.NamedInput("rhs", shape)
+		result := must1(op(fn, lhsV, rhsV))
+		must(fn.Return(result))
+		program := must1(builder.Build())
 		fmt.Printf("%s program:\n%s", t.Name(), program)
-		a := must(client.BufferFromHost().FromFlatDataWithDimensions(lhs, []int{}).Done())
-		b := must(client.BufferFromHost().FromFlatDataWithDimensions(rhs, []int{}).Done())
+		a := must1(client.BufferFromHost().FromFlatDataWithDimensions(lhs, []int{}).Done())
+		b := must1(client.BufferFromHost().FromFlatDataWithDimensions(rhs, []int{}).Done())
 		output := compileAndExecute(t, client, program, a, b)
 		requireBuffersEqual(t, []FlatAndDims{{expected, nil}}, output)
 	}
@@ -467,14 +474,14 @@ func testCompare(t *testing.T, client *pjrt.Client) {
 		dtype D.DType, lhs, rhs any, expected any) {
 		builder := stablehlo.New(t.Name())
 		shape := S.Make(dtype)
-		lhsV, rhsV := stablehlo.NamedValue("lhs", shape), stablehlo.NamedValue("rhs", shape)
-		fn := builder.Main(lhsV, rhsV)
-		result := must(fn.Compare(lhsV, rhsV, direction, compareType))
-		fn.Return(result)
-		program := must(builder.Build())
+		fn := builder.Main()
+		lhsV, rhsV := fn.NamedInput("lhs", shape), fn.NamedInput("rhs", shape)
+		result := must1(fn.Compare(lhsV, rhsV, direction, compareType))
+		must(fn.Return(result))
+		program := must1(builder.Build())
 		fmt.Printf("%s program:\n%s", t.Name(), program)
-		a := must(client.BufferFromHost().FromFlatDataWithDimensions(lhs, []int{}).Done())
-		b := must(client.BufferFromHost().FromFlatDataWithDimensions(rhs, []int{}).Done())
+		a := must1(client.BufferFromHost().FromFlatDataWithDimensions(lhs, []int{}).Done())
+		b := must1(client.BufferFromHost().FromFlatDataWithDimensions(rhs, []int{}).Done())
 		output := compileAndExecute(t, client, program, a, b)
 		requireBuffersEqual(t, []FlatAndDims{{expected, nil}}, output)
 	}
@@ -526,13 +533,13 @@ func testUnaryOps(t *testing.T, client *pjrt.Client) {
 		dtype D.DType, input any, expected any) {
 		builder := stablehlo.New(t.Name())
 		shape := S.Make(dtype)
-		inputV := stablehlo.NamedValue("input", shape)
-		fn := builder.Main(inputV)
-		result := must(op(fn, inputV))
-		fn.Return(result)
-		program := must(builder.Build())
+		fn := builder.Main()
+		arg := fn.Input(shape)
+		result := must1(op(fn, arg))
+		must(fn.Return(result))
+		program := must1(builder.Build())
 		fmt.Printf("%s program:\n%s", t.Name(), program)
-		a := must(client.BufferFromHost().FromFlatDataWithDimensions(input, []int{}).Done())
+		a := must1(client.BufferFromHost().FromFlatDataWithDimensions(input, []int{}).Done())
 		output := compileAndExecute(t, client, program, a)
 		requireBuffersEqual(t, []FlatAndDims{{expected, nil}}, output)
 	}
@@ -665,8 +672,8 @@ func testConstants(t *testing.T, client *pjrt.Client) {
 		fn := builder.Main()
 		c, err := fn.ConstantFromScalar(scalar)
 		require.NoError(t, err)
-		fn.Return(c)
-		program := must(builder.Build())
+		must(fn.Return(c))
+		program := must1(builder.Build())
 		fmt.Printf("%s program:\n%s", t.Name(), program)
 		output := compileAndExecute(t, client, program)[0]
 		gotFlat, gotDim, err := output.ToFlatDataAndDimensions()
@@ -690,8 +697,8 @@ func testConstants(t *testing.T, client *pjrt.Client) {
 		fn := builder.Main()
 		c, err := fn.ConstantFromFlatAndDimensions(flat, dimensions...)
 		require.NoError(t, err)
-		fn.Return(c)
-		program := must(builder.Build())
+		must(fn.Return(c))
+		program := must1(builder.Build())
 		fmt.Printf("%s program:\n%s", t.Name(), program)
 		output := compileAndExecute(t, client, program)[0]
 		gotFlat, gotDims, err := output.ToFlatDataAndDimensions()

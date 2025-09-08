@@ -7,12 +7,20 @@ import (
 	"github.com/gomlx/stablehlo/types/shapes"
 )
 
-// Value represents a value in a ToStableHLO program, like `%0` or `%arg0`.
-// It has a name, shape and an optional descriptive name that can contain letters, digits and underscore.
+// Value represents a value in a StableHLO program, like `%0` or `%arg0`.
+// These values can be inputs, outputs or intermediary values of functions.
+//
+// It is always associated with a function (where it's being used) and must be uniquely identified by a string with
+// digits '0'-'9', 'A'-'Z', 'a'-'z' or '_'.
+//
+// For inlined functions (for instance, the one passed to a Reduce operation), the names cannot clash with the parent
+// function name (!?). But the names can be reused in different inline functions.
+//
+// It also carries its shape information.
 type Value struct {
-	id    int
+	fn    *Function
+	name  string
 	shape shapes.Shape
-	name  string // Optional name composed of letters, digits and underscore
 }
 
 // Shape returns the shape of the value.
@@ -23,20 +31,13 @@ func (v *Value) Shape() shapes.Shape {
 // Write writes the value in ToStableHLO text format to the given writer.
 func (v *Value) Write(w io.Writer, indentation string) error {
 	_ = indentation
-	if v.name != "" {
-		_, err := fmt.Fprintf(w, "%%%s", v.name)
-		return err
-	}
-	_, err := fmt.Fprintf(w, "%%%d", v.id)
+	_, err := fmt.Fprintf(w, "%%%s", v.name)
 	return err
 }
 
 // String implements fmt.Stringer.
 func (v *Value) String() string {
-	if v.name != "" {
-		return "%" + v.name
-	}
-	return fmt.Sprintf("%%%d", v.id)
+	return "%" + v.name
 }
 
 // NamedValue creates a new named value with the given shape.
@@ -45,6 +46,5 @@ func NamedValue(name string, shape shapes.Shape) *Value {
 	return &Value{
 		shape: shape,
 		name:  name,
-		id:    -1,
 	}
 }

@@ -75,7 +75,7 @@ type elementWriter interface {
 // The inputs are the values that the function will receive as arguments.
 // The values are not added to the program, they are just used as inputs.
 //
-// You can also add new inputs later by calling Function.NewInput.
+// You can also add new inputs later by calling Function.Input.
 //
 // The function body is defined by calling ops on the function object.
 //
@@ -100,24 +100,9 @@ const MainFunctionName = "main"
 //
 // Every program must have a main function.
 //
-// Like with NewFunction, you can add new inputs later by calling Function.NewInput.
+// Like with NewFunction, you can add new inputs later by calling Function.Input.
 func (b *Builder) Main(inputs ...*Value) *Function {
 	return b.NewFunction(MainFunctionName, inputs...)
-}
-
-// NewInlineFunction creates an unnamed inline function that can be used as an argument to operations like
-// Reduce, ReduceWindow, ScatterAndUpdate, etc.
-//
-// After created, the InlineFunction should not be changed. But it can be used multiple times.
-//
-// The inputs are the values that the function will receive as arguments.
-// You can also add new inputs later by calling Function.NewInput.
-//
-// The function body is defined by calling ops on the function object.
-func (b *Builder) NewInlineFunction(inputs ...*Value) *Function {
-	inlineFn := b.NewFunction("", inputs...)
-	inlineFn.IsInline = true
-	return inlineFn
 }
 
 const IndentationStep = "  "
@@ -149,7 +134,7 @@ func (b *Builder) Write(writer io.Writer) error {
 	// Write non-inline functions:
 	var count int
 	for _, fn := range b.functions {
-		if fn.IsInline {
+		if fn.Parent != nil {
 			continue
 		}
 		if count > 0 {

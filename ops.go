@@ -481,7 +481,7 @@ func (fn *Function) Concatenate(axis int, operands ...*Value) (*Value, error) {
 // Each resulting value is initialized with initValue (e.g.: for a sum, it's 0, for a product it's 1), and
 // then each value is combined with it using the reduction function.
 //
-// The reduction function must be created with Builder.NewInlineFunction, and it should take as input scalar
+// The reduction function must be created with Builder.NewClosure, and it should take as input scalar
 // values be associative and commutative.
 //
 // The initialValue and x must have the same DType. This initial dtype must be promotable to the dtype accepted
@@ -502,7 +502,7 @@ func (fn *Function) Reduce(x, initialValue *Value, reduction *Function, axes ...
 // Each resulting value i is initialized with initValues[i] (e.g.: for a sum, it's 0, for a product it is 1),
 // and then each value is combined with it using the reduction function.
 //
-// The reduction function must be created with Builder.NewInlineFunction.
+// The reduction function must be created with Builder.NewClosure.
 // If there are N inputs and initialValues, the reduction function should have a signature
 // (lhs_1, ... lhs_N, rhs_1, ... lhs_N) and output (out_1 ... out_N), where lhs_i and rhs_i are scalars
 // taken from the inputs.

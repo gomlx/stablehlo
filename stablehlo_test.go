@@ -24,7 +24,7 @@ func TestBuilder(t *testing.T) {
 		c1 := must(fn.ConstantFromScalar(1.0))
 		c2 := must(fn.ConstantFromScalar(2.0))
 		sum := must(fn.Add(c1, c2))
-		fn.Return(sum)
+		require.NoError(t, fn.Return(sum))
 		program := string(must(b.Build()))
 		fmt.Printf("%s program:\n%s", t.Name(), program)
 		want := `func.func @main() -> tensor<f64> {
@@ -44,11 +44,11 @@ func TestBuilder(t *testing.T) {
 		builder := New(t.Name())
 		shape := shapes.Make(dtypes.Float64)
 		// lhs is provided during the Main function creation, and rhs is added later.
-		lhs := NamedValue("lhs", shape)
-		fn := builder.Main(lhs)
-		rhs := fn.NewNamedInput("rhs", shape)
+		fn := builder.Main()
+		lhs := fn.NamedInput("lhs", shape)
+		rhs := fn.NamedInput("rhs", shape)
 		sum := must(fn.Add(lhs, rhs))
-		fn.Return(sum)
+		require.NoError(t, fn.Return(sum))
 		program := string(must(builder.Build()))
 		fmt.Printf("%s program:\n%s", t.Name(), program)
 		want := `func.func @main(%lhs: tensor<f64>, %rhs: tensor<f64>) -> tensor<f64> {
@@ -68,7 +68,7 @@ func TestBuilder_Errors(t *testing.T) {
 		b := New("test_program")
 		fn := b.NewFunction("not_main", nil)
 		c1 := must(fn.ConstantFromScalar(1.0))
-		fn.Return(c1)
+		require.NoError(t, fn.Return(c1))
 		_, err := b.Build()
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "program must have a main function")

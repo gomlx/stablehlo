@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"strconv"
 
 	"github.com/gomlx/gopjrt/dtypes"
 	"github.com/gomlx/stablehlo/internal/optypes"
@@ -30,59 +31,85 @@ type Function struct {
 	// values holds all the values (e.g. %0, %1, %arg0) created in the function's scope.
 	values []*Value
 
-	// IsInline indicates if the function is inlined in a statement.
-	// Inlined functions don't necessarily have a name, and are rendered slightly differently.
-	IsInline bool
+	// Parent of a closure function. It is only set if the function is a closure, and it's the function that created it.
+	Parent *Function
 
-	// nextID is the next ID to be assigned to a new value.
-	nextID int
+	// nextArgID is the next ID to be assigned to new input arguments.
+	nextArgID int
+
+	// nextTmpID is the next ID to be assigned to new intermediary values.
+	nextTmpID int
+
+	// nextClosureID is the next ID to be assigned to new closures.
+	nextClosureID int
+
+	// Returned indicates if the function has a return statement, so it can no longer be changed.
+	Returned bool
+}
+
+// findRootFn returns the root function of a function tree.
+//
+// There are no cases where it is more than 1-level deep, but it would work for more.
+func (fn *Function) findRootFn() *Function {
+	rootFn := fn
+	for rootFn.Parent != nil {
+		rootFn = rootFn.Parent
+	}
+	return rootFn
 }
 
 // newValue creates a new value with the given shape and assigns it to the next available id.
 func (fn *Function) newValue(shape shapes.Shape) (v *Value) {
-	if fn.IsInline {
-		v = &Value{
-			name:  fmt.Sprintf("inline_%d", fn.Builder.inlineUniqueID),
-			shape: shape,
-		}
-		fn.Builder.inlineUniqueID++
-	} else {
-		// Normal function values are identified by an id only.
-		v = &Value{
-			id:    fn.nextID,
-			shape: shape,
-		}
-		fn.nextID++
+	rootFn := fn.findRootFn()
+	v = &Value{
+		fn:    fn,
+		name:  strconv.Itoa(rootFn.nextTmpID),
+		shape: shape,
 	}
+	rootFn.nextTmpID++
 	fn.values = append(fn.values, v)
 	return v
 }
 
-// NewInput creates a new input parameter for a function.
-// The order matter, since during execution of a compiled function,
+// Input creates a new input parameter for a function.
+//
+// If creating multiple inputs (one at a time), the order matters, since during execution of a compiled function,
 // the input parameters must be given in the same order they were created.
 //
 // These add to the inputs already created during the function creation.
 //
 // It picks a default unique name for the input parameter, you can also
-// provide a name with NewNamedInput.
-func (fn *Function) NewInput(shape shapes.Shape) *Value {
-	return fn.NewNamedInput(fmt.Sprintf("input_%d", len(fn.Inputs)), shape)
+// provide a name with NamedInput.
+func (fn *Function) Input(shape shapes.Shape) *Value {
+	rootFn := fn.findRootFn()
+	value := fn.NamedInput(fmt.Sprintf("arg%d", rootFn.nextArgID), shape)
+	rootFn.nextArgID++
+	return value
 }
 
-// NewNamedInput creates a new input parameter for a function with the given name -- it
+// NamedInput creates a new input parameter for a function with the given name -- it
 // must be a unique input name.
+//
+// Names with the format "%d" and "arg%d" are reserved for the default input parameters.
 //
 // Names are used in the StableHLO code and may be helpful for debugging, but
 // otherwise have no impact.
-func (fn *Function) NewNamedInput(name string, shape shapes.Shape) *Value {
-	value := NamedValue(name, shape)
+func (fn *Function) NamedInput(name string, shape shapes.Shape) *Value {
+	value := &Value{
+		fn:    fn,
+		name:  name,
+		shape: shape,
+	}
 	fn.Inputs = append(fn.Inputs, value)
 	return value
 }
 
 // ConstantFromScalar creates a new constant statement and returns the resulting value.
 func (fn *Function) ConstantFromScalar(value any) (*Value, error) {
+	if fn.Returned {
+		return nil, errors.Errorf("Function.Return already called for %q", fn.Name)
+	}
+
 	// The shape of the constant is inferred from the value.
 	dtype := dtypes.FromAny(value)
 	if dtype == dtypes.INVALID {
@@ -104,6 +131,9 @@ func (fn *Function) ConstantFromScalar(value any) (*Value, error) {
 
 // ConstantFromFlatAndDimensions creates a new constant statement from a flat slice with the raw values and the dimensions of the shape.
 func (fn *Function) ConstantFromFlatAndDimensions(flat any, dimensions ...int) (*Value, error) {
+	if fn.Returned {
+		return nil, errors.Errorf("Function.Return already called for %q", fn.Name)
+	}
 	flatV := reflect.ValueOf(flat)
 	dtype := dtypes.FromGoType(flatV.Type().Elem())
 	if dtype == dtypes.INVALID {
@@ -134,12 +164,19 @@ func (fn *Function) ConstantFromFlatAndDimensions(flat any, dimensions ...int) (
 //
 // There can be only one return statement from a Function, and it must be the last
 // operation of a function.
-func (fn *Function) Return(firstValue *Value, otherValues ...*Value) {
+func (fn *Function) Return(firstValue *Value, otherValues ...*Value) error {
+	if fn.Returned {
+		return errors.Errorf("Function.Return already called for %q", fn.Name)
+	}
+	fn.Returned = true
 	allValues := make([]*Value, 1, len(otherValues)+1)
 	allValues[0] = firstValue
 	allValues = append(allValues, otherValues...)
 	outputShapes := make([]shapes.Shape, len(allValues))
 	for i, value := range allValues {
+		if value.fn != fn {
+			return errors.New("Function.Return given values that are not owned by the function")
+		}
 		outputShapes[i] = value.shape
 	}
 	fn.Outputs = outputShapes
@@ -151,6 +188,7 @@ func (fn *Function) Return(firstValue *Value, otherValues ...*Value) {
 		Inputs:   allValues,
 	}
 	fn.Statements = append(fn.Statements, stmt)
+	return nil
 }
 
 func (fn *Function) Write(writer io.Writer, indentation string) error {
@@ -171,10 +209,11 @@ func (fn *Function) Write(writer io.Writer, indentation string) error {
 	}
 	nextIndent := indentation + IndentationStep
 
-	normalFunction := !fn.IsInline
+	normalFunction := fn.Parent == nil
+	isClosure := fn.Parent != nil
 	if normalFunction {
 		w("%sfunc.func @%s(", indentation, fn.Name)
-	} else if fn.IsInline {
+	} else if isClosure {
 		w("(")
 	}
 	for i, input := range fn.Inputs {
@@ -185,7 +224,7 @@ func (fn *Function) Write(writer io.Writer, indentation string) error {
 		w(": %s", input.shape.ToStableHLO())
 	}
 
-	if fn.IsInline {
+	if isClosure {
 		w(") :\n")
 	} else if normalFunction {
 		w(") -> ")
@@ -213,4 +252,22 @@ func (fn *Function) Write(writer io.Writer, indentation string) error {
 		w("}")
 	}
 	return err
+}
+
+// Closure creates an unnamed closure function that can be used as an argument to operations like
+// Reduce, ReduceWindow, ScatterAndUpdate, etc.
+//
+// After created, the Closure should not be changed. But it can be used multiple times within the same parent function.
+//
+// The function body is defined by calling ops on the function object, as a usual Function object.
+func (fn *Function) Closure() *Function {
+	rootFn := fn.findRootFn()
+
+	// name gets overwritten in StableHLO code by the statement taking the closure as a parameter,
+	// it's just for debugging purposes.
+	name := fmt.Sprintf("closure%d", rootFn.nextClosureID)
+	rootFn.nextClosureID++
+	closureFn := fn.Builder.NewFunction(name)
+	closureFn.Parent = fn
+	return closureFn
 }
