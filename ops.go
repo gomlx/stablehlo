@@ -499,8 +499,13 @@ func Gather(operand, startIndices *Value, indexVectorAxis int,
 //
 //	Slice(x={0, 1, 2, 3, 4}, starts={2}, limits={4}, strides=nil) -> {2, 3}
 //	Slice(x={0, 1, 2, 3, 4}, starts={2}, limits={5}, strides={2}) -> {2, 4}
-func (fn *Function) Slice(x *Value, starts, limits, strides []int) (*Value, error) {
+func Slice(x *Value, starts, limits, strides []int) (*Value, error) {
 	op := optypes.Slice
+	fn := x.fn
+	if fn.Returned {
+		return nil, errors.Errorf("cannot add operation %s after returning, in function %q",
+			op, fn.Name)
+	}
 	if len(strides) == 0 {
 		strides = make([]int, x.shape.Rank())
 		for i := range strides {
