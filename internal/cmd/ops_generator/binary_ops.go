@@ -31,7 +31,8 @@ import (
 
 {{- range .}}
 // {{.Name}} implements the corresponding standard binary operation.
-func (fn *Function) {{.Name}}(lhs, rhs *Value) (*Value, error) {
+func {{.Name}}(lhs, rhs *Value) (*Value, error) {
+	fn := lhs.fn
 	return fn.binaryOp(optypes.{{.Name}}, lhs, rhs)
 }
 {{- end}}

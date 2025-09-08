@@ -44,6 +44,14 @@ func (fn *Function) addMultiOp(opType optypes.OpType, outputShapes []shapes.Shap
 
 // binaryOp adds a new binary operation to the function.
 func (fn *Function) binaryOp(op optypes.OpType, lhs, rhs *Value) (*Value, error) {
+	if fn.Returned {
+		return nil, errors.Errorf("cannot add operation %s after returning, in function %q",
+			op, fn.Name)
+	}
+	if lhs.fn != fn || rhs.fn != fn {
+		return nil, errors.Errorf("cannot add operation %s to function %q, because the operands are not part of the function",
+			op, fn.Name)
+	}
 	outputShape, err := shapeinference.BinaryOp(op, lhs.shape, rhs.shape)
 	if err != nil {
 		return nil, err
@@ -53,6 +61,14 @@ func (fn *Function) binaryOp(op optypes.OpType, lhs, rhs *Value) (*Value, error)
 
 // unaryOp adds a new unary operation to the function.
 func (fn *Function) unaryOp(op optypes.OpType, operand *Value) (*Value, error) {
+	if fn.Returned {
+		return nil, errors.Errorf("cannot add operation %s after returning, in function %q",
+			op, fn.Name)
+	}
+	if operand.fn != fn {
+		return nil, errors.Errorf("cannot add operation %s to function %q, because the operand is not part of the function",
+			op, fn.Name)
+	}
 	outputShape, err := shapeinference.UnaryOp(op, operand.shape)
 	if err != nil {
 		return nil, err
@@ -61,8 +77,17 @@ func (fn *Function) unaryOp(op optypes.OpType, operand *Value) (*Value, error) {
 }
 
 // Compare implements the corresponding standard binary operation.
-func (fn *Function) Compare(lhs, rhs *Value, direction types.ComparisonDirection, compareType types.ComparisonType) (*Value, error) {
+func Compare(lhs, rhs *Value, direction types.ComparisonDirection, compareType types.ComparisonType) (*Value, error) {
 	op := optypes.Compare
+	fn := lhs.fn
+	if fn.Returned {
+		return nil, errors.Errorf("cannot add operation %s after returning, in function %q",
+			op, fn.Name)
+	}
+	if rhs.fn != fn {
+		return nil, errors.Errorf("cannot add operation %s to function %q, because operands are from different functions (%q and %q)",
+			op, fn.Name, fn.Name, rhs.fn.Name)
+	}
 	outputShape, err := shapeinference.Compare(lhs.shape, rhs.shape, direction, compareType)
 	if err != nil {
 		return nil, err
@@ -84,8 +109,17 @@ func valuesToShapes(values []*Value) []shapes.Shape {
 }
 
 // Complex returns the complex value by concatenating the real and imaginary parts element-wise.
-func (fn *Function) Complex(real, imag *Value) (*Value, error) {
+func Complex(real, imag *Value) (*Value, error) {
 	op := optypes.Complex
+	fn := real.fn
+	if fn.Returned {
+		return nil, errors.Errorf("cannot add operation %s after returning, in function %q",
+			op, fn.Name)
+	}
+	if imag.fn != fn {
+		return nil, errors.Errorf("cannot add operation %s to function %q, because operands are from different functions (%q and %q)",
+			op, fn.Name, fn.Name, imag.fn.Name)
+	}
 	outputShape, err := shapeinference.Complex(real.shape, imag.shape)
 	if err != nil {
 		return nil, err
@@ -94,8 +128,13 @@ func (fn *Function) Complex(real, imag *Value) (*Value, error) {
 }
 
 // Real returns the real part of the complex value.
-func (fn *Function) Real(complex *Value) (*Value, error) {
+func Real(complex *Value) (*Value, error) {
 	op := optypes.Real
+	fn := complex.fn
+	if fn.Returned {
+		return nil, errors.Errorf("cannot add operation %s after returning, in function %q",
+			op, fn.Name)
+	}
 	outputShape, err := shapeinference.RealOrImag(complex.shape)
 	if err != nil {
 		return nil, err
@@ -104,8 +143,13 @@ func (fn *Function) Real(complex *Value) (*Value, error) {
 }
 
 // Imag returns the real part of the complex value.
-func (fn *Function) Imag(complex *Value) (*Value, error) {
+func Imag(complex *Value) (*Value, error) {
 	op := optypes.Imag
+	fn := complex.fn
+	if fn.Returned {
+		return nil, errors.Errorf("cannot add operation %s after returning, in function %q",
+			op, fn.Name)
+	}
 	outputShape, err := shapeinference.RealOrImag(complex.shape)
 	if err != nil {
 		return nil, err
@@ -116,8 +160,13 @@ func (fn *Function) Imag(complex *Value) (*Value, error) {
 // IsFinite tests whether each element of operand is finite, i.e., if it is not positive nor negative infinity, and it is not NaN.
 // It returns the same shape as the input, but with boolean values where each element is true if and only if
 // the corresponding input element is finite.
-func (fn *Function) IsFinite(x *Value) (*Value, error) {
+func IsFinite(x *Value) (*Value, error) {
 	op := optypes.IsFinite
+	fn := x.fn
+	if fn.Returned {
+		return nil, errors.Errorf("cannot add operation %s after returning, in function %q",
+			op, fn.Name)
+	}
 	outputShape, err := shapeinference.IsFinite(x.shape)
 	if err != nil {
 		return nil, err
@@ -132,8 +181,17 @@ func (fn *Function) IsFinite(x *Value) (*Value, error) {
 // Clamp is not defined for booleans or complex numbers (the semantics would not be clear).
 //
 // Note: the order of the arguments in StableHLO is different from most ML libraries.
-func (fn *Function) Clamp(min, x, max *Value) (*Value, error) {
+func Clamp(min, x, max *Value) (*Value, error) {
 	op := optypes.Clamp
+	fn := x.fn
+	if fn.Returned {
+		return nil, errors.Errorf("cannot add operation %s after returning, in function %q",
+			op, fn.Name)
+	}
+	if min.fn != fn || max.fn != fn {
+		return nil, errors.Errorf("cannot add operation %s to function %q, because operands are from different functions (%q, %q and %q)",
+			op, fn.Name, fn.Name, max.fn.Name, min.fn.Name)
+	}
 	outputShape, err := shapeinference.Clamp(min.shape, x.shape, max.shape)
 	if err != nil {
 		return nil, err
@@ -177,11 +235,11 @@ type DotGeneralBuilder struct {
 //	lhs := f.Constant(types.Float32, []float32{1, 2, 3, 4, 5, 6})
 //	rhs := f.Constant(types.Float32, []float32{1, 2, 3, 4, 5, 6})
 //	dot, err := f.DotGeneral(lhs, []int{-1}, []int{-2}, rhs, []int{-1}, []int{-2}).Done()
-func (fn *Function) DotGeneral(
+func DotGeneral(
 	lhsOp *Value, lhsContractingAxes, lhsBatchAxes []int,
 	rhsOp *Value, rhsContractingAxes, rhsBatchAxes []int) *DotGeneralBuilder {
 	return &DotGeneralBuilder{
-		fn:                 fn,
+		fn:                 lhsOp.fn,
 		lhs:                lhsOp,
 		lhsContractingAxes: lhsContractingAxes,
 		lhsBatchAxes:       lhsBatchAxes,
@@ -228,6 +286,15 @@ func (b *DotGeneralBuilder) Algorithm(algorithm *types.DotGeneralAlgorithm) *Dot
 // It checks the validity of the parameters and shapes and returns the final DotGeneral node.
 func (b *DotGeneralBuilder) Done() (*Value, error) {
 	op := optypes.DotGeneral
+	fn := b.fn
+	if fn.Returned {
+		return nil, errors.Errorf("cannot add operation %s after returning, in function %q",
+			op, fn.Name)
+	}
+	if b.lhs.fn != fn || b.rhs.fn != fn {
+		return nil, errors.Errorf("cannot add operation %s to function %q, because operands are from different functions (%q and %q)",
+			op, fn.Name, b.lhs.fn.Name, b.rhs.fn.Name)
+	}
 	outputShape, err := shapeinference.DotGeneral(
 		b.lhs.shape, b.lhsContractingAxes, b.lhsBatchAxes,
 		b.rhs.shape, b.rhsContractingAxes, b.rhsBatchAxes,
@@ -271,26 +338,17 @@ func (b *DotGeneralBuilder) Done() (*Value, error) {
 	return stmt.Outputs[0], nil
 }
 
-// Iota creates a constant of the given shape with increasing numbers (starting from 0)
-// on the given axis. So Iota([2,2], 1) returns [[0 1][0 1]], while Iota([2,2], 0)
-// returns [[0 0][1 1]].
-func (fn *Function) Iota(shape shapes.Shape, axis int) (*Value, error) {
-	op := optypes.Iota
-	adjustedAxis, err := shapeinference.AdjustAxisToRank(axis, shape.Rank())
-	if err != nil {
-		return nil, errors.WithMessagef(err, "Iota axis is invalid for shape %s", shape)
-	}
-	stmt := fn.addOp(op, shape)
-	stmt.Attributes = map[string]any{"iota_dimension": int64(adjustedAxis)}
-	return stmt.Outputs[0], nil
-}
-
 // Reshape the operand to the given shape.
 // The total size of the new shape must match the original shape.
 //
 // This has no effect on the data, no transposition is performed.
-func (fn *Function) Reshape(operand *Value, shape shapes.Shape) (*Value, error) {
+func Reshape(operand *Value, shape shapes.Shape) (*Value, error) {
 	op := optypes.Reshape
+	fn := operand.fn
+	if fn.Returned {
+		return nil, errors.Errorf("cannot add operation %s after returning, in function %q",
+			op, fn.Name)
+	}
 	if operand.shape.DType != shape.DType {
 		return nil, errors.Errorf("Reshape() requires the operand and the shape to have the same data type, got operand=%s and shape=%s",
 			operand.shape, shape)
@@ -308,8 +366,13 @@ func (fn *Function) Reshape(operand *Value, shape shapes.Shape) (*Value, error) 
 //
 // The axesMapping should have one value per operand axes. It maps the axes from the operand to
 // the corresponding value on the target shape.
-func (fn *Function) BroadcastInDim(operand *Value, target shapes.Shape, axesMapping []int) (*Value, error) {
+func BroadcastInDim(operand *Value, target shapes.Shape, axesMapping []int) (*Value, error) {
 	op := optypes.BroadcastInDim
+	fn := operand.fn
+	if fn.Returned {
+		return nil, errors.Errorf("cannot add operation %s after returning, in function %q",
+			op, fn.Name)
+	}
 	err := shapeinference.BroadcastInDim(operand.shape, target, axesMapping)
 	if err != nil {
 		return nil, err
@@ -382,11 +445,21 @@ func (fn *Function) BroadcastInDim(operand *Value, target shapes.Shape, axesMapp
 //   - indicesAreSorted: can be set to true if it's guaranteed that startIndices are sorted (in ascending order,
 //     after scattering its values according to start_index_map) by the user. This allows for some optimizations
 //     in some platforms.
-func (fn *Function) Gather(operand, startIndices *Value, indexVectorAxis int,
+func Gather(operand, startIndices *Value, indexVectorAxis int,
 	offsetOutputAxes, collapsedSliceAxes, operandBatchingAxes,
 	startIndicesBatchingAxes, startIndexMap,
 	sliceSizes []int, indicesAreSorted bool) (*Value, error) {
 	op := optypes.Gather
+	fn := operand.fn
+	if fn.Returned {
+		return nil, errors.Errorf("cannot add operation %s after returning, in function %q",
+			op, fn.Name)
+	}
+	if startIndices.fn != fn {
+		return nil, errors.Errorf("cannot add operation %s to function %q, because startIndices is from different function (%q and %q)",
+			op, fn.Name, startIndices.fn.Name, fn.Name)
+	}
+
 	outputShape, err := shapeinference.Gather(
 		operand.shape, startIndices.shape, indexVectorAxis,
 		offsetOutputAxes, collapsedSliceAxes, operandBatchingAxes,
@@ -452,11 +525,22 @@ func (fn *Function) Slice(x *Value, starts, limits, strides []int) (*Value, erro
 // All axes that are not being concatenated must match dimensions, except on the axes being concatenated.
 // It doesn't work with scalars -- use ExpandAxes.
 // If there is only one operand, it is returned and this is a no-op.
-func (fn *Function) Concatenate(axis int, operands ...*Value) (*Value, error) {
+func Concatenate(axis int, operands ...*Value) (*Value, error) {
+	op := optypes.Concatenate
 	if len(operands) == 0 {
 		return nil, errors.New("Concatenate requires at least one operand")
 	}
-	op := optypes.Concatenate
+	fn := operands[0].fn
+	if fn.Returned {
+		return nil, errors.Errorf("cannot add operation %s after returning, in function %q",
+			op, fn.Name)
+	}
+	for i, operand := range operands {
+		if operand.fn != fn {
+			return nil, errors.Errorf("cannot add operation %s to function %q, because operand #%d is from different function (%q and %q)",
+				op, fn.Name, i, operand.fn.Name, fn.Name)
+		}
+	}
 	operandsShapes := make([]shapes.Shape, len(operands))
 	for i, operand := range operands {
 		operandsShapes[i] = operand.shape
@@ -467,7 +551,7 @@ func (fn *Function) Concatenate(axis int, operands ...*Value) (*Value, error) {
 	}
 	adjustedAxis, err := shapeinference.AdjustAxisToRank(axis, operands[0].shape.Rank())
 	if err != nil {
-		return nil, errors.WithMessagef(err, "Concatenate axis is invalid for operands %s", operands)
+		return nil, errors.WithMessage(err, "Concatenate axis for operands")
 	}
 	stmt := fn.addOp(op, outputShape, operands...)
 	stmt.Attributes = map[string]any{
@@ -489,8 +573,8 @@ func (fn *Function) Concatenate(axis int, operands ...*Value) (*Value, error) {
 // So one could reduce-sum a 4bit quantized tensor directly into a Float32.
 //
 // See MultiReduce for a version that accepts multiple inputs and outputs.
-func (fn *Function) Reduce(x, initialValue *Value, reduction *Function, axes ...int) (*Value, error) {
-	results, err := fn.MultiReduce([]*Value{x}, []*Value{initialValue}, reduction, axes...)
+func Reduce(x, initialValue *Value, reduction *Function, axes ...int) (*Value, error) {
+	results, err := MultiReduce([]*Value{x}, []*Value{initialValue}, reduction, axes...)
 	if err != nil {
 		return nil, err
 	}
@@ -513,8 +597,28 @@ func (fn *Function) Reduce(x, initialValue *Value, reduction *Function, axes ...
 //
 // TODO: promotion of types doesn't seem to be working according to the spec in
 // https://openxla.org/stablehlo/spec#reduce.
-func (fn *Function) MultiReduce(inputs, initialValues []*Value, reduction *Function, axes ...int) ([]*Value, error) {
+func MultiReduce(inputs, initialValues []*Value, reduction *Function, axes ...int) ([]*Value, error) {
 	op := optypes.Reduce
+	if len(inputs) == 0 {
+		return nil, errors.New("MultiReduce requires at least one operand")
+	}
+	fn := inputs[0].fn
+	if fn.Returned {
+		return nil, errors.Errorf("cannot add operation %s after returning, in function %q",
+			op, fn.Name)
+	}
+	for i, operand := range inputs {
+		if operand.fn != fn {
+			return nil, errors.Errorf("cannot add operation %s to function %q, because input #%d is from different function (%q and %q)",
+				op, fn.Name, i, operand.fn.Name, fn.Name)
+		}
+	}
+	for i, operand := range initialValues {
+		if operand.fn != fn {
+			return nil, errors.Errorf("cannot add operation %s to function %q, because initialValues[%d] is from different function (%q and %q)",
+				op, fn.Name, i, operand.fn.Name, fn.Name)
+		}
+	}
 	outputsShapes, err := shapeinference.Reduce(
 		valuesToShapes(inputs), valuesToShapes(initialValues),
 		valuesToShapes(reduction.Inputs), reduction.Outputs,

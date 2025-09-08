@@ -8,6 +8,7 @@ import (
 
 	"github.com/gomlx/gopjrt/dtypes"
 	"github.com/gomlx/stablehlo/internal/optypes"
+	"github.com/gomlx/stablehlo/shapeinference"
 	"github.com/gomlx/stablehlo/types/shapes"
 	"github.com/pkg/errors"
 )
@@ -28,7 +29,7 @@ type Function struct {
 	// Statements in the function body.
 	Statements []*Statement
 
-	// values holds all the values (e.g. %0, %1, %arg0) created in the function's scope.
+	// values holds all the values (e.g., %0, %1, %arg0) created in the function's scope.
 	values []*Value
 
 	// Parent of a closure function. It is only set if the function is a closure, and it's the function that created it.
@@ -191,6 +192,39 @@ func (fn *Function) Return(firstValue *Value, otherValues ...*Value) error {
 	return nil
 }
 
+// Iota creates a constant of the given shape with increasing numbers (starting from 0)
+// on the given axis. So Iota([2,2], 1) returns [[0 1][0 1]], while Iota([2,2], 0)
+// returns [[0 0][1 1]].
+func (fn *Function) Iota(shape shapes.Shape, axis int) (*Value, error) {
+	op := optypes.Iota
+	adjustedAxis, err := shapeinference.AdjustAxisToRank(axis, shape.Rank())
+	if err != nil {
+		return nil, errors.WithMessagef(err, "Iota axis is invalid for shape %s", shape)
+	}
+	stmt := fn.addOp(op, shape)
+	stmt.Attributes = map[string]any{"iota_dimension": int64(adjustedAxis)}
+	return stmt.Outputs[0], nil
+}
+
+// Closure creates an unnamed closure function that can be used as an argument to operations like
+// Reduce, ReduceWindow, ScatterAndUpdate, etc.
+//
+// After created, the Closure should not be changed. But it can be used multiple times within the same parent function.
+//
+// The function body is defined by calling ops on the function object, as a usual Function object.
+func (fn *Function) Closure() *Function {
+	rootFn := fn.findRootFn()
+
+	// the name gets overwritten in StableHLO code by the statement taking the closure as a parameter,
+	// it's just for debugging purposes.
+	name := fmt.Sprintf("closure%d", rootFn.nextClosureID)
+	rootFn.nextClosureID++
+	closureFn := fn.Builder.NewFunction(name)
+	closureFn.Parent = fn
+	return closureFn
+}
+
+// Write the function as StableHLO code, with the given indentation.
 func (fn *Function) Write(writer io.Writer, indentation string) error {
 	var err error
 	w := func(format string, args ...any) {
@@ -252,22 +286,4 @@ func (fn *Function) Write(writer io.Writer, indentation string) error {
 		w("}")
 	}
 	return err
-}
-
-// Closure creates an unnamed closure function that can be used as an argument to operations like
-// Reduce, ReduceWindow, ScatterAndUpdate, etc.
-//
-// After created, the Closure should not be changed. But it can be used multiple times within the same parent function.
-//
-// The function body is defined by calling ops on the function object, as a usual Function object.
-func (fn *Function) Closure() *Function {
-	rootFn := fn.findRootFn()
-
-	// name gets overwritten in StableHLO code by the statement taking the closure as a parameter,
-	// it's just for debugging purposes.
-	name := fmt.Sprintf("closure%d", rootFn.nextClosureID)
-	rootFn.nextClosureID++
-	closureFn := fn.Builder.NewFunction(name)
-	closureFn.Parent = fn
-	return closureFn
 }

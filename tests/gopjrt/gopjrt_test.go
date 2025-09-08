@@ -11,13 +11,13 @@ import (
 
 	D "github.com/gomlx/gopjrt/dtypes"
 	"github.com/gomlx/gopjrt/pjrt"
-	"github.com/gomlx/stablehlo"
+	. "github.com/gomlx/stablehlo"
 	"github.com/gomlx/stablehlo/types"
 	S "github.com/gomlx/stablehlo/types/shapes"
 	"github.com/stretchr/testify/require"
 )
 
-var flagPluginNames = flag.String("plugins", "cpu", "List (|-separated) of PRJT plugin names or full paths. E.g. \"cpu|cuda\"")
+var flagPluginNames = flag.String("plugins", "cpu", "List (|-separated) of PJRT plugin names or full paths. E.g. \"cpu|cuda\"")
 
 func must(err error) {
 	if err != nil {
@@ -124,13 +124,13 @@ func TestOps(t *testing.T) {
 
 func testOps(t *testing.T, client *pjrt.Client) {
 	t.Run("Return-multi-output", func(t *testing.T) {
-		b := stablehlo.New(t.Name())
+		b := New(t.Name())
 		fn := b.NewFunction("main")
 		c1 := must1(fn.ConstantFromScalar(1.0))
 		c2 := must1(fn.ConstantFromScalar(2.0))
 		c3 := must1(fn.ConstantFromScalar(float32(math.Inf(-1))))
 		c4 := must1(fn.ConstantFromScalar(math.Inf(1)))
-		sum := must1(fn.Add(c1, c2))
+		sum := must1(Add(c1, c2))
 		must(fn.Return(c1, c2, sum, c3, c4))
 		program := must1(b.Build())
 		fmt.Printf("%s program:\n%s", t.Name(), program)
@@ -145,11 +145,11 @@ func testOps(t *testing.T, client *pjrt.Client) {
 	})
 
 	t.Run("Complex", func(t *testing.T) {
-		builder := stablehlo.New(t.Name())
+		builder := New(t.Name())
 		shape := S.Make(D.Float64)
 		fn := builder.Main()
 		lhsV, rhsV := fn.NamedInput("lhs", shape), fn.NamedInput("rhs", shape)
-		must(fn.Return(must1(fn.Complex(lhsV, rhsV))))
+		must(fn.Return(must1(Complex(lhsV, rhsV))))
 		program := must1(builder.Build())
 		fmt.Printf("%s program:\n%s", t.Name(), program)
 		a := must1(client.BufferFromHost().FromFlatDataWithDimensions([]float64{1.0}, nil).Done())
@@ -159,12 +159,12 @@ func testOps(t *testing.T, client *pjrt.Client) {
 	})
 
 	t.Run("Clamp", func(t *testing.T) {
-		builder := stablehlo.New(t.Name())
+		builder := New(t.Name())
 		fn := builder.Main()
 		minV := fn.NamedInput("min", S.Make(D.Float32))
 		xV := fn.NamedInput("x", S.Make(D.Float32, 3))
 		maxV := fn.NamedInput("max", S.Make(D.Float32))
-		must(fn.Return(must1(fn.Clamp(minV, xV, maxV))))
+		must(fn.Return(must1(Clamp(minV, xV, maxV))))
 		program := must1(builder.Build())
 		fmt.Printf("%s program:\n%s", t.Name(), program)
 		minArg := must1(client.BufferFromHost().FromFlatDataWithDimensions([]float32{-1.0}, nil).Done())
@@ -175,7 +175,7 @@ func testOps(t *testing.T, client *pjrt.Client) {
 	})
 
 	t.Run("Iota", func(t *testing.T) {
-		builder := stablehlo.New(t.Name())
+		builder := New(t.Name())
 		fn := builder.Main()
 		must(fn.Return(
 			must1(fn.Iota(S.Make(D.F32, 2, 2), 0)),
@@ -193,12 +193,10 @@ func testOps(t *testing.T, client *pjrt.Client) {
 	})
 
 	t.Run("IsFinite", func(t *testing.T) {
-		builder := stablehlo.New(t.Name())
+		builder := New(t.Name())
 		fn := builder.Main()
 		input := fn.NamedInput("x", S.Make(D.F64, 6))
-		must(fn.Return(
-			must1(fn.IsFinite(input)),
-		))
+		must(fn.Return(must1(IsFinite(input))))
 		program := must1(builder.Build())
 		fmt.Printf("%s program:\n%s", t.Name(), program)
 		v := must1(client.BufferFromHost().FromFlatDataWithDimensions([]float64{0, -1, 1, math.Inf(1), math.Inf(-1), math.NaN()}, []int{6}).Done())
@@ -209,10 +207,10 @@ func testOps(t *testing.T, client *pjrt.Client) {
 	})
 
 	t.Run("Reshape", func(t *testing.T) {
-		builder := stablehlo.New(t.Name())
+		builder := New(t.Name())
 		fn := builder.Main()
 		x := must1(fn.Iota(S.Make(D.F32, 3, 2), 0))
-		y := must1(fn.Reshape(x, S.Make(D.F32, 2, 3)))
+		y := must1(Reshape(x, S.Make(D.F32, 2, 3)))
 		must(fn.Return(y))
 		program := must1(builder.Build())
 		fmt.Printf("%s program:\n%s", t.Name(), program)
@@ -223,10 +221,10 @@ func testOps(t *testing.T, client *pjrt.Client) {
 	})
 
 	t.Run("BroadcastInDim", func(t *testing.T) {
-		builder := stablehlo.New(t.Name())
+		builder := New(t.Name())
 		fn := builder.Main()
 		x := must1(fn.Iota(S.Make(D.F32, 3), 0))
-		y := must1(fn.BroadcastInDim(x, S.Make(D.F32, 2, 3), []int{1}))
+		y := must1(BroadcastInDim(x, S.Make(D.F32, 2, 3), []int{1}))
 		must(fn.Return(y))
 		program := must1(builder.Build())
 		fmt.Printf("%s program:\n%s", t.Name(), program)
@@ -237,10 +235,10 @@ func testOps(t *testing.T, client *pjrt.Client) {
 	})
 
 	t.Run("BroadcastInDim<scalar>", func(t *testing.T) {
-		builder := stablehlo.New(t.Name())
+		builder := New(t.Name())
 		fn := builder.Main()
 		x := must1(fn.ConstantFromScalar(float32(7.0)))
-		y := must1(fn.BroadcastInDim(x, S.Make(D.F32, 3), nil))
+		y := must1(BroadcastInDim(x, S.Make(D.F32, 3), nil))
 		must(fn.Return(y))
 		program := must1(builder.Build())
 		fmt.Printf("%s program:\n%s", t.Name(), program)
@@ -251,17 +249,17 @@ func testOps(t *testing.T, client *pjrt.Client) {
 	})
 
 	t.Run("Gather", func(t *testing.T) {
-		builder := stablehlo.New(t.Name())
+		builder := New(t.Name())
 		fn := builder.Main()
 		x := must1(fn.Iota(S.Make(D.F32, 3*5), 0))
-		x = must1(fn.Reshape(x, S.Make(D.F32, 3, 5)))
+		x = must1(Reshape(x, S.Make(D.F32, 3, 5)))
 		indices := must1(fn.ConstantFromFlatAndDimensions([]int{2, 0}, 2, 1))
 		offsetOutputAxes := []int{1}
 		collapsedSliceAxes := []int{0}
 		var operandBatchingAxes, startIndicesBatchingAxes []int
 		startIndexMap := []int{0}
 		sliceSizes := []int{1, 5}
-		y := must1(fn.Gather(x, indices, 1,
+		y := must1(Gather(x, indices, 1,
 			offsetOutputAxes, collapsedSliceAxes, operandBatchingAxes,
 			startIndicesBatchingAxes, startIndexMap,
 			sliceSizes, false))
@@ -277,7 +275,7 @@ func testOps(t *testing.T, client *pjrt.Client) {
 	//	Slice(x={0, 1, 2, 3, 4}, starts={2}, limits={4}, strides=nil) -> {2, 3}
 	//	Slice(x={0, 1, 2, 3, 4}, starts={2}, limits={5}, strides={2}) -> {2, 4}
 	t.Run("Slice", func(t *testing.T) {
-		builder := stablehlo.New(t.Name())
+		builder := New(t.Name())
 		fn := builder.Main()
 		x := must1(fn.Iota(S.Make(D.F32, 5), 0))
 		y0 := must1(fn.Slice(x, []int{2}, []int{4}, nil))
@@ -293,11 +291,11 @@ func testOps(t *testing.T, client *pjrt.Client) {
 	})
 
 	t.Run("Concatenate", func(t *testing.T) {
-		builder := stablehlo.New(t.Name())
+		builder := New(t.Name())
 		fn := builder.Main()
 		x := must1(fn.Iota(S.Make(D.F32, 2, 3), 1))
 		y := must1(fn.Iota(S.Make(D.F32, 2, 1), 0))
-		z := must1(fn.Concatenate(1, x, y))
+		z := must1(Concatenate(1, x, y))
 		must(fn.Return(z))
 		program := must1(builder.Build())
 		fmt.Printf("%s program:\n%s", t.Name(), program)
@@ -308,17 +306,17 @@ func testOps(t *testing.T, client *pjrt.Client) {
 	})
 
 	t.Run("Reduce", func(t *testing.T) {
-		builder := stablehlo.New(t.Name())
+		builder := New(t.Name())
 		fn := builder.Main()
 		x := must1(fn.Iota(S.Make(D.F32, 2*3), 0))
-		x = must1(fn.Reshape(x, S.Make(D.F32, 2, 3)))
+		x = must1(Reshape(x, S.Make(D.F32, 2, 3)))
 		zero := must1(fn.ConstantFromScalar(float32(0)))
 		reductionFn := fn.Closure()
 		lhs := reductionFn.NamedInput("lhs", S.Make(D.F32))
 		rhs := reductionFn.NamedInput("rhs", S.Make(D.F32))
-		must(reductionFn.Return(must1(reductionFn.Add(lhs, rhs))))
-		r0 := must1(fn.Reduce(x, zero, reductionFn, 1))
-		r1 := must1(fn.Reduce(x, zero, reductionFn, 0))
+		must(reductionFn.Return(must1(Add(lhs, rhs))))
+		r0 := must1(Reduce(x, zero, reductionFn, 1))
+		r1 := must1(Reduce(x, zero, reductionFn, 0))
 		must(fn.Return(r0, r1))
 		program := must1(builder.Build())
 		fmt.Printf("%s program:\n%s", t.Name(), program)
@@ -330,12 +328,12 @@ func testOps(t *testing.T, client *pjrt.Client) {
 	})
 
 	t.Run("MultiReduce", func(t *testing.T) {
-		builder := stablehlo.New(t.Name())
+		builder := New(t.Name())
 		fn := builder.Main()
 		x := must1(fn.Iota(S.Make(D.F32, 2*3), 0))
-		x = must1(fn.Reshape(x, S.Make(D.F32, 2, 3)))
+		x = must1(Reshape(x, S.Make(D.F32, 2, 3)))
 		y := must1(fn.Iota(S.Make(D.Int32, 2*3), 0))
-		y = must1(fn.Reshape(y, S.Make(D.Int32, 2, 3)))
+		y = must1(Reshape(y, S.Make(D.Int32, 2, 3)))
 		zeroF32 := must1(fn.ConstantFromScalar(float32(0)))
 		zeroI32 := must1(fn.ConstantFromScalar(int32(0)))
 		reductionFn := fn.Closure()
@@ -344,11 +342,11 @@ func testOps(t *testing.T, client *pjrt.Client) {
 		rhs0 := reductionFn.NamedInput("rhs0", S.Make(D.F32))
 		rhs1 := reductionFn.NamedInput("rhs1", S.Make(D.Int32))
 		must(reductionFn.Return(
-			must1(reductionFn.Add(lhs0, rhs0)),
-			must1(reductionFn.Add(lhs1, rhs1))))
-		results := must1(fn.MultiReduce(
-			[]*stablehlo.Value{x, y},
-			[]*stablehlo.Value{zeroF32, zeroI32}, reductionFn, 1))
+			must1(Add(lhs0, rhs0)),
+			must1(Add(lhs1, rhs1))))
+		results := must1(MultiReduce(
+			[]*Value{x, y},
+			[]*Value{zeroF32, zeroI32}, reductionFn, 1))
 		must(fn.Return(results[0], results[1]))
 		program := must1(builder.Build())
 		fmt.Printf("%s program:\n%s", t.Name(), program)
@@ -370,13 +368,13 @@ func TestBinaryOps(t *testing.T) {
 
 func testBinaryOps(t *testing.T, client *pjrt.Client) {
 	testBinaryOp := func(t *testing.T, opName string,
-		op func(fn *stablehlo.Function, lhs, rhs *stablehlo.Value) (*stablehlo.Value, error),
+		op func(lhs, rhs *Value) (*Value, error),
 		dtype D.DType, lhs, rhs any, expected any) {
-		builder := stablehlo.New(t.Name())
+		builder := New(t.Name())
 		shape := S.Make(dtype)
 		fn := builder.Main()
 		lhsV, rhsV := fn.NamedInput("lhs", shape), fn.NamedInput("rhs", shape)
-		result := must1(op(fn, lhsV, rhsV))
+		result := must1(op(lhsV, rhsV))
 		must(fn.Return(result))
 		program := must1(builder.Build())
 		fmt.Printf("%s program:\n%s", t.Name(), program)
@@ -387,75 +385,75 @@ func testBinaryOps(t *testing.T, client *pjrt.Client) {
 	}
 
 	t.Run("Add", func(t *testing.T) {
-		testBinaryOp(t, "Add", (*stablehlo.Function).Add, D.Float32, []float32{3.0}, []float32{7.0}, []float32{10.0})
+		testBinaryOp(t, "Add", Add, D.Float32, []float32{3.0}, []float32{7.0}, []float32{10.0})
 	})
 	t.Run("Atan2", func(t *testing.T) {
-		testBinaryOp(t, "Atan2", (*stablehlo.Function).Atan2, D.Float32, []float32{3.0}, []float32{7.0},
+		testBinaryOp(t, "Atan2", Atan2, D.Float32, []float32{3.0}, []float32{7.0},
 			[]float32{float32(math.Atan2(3.0, 7.0))})
 	})
 
 	t.Run("Subtract", func(t *testing.T) {
-		testBinaryOp(t, "Subtract", (*stablehlo.Function).Subtract, D.Float32, []float32{7.0}, []float32{3.0}, []float32{4.0})
+		testBinaryOp(t, "Subtract", Subtract, D.Float32, []float32{7.0}, []float32{3.0}, []float32{4.0})
 	})
 
 	t.Run("Multiply", func(t *testing.T) {
-		testBinaryOp(t, "Multiply", (*stablehlo.Function).Multiply, D.Float32, []float32{3.0}, []float32{4.0}, []float32{12.0})
+		testBinaryOp(t, "Multiply", Multiply, D.Float32, []float32{3.0}, []float32{4.0}, []float32{12.0})
 	})
 
 	t.Run("Divide", func(t *testing.T) {
-		testBinaryOp(t, "Divide", (*stablehlo.Function).Divide, D.Float32, []float32{12.0}, []float32{3.0}, []float32{4.0})
+		testBinaryOp(t, "Divide", Divide, D.Float32, []float32{12.0}, []float32{3.0}, []float32{4.0})
 	})
 
 	t.Run("Power", func(t *testing.T) {
-		testBinaryOp(t, "Power", (*stablehlo.Function).Power, D.Float32, []float32{2.0}, []float32{3.0}, []float32{8.0})
+		testBinaryOp(t, "Power", Power, D.Float32, []float32{2.0}, []float32{3.0}, []float32{8.0})
 	})
 
 	t.Run("And_Uint32", func(t *testing.T) {
-		testBinaryOp(t, "And", (*stablehlo.Function).And, D.Uint32, []uint32{0b1100}, []uint32{0b1010}, []uint32{0b1000})
+		testBinaryOp(t, "And", And, D.Uint32, []uint32{0b1100}, []uint32{0b1010}, []uint32{0b1000})
 	})
 
 	t.Run("Or_Uint32", func(t *testing.T) {
-		testBinaryOp(t, "Or", (*stablehlo.Function).Or, D.Uint32, []uint32{0b1100}, []uint32{0b1010}, []uint32{0b1110})
+		testBinaryOp(t, "Or", Or, D.Uint32, []uint32{0b1100}, []uint32{0b1010}, []uint32{0b1110})
 	})
 
 	t.Run("Xor_Uint32", func(t *testing.T) {
-		testBinaryOp(t, "Xor", (*stablehlo.Function).Xor, D.Uint32, []uint32{0b1100}, []uint32{0b1010}, []uint32{0b0110})
+		testBinaryOp(t, "Xor", Xor, D.Uint32, []uint32{0b1100}, []uint32{0b1010}, []uint32{0b0110})
 	})
 
 	t.Run("And_Bool", func(t *testing.T) {
-		testBinaryOp(t, "And", (*stablehlo.Function).And, D.Bool, []bool{true}, []bool{false}, []bool{false})
+		testBinaryOp(t, "And", And, D.Bool, []bool{true}, []bool{false}, []bool{false})
 	})
 
 	t.Run("Or_Bool", func(t *testing.T) {
-		testBinaryOp(t, "Or", (*stablehlo.Function).Or, D.Bool, []bool{true}, []bool{false}, []bool{true})
+		testBinaryOp(t, "Or", Or, D.Bool, []bool{true}, []bool{false}, []bool{true})
 	})
 
 	t.Run("Xor_Bool", func(t *testing.T) {
-		testBinaryOp(t, "Xor", (*stablehlo.Function).Xor, D.Bool, []bool{true}, []bool{false}, []bool{true})
+		testBinaryOp(t, "Xor", Xor, D.Bool, []bool{true}, []bool{false}, []bool{true})
 	})
 
 	t.Run("ShiftLeft", func(t *testing.T) {
-		testBinaryOp(t, "ShiftLeft", (*stablehlo.Function).ShiftLeft, D.Uint32, []uint32{0b1}, []uint32{2}, []uint32{0b100})
+		testBinaryOp(t, "ShiftLeft", ShiftLeft, D.Uint32, []uint32{0b1}, []uint32{2}, []uint32{0b100})
 	})
 
 	t.Run("ShiftRightArithmetic", func(t *testing.T) {
-		testBinaryOp(t, "ShiftRightArithmetic", (*stablehlo.Function).ShiftRightArithmetic, D.Int32, []int32{-8}, []int32{1}, []int32{-4})
+		testBinaryOp(t, "ShiftRightArithmetic", ShiftRightArithmetic, D.Int32, []int32{-8}, []int32{1}, []int32{-4})
 	})
 
 	t.Run("ShiftRightLogical", func(t *testing.T) {
-		testBinaryOp(t, "ShiftRightLogical", (*stablehlo.Function).ShiftRightLogical, D.Uint32, []uint32{0b1100}, []uint32{2}, []uint32{0b11})
+		testBinaryOp(t, "ShiftRightLogical", ShiftRightLogical, D.Uint32, []uint32{0b1100}, []uint32{2}, []uint32{0b11})
 	})
 
 	t.Run("Reminder", func(t *testing.T) {
-		testBinaryOp(t, "Remainder", (*stablehlo.Function).Remainder, D.Float32, []float32{7.0}, []float32{4.0}, []float32{3.0})
+		testBinaryOp(t, "Remainder", Remainder, D.Float32, []float32{7.0}, []float32{4.0}, []float32{3.0})
 	})
 
 	t.Run("Maximum", func(t *testing.T) {
-		testBinaryOp(t, "Maximum", (*stablehlo.Function).Maximum, D.Float32, []float32{3.0}, []float32{7.0}, []float32{7.0})
+		testBinaryOp(t, "Maximum", Maximum, D.Float32, []float32{3.0}, []float32{7.0}, []float32{7.0})
 	})
 
 	t.Run("Minimum", func(t *testing.T) {
-		testBinaryOp(t, "Minimum", (*stablehlo.Function).Minimum, D.Float32, []float32{3.0}, []float32{7.0}, []float32{3.0})
+		testBinaryOp(t, "Minimum", Minimum, D.Float32, []float32{3.0}, []float32{7.0}, []float32{3.0})
 	})
 
 }
@@ -472,11 +470,11 @@ func testCompare(t *testing.T, client *pjrt.Client) {
 	runTest := func(t *testing.T, opName string,
 		direction types.ComparisonDirection, compareType types.ComparisonType,
 		dtype D.DType, lhs, rhs any, expected any) {
-		builder := stablehlo.New(t.Name())
+		builder := New(t.Name())
 		shape := S.Make(dtype)
 		fn := builder.Main()
 		lhsV, rhsV := fn.NamedInput("lhs", shape), fn.NamedInput("rhs", shape)
-		result := must1(fn.Compare(lhsV, rhsV, direction, compareType))
+		result := must1(Compare(lhsV, rhsV, direction, compareType))
 		must(fn.Return(result))
 		program := must1(builder.Build())
 		fmt.Printf("%s program:\n%s", t.Name(), program)
@@ -529,13 +527,13 @@ func TestUnaryOps(t *testing.T) {
 
 func testUnaryOps(t *testing.T, client *pjrt.Client) {
 	testUnaryOp := func(t *testing.T, opName string,
-		op func(fn *stablehlo.Function, x *stablehlo.Value) (*stablehlo.Value, error),
+		op func(x *Value) (*Value, error),
 		dtype D.DType, input any, expected any) {
-		builder := stablehlo.New(t.Name())
+		builder := New(t.Name())
 		shape := S.Make(dtype)
 		fn := builder.Main()
 		arg := fn.Input(shape)
-		result := must1(op(fn, arg))
+		result := must1(op(arg))
 		must(fn.Return(result))
 		program := must1(builder.Build())
 		fmt.Printf("%s program:\n%s", t.Name(), program)
@@ -545,116 +543,116 @@ func testUnaryOps(t *testing.T, client *pjrt.Client) {
 	}
 
 	t.Run("Not_Bool", func(t *testing.T) {
-		testUnaryOp(t, "Not", (*stablehlo.Function).Not, D.Bool, []bool{true}, []bool{false})
+		testUnaryOp(t, "Not", Not, D.Bool, []bool{true}, []bool{false})
 	})
 	t.Run("Not_Uint8", func(t *testing.T) {
-		testUnaryOp(t, "Not", (*stablehlo.Function).Not, D.Uint8, []uint8{128}, []uint8{127})
+		testUnaryOp(t, "Not", Not, D.Uint8, []uint8{128}, []uint8{127})
 	})
 
 	t.Run("Popcnt_Uint32", func(t *testing.T) {
-		testUnaryOp(t, "Popcnt", (*stablehlo.Function).Popcnt, D.Uint32, []uint32{0b1011}, []uint32{3})
+		testUnaryOp(t, "Popcnt", Popcnt, D.Uint32, []uint32{0b1011}, []uint32{3})
 	})
 
 	t.Run("CountLeadingZeros_Uint32", func(t *testing.T) {
-		testUnaryOp(t, "CountLeadingZeros", (*stablehlo.Function).CountLeadingZeros, D.Uint32, []uint32{0b1}, []uint32{31})
+		testUnaryOp(t, "CountLeadingZeros", CountLeadingZeros, D.Uint32, []uint32{0b1}, []uint32{31})
 	})
 
 	t.Run("Erf_Float32", func(t *testing.T) {
-		testUnaryOp(t, "Erf", (*stablehlo.Function).Erf, D.Float64, []float64{1.0}, []float64{
-			float64(math.Erf(1))})
+		testUnaryOp(t, "Erf", Erf, D.Float64, []float64{1.0}, []float64{
+			math.Erf(1)})
 	})
 
 	t.Run("Exponential_Float32", func(t *testing.T) {
-		testUnaryOp(t, "Exponential", (*stablehlo.Function).Exponential, D.Float32, []float32{1.0},
+		testUnaryOp(t, "Exponential", Exponential, D.Float32, []float32{1.0},
 			[]float32{float32(math.Exp(1))})
 	})
 
 	t.Run("ExponentialMinusOne_Float32", func(t *testing.T) {
-		testUnaryOp(t, "ExponentialMinusOne", (*stablehlo.Function).ExponentialMinusOne, D.Float32, []float32{1.0},
+		testUnaryOp(t, "ExponentialMinusOne", ExponentialMinusOne, D.Float32, []float32{1.0},
 			[]float32{float32(math.E - 1)})
 	})
 
 	t.Run("Log_Float32", func(t *testing.T) {
-		testUnaryOp(t, "Log", (*stablehlo.Function).Log, D.Float32, []float32{2.7183}, []float32{1.0})
+		testUnaryOp(t, "Log", Log, D.Float32, []float32{2.7183}, []float32{1.0})
 	})
 
 	t.Run("LogPlusOne_Float32", func(t *testing.T) {
-		testUnaryOp(t, "LogPlusOne", (*stablehlo.Function).LogPlusOne, D.Float32, []float32{1.7183}, []float32{1.0})
+		testUnaryOp(t, "LogPlusOne", LogPlusOne, D.Float32, []float32{1.7183}, []float32{1.0})
 	})
 
 	t.Run("Logistic_Float32", func(t *testing.T) {
-		testUnaryOp(t, "Logistic", (*stablehlo.Function).Logistic, D.Float32, []float32{0.0}, []float32{0.5})
+		testUnaryOp(t, "Logistic", Logistic, D.Float32, []float32{0.0}, []float32{0.5})
 	})
 
 	t.Run("Ceil_Float32", func(t *testing.T) {
-		testUnaryOp(t, "Ceil", (*stablehlo.Function).Ceil, D.Float32, []float32{1.7}, []float32{2.0})
+		testUnaryOp(t, "Ceil", Ceil, D.Float32, []float32{1.7}, []float32{2.0})
 	})
 
 	t.Run("Floor_Float32", func(t *testing.T) {
-		testUnaryOp(t, "Floor", (*stablehlo.Function).Floor, D.Float32, []float32{1.7}, []float32{1.0})
+		testUnaryOp(t, "Floor", Floor, D.Float32, []float32{1.7}, []float32{1.0})
 	})
 
 	t.Run("RoundNearestEven_Float32", func(t *testing.T) {
-		testUnaryOp(t, "RoundNearestEven", (*stablehlo.Function).RoundNearestEven, D.Float32, []float32{2.5}, []float32{2.0})
+		testUnaryOp(t, "RoundNearestEven", RoundNearestEven, D.Float32, []float32{2.5}, []float32{2.0})
 	})
 	t.Run("RoundNearestAfz_Float32", func(t *testing.T) {
-		testUnaryOp(t, "RoundNearestAfz", (*stablehlo.Function).RoundNearestAfz, D.Float32, []float32{2.5}, []float32{3.0})
+		testUnaryOp(t, "RoundNearestAfz", RoundNearestAfz, D.Float32, []float32{2.5}, []float32{3.0})
 	})
 
 	t.Run("Rsqrt_Float32", func(t *testing.T) {
-		testUnaryOp(t, "Rsqrt", (*stablehlo.Function).Rsqrt, D.Float32, []float32{4.0}, []float32{0.5})
+		testUnaryOp(t, "Rsqrt", Rsqrt, D.Float32, []float32{4.0}, []float32{0.5})
 	})
 
 	t.Run("Sqrt_Float32", func(t *testing.T) {
-		testUnaryOp(t, "Sqrt", (*stablehlo.Function).Sqrt, D.Float32, []float32{4.0}, []float32{2.0})
+		testUnaryOp(t, "Sqrt", Sqrt, D.Float32, []float32{4.0}, []float32{2.0})
 	})
 
 	t.Run("Cbrt_Float32", func(t *testing.T) {
-		testUnaryOp(t, "Cbrt", (*stablehlo.Function).Cbrt, D.Float32, []float32{8.0}, []float32{2.0})
+		testUnaryOp(t, "Cbrt", Cbrt, D.Float32, []float32{8.0}, []float32{2.0})
 	})
 
 	t.Run("Cosine_Float32", func(t *testing.T) {
-		testUnaryOp(t, "Cosine", (*stablehlo.Function).Cosine, D.Float32, []float32{0.0}, []float32{1.0})
+		testUnaryOp(t, "Cosine", Cosine, D.Float32, []float32{0.0}, []float32{1.0})
 	})
 
 	t.Run("Sine_Float32", func(t *testing.T) {
-		testUnaryOp(t, "Sine", (*stablehlo.Function).Sine, D.Float32, []float32{0.0}, []float32{0.0})
+		testUnaryOp(t, "Sine", Sine, D.Float32, []float32{0.0}, []float32{0.0})
 	})
 
 	t.Run("Tan_Float32", func(t *testing.T) {
-		testUnaryOp(t, "Tan", (*stablehlo.Function).Tan, D.Float32, []float32{pi32 / 4}, []float32{1})
+		testUnaryOp(t, "Tan", Tan, D.Float32, []float32{pi32 / 4}, []float32{1})
 	})
 	t.Run("Tanh_Float32", func(t *testing.T) {
-		testUnaryOp(t, "Tanh", (*stablehlo.Function).Tanh, D.Float32, []float32{0.5},
+		testUnaryOp(t, "Tanh", Tanh, D.Float32, []float32{0.5},
 			[]float32{float32(math.Tanh(0.5))})
 	})
 
 	t.Run("Abs_Float32", func(t *testing.T) {
-		testUnaryOp(t, "Abs", (*stablehlo.Function).Abs, D.Float32, []float32{-3.0}, []float32{3.0})
+		testUnaryOp(t, "Abs", Abs, D.Float32, []float32{-3.0}, []float32{3.0})
 	})
 
 	t.Run("Negate_Float32", func(t *testing.T) {
-		testUnaryOp(t, "Negate", (*stablehlo.Function).Negate, D.Float32, []float32{3.0}, []float32{-3.0})
+		testUnaryOp(t, "Negate", Negate, D.Float32, []float32{3.0}, []float32{-3.0})
 	})
 
 	t.Run("Sign_Float32", func(t *testing.T) {
-		testUnaryOp(t, "Sign", (*stablehlo.Function).Sign, D.Float32, []float32{-3.0}, []float32{-1.0})
+		testUnaryOp(t, "Sign", Sign, D.Float32, []float32{-3.0}, []float32{-1.0})
 	})
 
 	t.Run("Real_Complex64", func(t *testing.T) {
-		testUnaryOp(t, "Real", (*stablehlo.Function).Real, D.Complex64, []complex64{complex(3.0, 4.0)}, []float32{3.0})
+		testUnaryOp(t, "Real", Real, D.Complex64, []complex64{complex(3.0, 4.0)}, []float32{3.0})
 	})
 
 	t.Run("Real_Complex128", func(t *testing.T) {
-		testUnaryOp(t, "Real", (*stablehlo.Function).Real, D.Complex128, []complex128{complex(3.0, 4.0)}, []float64{3.0})
+		testUnaryOp(t, "Real", Real, D.Complex128, []complex128{complex(3.0, 4.0)}, []float64{3.0})
 	})
 
 	t.Run("Imag_Complex64", func(t *testing.T) {
-		testUnaryOp(t, "Imag", (*stablehlo.Function).Imag, D.Complex64, []complex64{complex(3.0, 4.0)}, []float32{4.0})
+		testUnaryOp(t, "Imag", Imag, D.Complex64, []complex64{complex(3.0, 4.0)}, []float32{4.0})
 	})
 
 	t.Run("Imag_Complex128", func(t *testing.T) {
-		testUnaryOp(t, "Imag", (*stablehlo.Function).Imag, D.Complex128, []complex128{complex(3.0, 4.0)}, []float64{4.0})
+		testUnaryOp(t, "Imag", Imag, D.Complex128, []complex128{complex(3.0, 4.0)}, []float64{4.0})
 	})
 }
 
@@ -668,7 +666,7 @@ func TestConstants(t *testing.T) {
 
 func testConstants(t *testing.T, client *pjrt.Client) {
 	testScalar := func(t *testing.T, scalar any) {
-		builder := stablehlo.New(t.Name())
+		builder := New(t.Name())
 		fn := builder.Main()
 		c, err := fn.ConstantFromScalar(scalar)
 		require.NoError(t, err)
@@ -693,7 +691,7 @@ func testConstants(t *testing.T, client *pjrt.Client) {
 	t.Run("complex128", func(t *testing.T) { testScalar(t, complex64(-7+3i)) })
 
 	testTensor := func(t *testing.T, flat any, dimensions ...int) {
-		builder := stablehlo.New(t.Name())
+		builder := New(t.Name())
 		fn := builder.Main()
 		c, err := fn.ConstantFromFlatAndDimensions(flat, dimensions...)
 		require.NoError(t, err)

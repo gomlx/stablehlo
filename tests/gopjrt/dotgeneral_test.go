@@ -7,7 +7,7 @@ import (
 
 	D "github.com/gomlx/gopjrt/dtypes"
 	"github.com/gomlx/gopjrt/pjrt"
-	"github.com/gomlx/stablehlo"
+	. "github.com/gomlx/stablehlo"
 	"github.com/gomlx/stablehlo/types"
 	S "github.com/gomlx/stablehlo/types/shapes"
 )
@@ -37,16 +37,16 @@ func testDotGeneral(t *testing.T, client *pjrt.Client) {
 		}, []int{5, 2, 1, 4}},
 	}
 	t.Run("BatchContractingCross", func(t *testing.T) {
-		builder := stablehlo.New(t.Name())
+		builder := New(t.Name())
 		fn := builder.NewFunction("main")
 		one := must1(fn.ConstantFromScalar(float32(1)))
 		lhs := must1(fn.Iota(S.Make(D.F32, 2*3*1*5), 0))
-		lhs = must1(fn.Add(lhs, must1(fn.BroadcastInDim(one, lhs.Shape(), nil))))
-		lhs = must1(fn.Reshape(lhs, S.Make(D.F32, 2, 3, 1, 5)))
+		lhs = must1(Add(lhs, must1(BroadcastInDim(one, lhs.Shape(), nil))))
+		lhs = must1(Reshape(lhs, S.Make(D.F32, 2, 3, 1, 5)))
 		rhs := must1(fn.Iota(S.Make(D.F32, 5*3*2*4), 0))
-		rhs = must1(fn.Add(rhs, must1(fn.BroadcastInDim(one, rhs.Shape(), nil))))
-		rhs = must1(fn.Reshape(rhs, S.Make(D.F32, 5, 3, 2, 4)))
-		dg := must1(fn.DotGeneral(lhs, []int{1}, []int{3, 0}, rhs, []int{1}, []int{0, 2}).Done())
+		rhs = must1(Add(rhs, must1(BroadcastInDim(one, rhs.Shape(), nil))))
+		rhs = must1(Reshape(rhs, S.Make(D.F32, 5, 3, 2, 4)))
+		dg := must1(DotGeneral(lhs, []int{1}, []int{3, 0}, rhs, []int{1}, []int{0, 2}).Done())
 		must(fn.Return(dg))
 		program := must1(builder.Build())
 		fmt.Printf("%s program:\n%s", t.Name(), program)
@@ -55,16 +55,16 @@ func testDotGeneral(t *testing.T, client *pjrt.Client) {
 	})
 
 	t.Run("BatchContractingCross(f32)", func(t *testing.T) {
-		builder := stablehlo.New(t.Name())
+		builder := New(t.Name())
 		fn := builder.NewFunction("main")
 		one := must1(fn.ConstantFromScalar(float32(1)))
 		lhs := must1(fn.Iota(S.Make(D.F32, 2*3*1*5), 0))
-		lhs = must1(fn.Add(lhs, must1(fn.BroadcastInDim(one, lhs.Shape(), nil))))
-		lhs = must1(fn.Reshape(lhs, S.Make(D.F32, 2, 3, 1, 5)))
+		lhs = must1(Add(lhs, must1(BroadcastInDim(one, lhs.Shape(), nil))))
+		lhs = must1(Reshape(lhs, S.Make(D.F32, 2, 3, 1, 5)))
 		rhs := must1(fn.Iota(S.Make(D.F32, 5*3*2*4), 0))
-		rhs = must1(fn.Add(rhs, must1(fn.BroadcastInDim(one, rhs.Shape(), nil))))
-		rhs = must1(fn.Reshape(rhs, S.Make(D.F32, 5, 3, 2, 4)))
-		dg := must1(fn.DotGeneral(lhs, []int{1}, []int{3, 0}, rhs, []int{1}, []int{0, 2}).
+		rhs = must1(Add(rhs, must1(BroadcastInDim(one, rhs.Shape(), nil))))
+		rhs = must1(Reshape(rhs, S.Make(D.F32, 5, 3, 2, 4)))
+		dg := must1(DotGeneral(lhs, []int{1}, []int{3, 0}, rhs, []int{1}, []int{0, 2}).
 			Algorithm(&types.DotGeneralAlgorithm{
 				LhsPrecisionType:           types.FloatPrecisionType{DType: D.F32},
 				RhsPrecisionType:           types.FloatPrecisionType{DType: D.F32},
@@ -84,16 +84,16 @@ func testDotGeneral(t *testing.T, client *pjrt.Client) {
 
 	if strings.Index(strings.ToUpper(client.Plugin().String()), "CUDA") != -1 {
 		t.Run("BatchContractingCross(tf32)", func(t *testing.T) {
-			builder := stablehlo.New(t.Name())
+			builder := New(t.Name())
 			fn := builder.NewFunction("main")
 			one := must1(fn.ConstantFromScalar(float32(1)))
 			lhs := must1(fn.Iota(S.Make(D.F32, 2*3*1*5), 0))
-			lhs = must1(fn.Add(lhs, must1(fn.BroadcastInDim(one, lhs.Shape(), nil))))
-			lhs = must1(fn.Reshape(lhs, S.Make(D.F32, 2, 3, 1, 5)))
+			lhs = must1(Add(lhs, must1(BroadcastInDim(one, lhs.Shape(), nil))))
+			lhs = must1(Reshape(lhs, S.Make(D.F32, 2, 3, 1, 5)))
 			rhs := must1(fn.Iota(S.Make(D.F32, 5*3*2*4), 0))
-			rhs = must1(fn.Add(rhs, must1(fn.BroadcastInDim(one, rhs.Shape(), nil))))
-			rhs = must1(fn.Reshape(rhs, S.Make(D.F32, 5, 3, 2, 4)))
-			dg := must1(fn.DotGeneral(lhs, []int{1}, []int{3, 0}, rhs, []int{1}, []int{0, 2}).
+			rhs = must1(Add(rhs, must1(BroadcastInDim(one, rhs.Shape(), nil))))
+			rhs = must1(Reshape(rhs, S.Make(D.F32, 5, 3, 2, 4)))
+			dg := must1(DotGeneral(lhs, []int{1}, []int{3, 0}, rhs, []int{1}, []int{0, 2}).
 				Algorithm(&types.DotGeneralAlgorithm{
 					LhsPrecisionType:           types.FloatPrecisionType{TF32: true},
 					RhsPrecisionType:           types.FloatPrecisionType{TF32: true},

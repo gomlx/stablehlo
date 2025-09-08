@@ -31,7 +31,8 @@ import (
 
 {{- range .}}
 // {{.Name}} implements the corresponding standard unary operation.
-func (fn *Function) {{.Name}}(operand *Value) (*Value, error) {
+func {{.Name}}(operand *Value) (*Value, error) {
+	fn := operand.fn
 	return fn.unaryOp(optypes.{{.Name}}, operand)
 }
 {{- end}}
