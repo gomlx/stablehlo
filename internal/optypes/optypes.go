@@ -57,9 +57,11 @@ const (
 	Remainder
 	Reduce
 	Reshape
+	RngBitGenerator
 	RoundNearestAfz
 	RoundNearestEven
 	Rsqrt
+	Scatter
 	ShiftLeft
 	ShiftRightArithmetic
 	ShiftRightLogical
@@ -73,7 +75,8 @@ const (
 	Transpose
 	Xor
 
-	// Here the ones not implemented yet:
+	// Here the ones not implemented yet, please add an issue in the repo if you need them.
+
 	BatchNormForInference
 	BatchNormForTraining
 	BatchNormGradient
@@ -106,8 +109,6 @@ const (
 	ReduceScatter
 	ReduceWindow
 	Reverse
-	RngBitGenerator
-	Scatter
 	Select
 	SelectAndScatter
 	Send
