@@ -336,20 +336,6 @@ func Select(pred, onTrue, onFalse shapes.Shape) (output shapes.Shape, err error)
 	return onTrue.Clone(), nil
 }
 
-// Reshape to the given dimensions: trivial output shape, but this function also checks
-// that the sizes are the same.
-//
-// Notice the optypes.Reshape doesn't support auto-scaling dimensions (set to -1), as graph.Reshape does.
-func Reshape(operand shapes.Shape, dims []int) (output shapes.Shape, err error) {
-	output = shapes.Make(operand.DType, dims...)
-	if operand.Size() != output.Size() {
-		err = errors.Errorf("Reshape() cannot reshape %s to dimensions %v, their size don't match",
-			operand, dims)
-		return shapes.Invalid(), err
-	}
-	return
-}
-
 // Complex returns the shape resulting from the Complex operation.
 func Complex(real, imag shapes.Shape) (output shapes.Shape, err error) {
 	if real.DType != imag.DType {
@@ -447,60 +433,38 @@ func Transpose(operand shapes.Shape, permutation []int) (output shapes.Shape, er
 	return
 }
 
-// Broadcast adds the prefixDims to the start of the shape.
-func Broadcast(operand shapes.Shape, prefixDims []int) (output shapes.Shape, err error) {
-	if operand.DType == dtypes.InvalidDType {
-		err = errors.Errorf("invalid shape %s for Broadcast", operand)
-		return
-	}
-	if len(prefixDims) == 0 {
-		return operand, nil
-	}
-	for _, dim := range prefixDims {
-		if dim <= 0 {
-			err = errors.Errorf("Invalid prefix dimensions %v for Broadcast, they must be positive", prefixDims)
-			return
-		}
-	}
-	output = shapes.Make(operand.DType)
-	output.Dimensions = make([]int, len(prefixDims)+operand.Rank())
-	copy(output.Dimensions, prefixDims)
-	copy(output.Dimensions[len(prefixDims):], operand.Dimensions)
-	return
-}
-
 // BroadcastInDim verifies that the arguments are valid.
 // The output shape is already known, so nothing is returned.
 //
 // The axesMapping is changed in place, replacing negative axes with their positive equivalent.
-func BroadcastInDim(operand, output shapes.Shape, axesMapping []int) error {
-	if operand.DType != output.DType {
-		return errors.Errorf("BroadcastInDim() requires the operand and the output to have the same data type, got operand=%s and output=%s",
-			operand, output)
+func BroadcastInDim(operand, targetShape shapes.Shape, axesMapping []int) error {
+	if operand.DType != targetShape.DType {
+		return errors.Errorf("BroadcastInDim() requires the operand and the target shape to have the same data type, got operand=%s and targetShape=%s",
+			operand, targetShape)
 	}
-	targetRank := output.Rank()
+	targetRank := targetShape.Rank()
 	if targetRank < operand.Shape().Rank() {
-		return errors.Errorf("BroadcastInDim() cannot be used to shrink the rank of the operand, got operand=%s and output=%s",
-			operand, output)
+		return errors.Errorf("BroadcastInDim() cannot be used to shrink the rank of the operand, got operand=%s and targetShape=%s",
+			operand, targetShape)
 	}
 	if len(axesMapping) != operand.Shape().Rank() {
-		return errors.Errorf("BroadcastInDim() requires all operand's axes mappings to be defined, operand has output %s, but %d axes were given",
+		return errors.Errorf("BroadcastInDim() requires all operand's axes mappings to be defined, operand has targetShape %s, but %d axes were given",
 			operand, len(axesMapping))
 	}
 	usedAxis := utils.MakeSet[int](len(axesMapping))
 	for operandAxis, targetAxis := range axesMapping {
 		targetAxis, err := AdjustAxisToRank(targetAxis, targetRank)
 		if err != nil {
-			return errors.WithMessagef(err, "invalid axes mapping of operand axis %d to output axis %d, output output is %s", operandAxis, targetAxis, output)
+			return errors.WithMessagef(err, "invalid axes mapping of operand axis %d to targetShape axis %d, targetShape targetShape is %s", operandAxis, targetAxis, targetShape)
 		}
 		if usedAxis.Has(targetAxis) {
-			return errors.Errorf("BroadcastInDim() requires all output axes to be unique, got duplicate axis %d", targetAxis)
+			return errors.Errorf("BroadcastInDim() requires all targetShape axes to be unique, got duplicate axis %d", targetAxis)
 		}
 		usedAxis.Insert(targetAxis)
 		operandDim := operand.Dimensions[operandAxis]
-		targetDim := output.Dimensions[targetAxis]
+		targetDim := targetShape.Dimensions[targetAxis]
 		if operandDim != 1 && operandDim != targetDim {
-			return errors.Errorf("BroadcastInDim() requires all operand axes to be broadcast to be of dimension 1, but got operand.Dimensions[%d]=%d and output.Dimension[%d]=%d",
+			return errors.Errorf("BroadcastInDim() requires all operand axes to be broadcast to be of dimension 1, but got operand.Dimensions[%d]=%d and targetShape.Dimension[%d]=%d",
 				operandAxis, operandDim, targetAxis, targetDim)
 		}
 		axesMapping[operandAxis] = targetAxis
@@ -740,84 +704,98 @@ func Concatenate(inputs []shapes.Shape, axis int) (output shapes.Shape, err erro
 	return output, nil
 }
 
-// Scatter checks that the parameters are consistent. The output shape returned is the unchanged operand -- the scattered
-// updates are applied to the operand, but its shape is unchanged.
+// Scatter checks that the parameters are consistent. The output shapes returned are the unchanged inputs -- the scattered
+// updates are applied to the inputs, but their shapes are unchanged.
 //
 // The Scatter operations indicesAreSorted and uniqueIndices don't play a role in this.
-func Scatter(operand, indices, updates shapes.Shape, indexVectorAxis int, updateWindowAxes, insertedWindowAxes, scatterAxesToOperandAxes []int) (output shapes.Shape, err error) {
-	if operand.DType == dtypes.InvalidDType || indices.DType == dtypes.InvalidDType || updates.DType == dtypes.InvalidDType {
-		return shapes.Invalid(), errors.Errorf("invalid shape for operand (%s), indices (%s) or updates (%s) for Scatter", operand, indices, updates)
+func Scatter(inputs []shapes.Shape, scatterIndices shapes.Shape, updates []shapes.Shape,
+	updateWindowAxes, insertedWindowAxes []int,
+	inputBatchingAxes, scatterIndicesBatchingAxes []int,
+	indexedInputAxes []int, indexVectorAxis int,
+	updateComputationInputs, updateComputationOutputs []shapes.Shape) (outputs []shapes.Shape, err error) {
+	// Check the number of inputs and updates.
+	if len(inputs) == 0 {
+		return nil, errors.Errorf("Scatter() requires at least one input")
 	}
-	if operand.DType != updates.DType {
-		return shapes.Invalid(), errors.Errorf("data types (DType) for Scatter operand (%s) and updates (%s) must match", operand, updates)
-	}
-	if !indices.DType.IsInt() {
-		return shapes.Invalid(), errors.Errorf("indices DType (%s) must be an integer type", indices)
-	}
-
-	// Check indexVectorAxis and get scatter indices dimensions.
-	if indexVectorAxis < 0 || indexVectorAxis > indices.Rank() {
-		return shapes.Invalid(), errors.Errorf("indexVectorAxis=%d must be in range [0, indices.Rank()=%d]", indexVectorAxis, indices.Rank())
+	if len(inputs) != len(updates) {
+		return nil, errors.Errorf("Scatter() requires the same number of inputs and updates, got %d inputs and %d updates", len(inputs), len(updates))
 	}
 
-	// Validate scatter axes mapping.
-	numIndexedAxes := 1
-	if indexVectorAxis < indices.Rank() {
-		numIndexedAxes = indices.Dimensions[indexVectorAxis]
+	// Check the dtypes match.
+	if scatterIndices.DType == dtypes.InvalidDType {
+		return nil, errors.Errorf("invalid shape for scatterIndices (%s)", scatterIndices)
 	}
-	if len(scatterAxesToOperandAxes) != numIndexedAxes {
-		return shapes.Invalid(), errors.Errorf("scatterAxesToOperandAxes length (%d) must match the size of indices's indexVectorAxis dimension (%d)",
-			len(scatterAxesToOperandAxes), indices.Dimensions[indexVectorAxis])
-	}
-	for i, axis := range scatterAxesToOperandAxes {
-		if axis < 0 || axis >= operand.Rank() {
-			return shapes.Invalid(), errors.Errorf("scatterAxesToOperandAxes[%d]=%d must be in range [0, operand.Rank()=%d)", i, axis, operand.Rank())
+	input0 := inputs[0] // Shortcut, it will be used for the other checks.
+	for i, input := range inputs {
+		if input.DType == dtypes.InvalidDType {
+			return nil, errors.Errorf("invalid shape for inputs[%d]=%s", i, input)
+		}
+		if slices.Compare(input0.Dimensions, input.Dimensions) != 0 {
+			return nil, errors.Errorf("all inputs must have the same shape (even if different dtypes), "+
+				"but inputs[0]=%s and inputs[%d]=%s", input0, i, input)
 		}
 	}
-	for i, axis := range updateWindowAxes {
-		if axis < 0 || axis >= updates.Rank() {
-			return shapes.Invalid(), errors.Errorf("updateWindowAxes[%d]=%d must be in range [0, updates.Rank()=%d)", i, axis, updates.Rank()-1)
+	updates0 := updates[0] // Shortcut, it will be used for the other checks.
+	for i, update := range updates {
+		if update.DType == dtypes.InvalidDType {
+			return nil, errors.Errorf("invalid shape for updates[%d]=%s", i, update)
 		}
-	}
-
-	// Check that the batch axes of indices match the number of axes in the updates.
-	numBatchAxes := indices.Rank() - 1
-	if indexVectorAxis == indices.Rank() {
-		numBatchAxes++
-	}
-	if len(updateWindowAxes)+numBatchAxes != updates.Rank() {
-		return shapes.Invalid(), errors.Errorf("numBatchAxes (%d) + len(updateWindowAxes) (%d) must match updates.Rank() (%d), so it "+
-			"can fully addressed -- where numBatchAxes=indices.Rank() - 1, or if indexVector == indices.Rank(), numBatchAxes=indices.Rank()",
-			numBatchAxes, len(updateWindowAxes), updates.Rank())
-	}
-
-	// Validate update window dimensions.
-	if len(updateWindowAxes)+len(insertedWindowAxes) != operand.Rank() {
-		return shapes.Invalid(), errors.Errorf("operand.Rank() (%d) must match len(updateWindowAxes)(%d)+len(insertedWindowAxes)(%d), so operand indices can be fully defined",
-			operand.Rank(), len(updateWindowAxes), len(insertedWindowAxes))
-	}
-	for i, axis := range insertedWindowAxes {
-		if axis < 0 || axis >= operand.Rank() {
-			return shapes.Invalid(), errors.Errorf("insertedWindowAxes[%d]=%d must be in range [0, operand.Rank()=%d)", i, axis, operand.Rank())
+		if update.DType != inputs[i].DType {
+			return nil, errors.Errorf("data types (DType) for inputs[%d]=%s and corresponding updates[%d]=%s must match",
+				i, inputs[i], i, update)
+		}
+		if slices.Compare(updates0.Dimensions, update.Dimensions) != 0 {
+			return nil, errors.Errorf("all updates must have the same shape (even if different dtypes), "+
+				"but updates[0]=%s and updates[%d]=%s", updates0, i, update)
 		}
 	}
 
-	// Validate that update dimensions fit into output dimensions.
-	insertedWindowAxesSet := utils.SetWith(insertedWindowAxes...)
-	operandUpdatedWindowAxes := make([]int, 0, operand.Rank()-len(insertedWindowAxes))
-	for axis := range operand.Rank() {
-		if !insertedWindowAxesSet.Has(axis) {
-			operandUpdatedWindowAxes = append(operandUpdatedWindowAxes, axis)
+	// Inputs rank:
+	if input0.Rank() != len(updateWindowAxes)+len(inputBatchingAxes)+len(insertedWindowAxes) {
+		return nil, errors.Errorf("the number of updateWindowAxes (%d) + the number of inputBatchingAxes (%d) "+
+			"+ the number of insertedWindowAxes (%d) must be equal to the number of axes in the inputs (inputs rank is =%d)",
+			len(updateWindowAxes), len(inputBatchingAxes), len(insertedWindowAxes), input0.Rank())
+	}
+
+	// TODO: perform the other checks in StableHLO specification in https://openxla.org/stablehlo/spec#scatter
+	//       For now we rely on the checks that PJRT will perform anyway.
+	_ = scatterIndicesBatchingAxes
+	_ = indexedInputAxes
+	_ = indexVectorAxis
+
+	// Check updateComputation inputs and outputs.
+	if len(updateComputationOutputs) != len(inputs) {
+		return nil, errors.Errorf("updateComputation must have as many outputs (%d) as there are inputs (%d) to the Scatter operation",
+			len(updateComputationOutputs), len(inputs))
+	}
+	if len(updateComputationInputs) != 2*len(inputs) {
+		return nil, errors.Errorf(
+			"updateComputation must have as many inputs (%d) as there are 2 * inputs (%d) = %d to the Scatter operation, "+
+				"one value coming from the input, the other from the update",
+			len(updateComputationInputs), len(inputs), 2*len(inputs))
+	}
+	for i := range len(inputs) {
+		dtype := updateComputationInputs[i].DType
+		// TODO: check that inputs[i].DType is promotable to dtype.
+		if dtype != updateComputationInputs[i+len(inputs)].DType {
+			return nil, errors.Errorf(
+				"updateComputation input #%d (%s) must match the dtype of the corresponding input #(%d + %d) (%s)",
+				i, dtype, i, len(inputs), updateComputationInputs[i+len(inputs)].DType)
+		}
+		if dtype != updateComputationOutputs[i].DType {
+			return nil, errors.Errorf(
+				"updateComputation input #%d (%s) must match the dtype of the corresponding output #%d (%s)",
+				i, dtype, i, updateComputationOutputs[i].DType)
 		}
 	}
-	for ii, updatesAxis := range updateWindowAxes {
-		operandAxis := operandUpdatedWindowAxes[ii]
-		if updates.Dimensions[updatesAxis] > operand.Dimensions[operandAxis] {
-			return shapes.Invalid(), errors.Errorf("updates.Dimensions[axis=%d](%d) > operand.Dimensions[axis=%d](%d), updates won't fit into the operand",
-				updatesAxis, updates.Dimensions[updatesAxis], operandAxis, operand.Dimensions[operandAxis])
-		}
+
+	// Build output shapes based on the inputs and the outputs of the updateComputation.
+	outputs = make([]shapes.Shape, len(inputs))
+	for i, input := range inputs {
+		outputs[i] = input.Clone()
+		outputs[i].DType = updateComputationOutputs[i].DType
 	}
-	return operand, nil
+	return
 }
 
 // Slice calculates the output shape for a Slice operation.

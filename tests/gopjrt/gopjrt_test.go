@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"iter"
 	"math"
+	"math/bits"
 	"reflect"
 	"strings"
 	"testing"
@@ -37,6 +38,16 @@ func must2[T1, T2 any](value1 T1, value2 T2, err error) (T1, T2) {
 		panic(err)
 	}
 	return value1, value2
+}
+
+// withLines prefix each line of text with a "%04d: " of the line number.
+func withLines(text []byte) string {
+	var result string
+	lines := strings.Split(string(text), "\n")
+	for i, line := range lines {
+		result += fmt.Sprintf("%04d: %s\n", i+1, line)
+	}
+	return result
 }
 
 func getPluginNames() []string {
@@ -436,14 +447,7 @@ func testOps(t *testing.T, client *pjrt.Client) {
 			// Count bits in each uint64
 			var totalBits int
 			for _, n := range noise {
-				// Count 1 bits using Hamming weight
-				n = n - ((n >> 1) & 0x5555555555555555)
-				n = (n & 0x3333333333333333) + ((n >> 2) & 0x3333333333333333)
-				n = (n + (n >> 4)) & 0x0f0f0f0f0f0f0f0f
-				n = n + (n >> 8)
-				n = n + (n >> 16)
-				n = n + (n >> 32)
-				totalBits += int(n & 0x7f)
+				totalBits += bits.OnesCount64(n)
 			}
 			// We expect roughly 32 bits per number +/- 2 standard deviations
 			expectedBits := 32 * numSamples
@@ -453,6 +457,61 @@ func testOps(t *testing.T, client *pjrt.Client) {
 			require.Less(t, totalBits, expectedBits+margin)
 		})
 	}
+
+	t.Run("Scatter", func(t *testing.T) {
+		builder := New(t.Name())
+		fn := builder.Main()
+		zeroF32 := must1(fn.ConstantFromScalar(float32(0)))
+		zeroI32 := must1(fn.ConstantFromScalar(int32(0)))
+		inputsF32 := must1(BroadcastInDim(zeroF32, S.Make(D.F32, 2, 1, 2, 3), nil))
+		inputsI32 := must1(BroadcastInDim(zeroI32, S.Make(D.Int32, 2, 1, 2, 3), nil))
+		scatterIndices := must1(fn.ConstantFromFlatAndDimensions(
+			[]int32{1, 1, 0, 0, 0, 2, 0, 0}, 2, 2, 2))
+
+		updatesF32 := must1(fn.Iota(S.Make(D.F32, 2*2*1), 0))
+		updatesF32 = must1(Reshape(updatesF32, S.Make(D.F32, 2, 2, 1)))
+		hundredF32 := must1(BroadcastInDim(
+			must1(fn.ConstantFromScalar(float32(100))), updatesF32.Shape(), nil))
+		updatesF32 = must1(Add(updatesF32, hundredF32))
+
+		updatesI32 := must1(fn.Iota(S.Make(D.Int32, 2*2*1), 0))
+		updatesI32 = must1(Reshape(updatesI32, S.Make(D.Int32, 2, 2, 1)))
+		thousandI32 := must1(BroadcastInDim(
+			must1(fn.ConstantFromScalar(int32(1000))), updatesI32.Shape(), nil))
+		updatesI32 = must1(Add(updatesI32, thousandI32))
+
+		updateWindowAxes := []int{2}
+		insertedWindowAxes := []int{1, 2}
+		inputBatchingAxes := []int{0}
+		scatterIndicesBatchingAxes := []int{0}
+		indexedInputAxes := []int{2, 3}
+		indexVectorAxis := 2
+		updateFn := fn.Closure()
+		lhsF32 := updateFn.NamedInput("lhsF32", S.Make(D.F32))
+		lhsI32 := updateFn.NamedInput("lhsI32", S.Make(D.Int32))
+		rhsF32 := updateFn.NamedInput("rhsF32", S.Make(D.F32))
+		rhsI32 := updateFn.NamedInput("rhsI32", S.Make(D.Int32))
+		must(updateFn.Return(
+			must1(Add(lhsF32, rhsF32)),
+			must1(Add(lhsI32, rhsI32)),
+		))
+		results := must1(MultiScatter(
+			[]*Value{inputsF32, inputsI32}, scatterIndices, []*Value{updatesF32, updatesI32},
+			updateWindowAxes, insertedWindowAxes,
+			inputBatchingAxes, scatterIndicesBatchingAxes,
+			indexedInputAxes, indexVectorAxis,
+			false, false,
+			updateFn))
+		must(fn.Return(results[0], results[1]))
+		program := must1(builder.Build())
+		fmt.Printf("%s program:\n%s", t.Name(), withLines(program))
+		outputs := compileAndExecute(t, client, program)
+		requireBuffersEqual(t, []FlatAndDims{
+			{[]float32{101, 0, 0, 0, 100, 0, 103, 0, 102, 0, 0, 0}, []int{2, 1, 2, 3}},
+			{[]int32{1001, 0, 0, 0, 1000, 0, 1003, 0, 1002, 0, 0, 0}, []int{2, 1, 2, 3}},
+		}, outputs)
+	})
+
 }
 
 func TestBinaryOps(t *testing.T) {

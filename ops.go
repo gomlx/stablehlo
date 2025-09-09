@@ -637,7 +637,7 @@ func MultiReduce(inputs, initialValues []*Value, reduction *Function, axes ...in
 	stmt.Attributes = map[string]any{
 		"dimensions": intSliceToArrayI64StableHLO(axes),
 	}
-	stmt.AddFunctionParameter("reduction", reduction)
+	stmt.AddFunctionParameter("reductionFn", reduction)
 	return stmt.Outputs, nil
 }
 
@@ -738,4 +738,134 @@ func RngBitGenerator(state *Value, shape shapes.Shape, algorithm types.RngBitGen
 		"rng_algorithm": literalStrF("#stablehlo<rng_algorithm %s>", strings.ToUpper(algorithm.String())),
 	}
 	return stmt.Outputs[0], stmt.Outputs[1], nil
+}
+
+// Scatter returns the input updated with the values of update at the locations pointed by scatterIndices.
+// It allows axes to be used in powerful ways, but it's complex to get right.
+// Full details in https://openxla.org/stablehlo/spec#gather.
+//
+// The output of Scatter has the same shape and DType of the input.
+//
+// Batching: while batching axes are only defined for the input and scatterIndices, the batching axes for the updates
+// are inferred from the scatterIndices.
+//
+// Arguments:
+//   - input: value to be updated in a scattered fashion.
+//   - scatterIndices: indices of the values to be scattered.
+//   - updates: updated values to be scattered at scatterIndices.
+//   - updateWindowAxes: these axes provide the shape of the update window.
+//   - insertedWindowAxes: in the resulting tensor, each axis is either a batch axis, part of the update window
+//     (not specified, taken sequentially) or an insertedWindowAxes defined by this argument.
+//   - inputBatchingAxes: axes that are batched with the input.
+//   - scatterIndicesBatchingAxes: axes that are batched with the scatterIndices.
+//   - indexedInputAxes: axes that are indexed by the scatterIndices at axis indexVectorAxis (aka. "scatter_dims_to_operand_dims").
+//   - indexVectorAxis: the axis in scatterIndices that will create a vector of indices on the input where to scatter.
+//     This vector of length scatterIndices.Dimensions[indexVectorAxis] will define the index value in the input on
+//     the axes defined by indexedInputAxes.
+//     E.g.: indexedInputAxes = [0, 1] and indexVectorAxis = 0, scatterIndices = [[0, 1, 2], [3, 4, 5]]
+//     will scatter the values from updates[0] at input[0, 3], updates[1] at input[1, 4], and so on.
+//     The shape of the scatterIndices is then "[2", :, ...]"
+//   - indicesAreSorted: whether the scatterIndices are sorted.
+//   - uniqueIndices: whether the scatterIndices are unique.
+//   - indicesAreSorted, uniqueIndices: they can be set to true if it's guaranteed that scatterIndices are sorted
+//     (in ascending order) and/or unique (no duplicates).
+//     This allows for some optimization in some platforms.
+//   - updateComputation: the closure that element-wise combines the current input value and the update value,
+//     computing the result.
+//     It defines also the data type of the outputs: if the updateComputation inputs and outputs don't match
+//     the corresponding DType of their inputs and updates, the values from inputs and updates must be "promotable"
+//     to the DType of the updateComputation.
+//     Notice it may be called multiple times for some elements if the indices are not unique
+//     or the updates' windows overlap.
+func Scatter(input, scatterIndices, updates *Value,
+	updateWindowAxes, insertedWindowAxes []int,
+	inputBatchingAxes, scatterIndicesBatchingAxes []int,
+	indexedInputAxes []int, indexVectorAxis int,
+	indicesAreSorted, uniqueIndices bool,
+	updateComputation *Function) (*Value, error) {
+	results, err := MultiScatter([]*Value{input}, scatterIndices, []*Value{updates},
+		updateWindowAxes, insertedWindowAxes,
+		inputBatchingAxes, scatterIndicesBatchingAxes,
+		indexedInputAxes, indexVectorAxis,
+		indicesAreSorted, uniqueIndices,
+		updateComputation)
+	if err != nil {
+		return nil, err
+	}
+	return results[0], nil
+}
+
+// MultiScatter is like Scatter, but takes N inputs and updates, but one only set of indices, and perform the Scatter
+// on all at the same time.
+func MultiScatter(inputs []*Value, scatterIndices *Value, updates []*Value,
+	updateWindowAxes, insertedWindowAxes []int,
+	inputBatchingAxes, scatterIndicesBatchingAxes []int,
+	indexedInputAxes []int, indexVectorAxis int,
+	indicesAreSorted, uniqueIndices bool,
+	updateComputation *Function) ([]*Value, error) {
+	op := optypes.Scatter
+	if len(inputs) == 0 {
+		return nil, errors.New("MultiScatter requires at least one input")
+	}
+	if len(inputs) != len(updates) {
+		return nil, errors.Errorf("MultiScatter requires the same number of inputs and updates, got %d inputs and %d updates",
+			len(inputs), len(updates))
+	}
+	fn := inputs[0].fn
+	if fn.Returned {
+		return nil, errors.Errorf("cannot add operation %s after returning, in function %q",
+			op, fn.Name)
+	}
+	for i, input := range inputs {
+		if input.fn != fn {
+			return nil, errors.Errorf("cannot add operation %s to function %q, because inputs[%d] is from different function (%q and %q)",
+				op, fn.Name, i, input.fn.Name, fn.Name)
+		}
+	}
+	for i, update := range updates {
+		if update.fn != fn {
+			return nil, errors.Errorf("cannot add operation %s to function %q, because updates[%d] is from different function (%q and %q)",
+				op, fn.Name, i, update.fn.Name, fn.Name)
+		}
+	}
+	if scatterIndices.fn != fn {
+		return nil, errors.Errorf("cannot add operation %s to function %q, because scatterIndices is from different function (%q and %q)",
+			op, fn.Name, scatterIndices.fn.Name, fn.Name)
+	}
+
+	inputsShapes := valuesToShapes(inputs)
+	updatesShapes := valuesToShapes(updates)
+	updateComputationInputShapes := valuesToShapes(updateComputation.Inputs)
+	outputShapes, err := shapeinference.Scatter(
+		inputsShapes, scatterIndices.shape, updatesShapes,
+		updateWindowAxes, insertedWindowAxes,
+		inputBatchingAxes, scatterIndicesBatchingAxes,
+		indexedInputAxes, indexVectorAxis,
+		updateComputationInputShapes, updateComputation.Outputs)
+	if err != nil {
+		return nil, err
+	}
+	allInputs := append(slices.Clone(inputs), scatterIndices)
+	allInputs = append(allInputs, updates...)
+	stmt := fn.addMultiOp(op, outputShapes, allInputs)
+	stmt.Attributes = map[string]any{
+		"scatter_dimension_numbers": literalStrF(
+			"#stablehlo.scatter<\n"+
+				"\tupdate_window_dims = %s,\n"+
+				"\tinserted_window_dims = %s,\n"+
+				"\tinput_batching_dims = %s,\n"+
+				"\tscatter_indices_batching_dims = %s,\n"+
+				"\tscatter_dims_to_operand_dims = %s,\n"+
+				"\tindex_vector_dim = %d>",
+			intSliceToStableHLO(updateWindowAxes),
+			intSliceToStableHLO(insertedWindowAxes),
+			intSliceToStableHLO(inputBatchingAxes),
+			intSliceToStableHLO(scatterIndicesBatchingAxes),
+			intSliceToStableHLO(indexedInputAxes),
+			indexVectorAxis),
+		"indices_are_sorted": indicesAreSorted,
+		"unique_indices":     uniqueIndices,
+	}
+	stmt.AddFunctionParameter("updateFn", updateComputation)
+	return stmt.Outputs, nil
 }
