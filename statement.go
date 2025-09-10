@@ -46,8 +46,10 @@ func (s *Statement) AddFunctionParameter(name string, inlineFn *Function) {
 
 // Write writes a string representation of the statement to the given writer.
 func (s *Statement) Write(writer io.Writer, indentation string) error {
+	// Create the formatting w() and we() internal functions to facilitate handling error while generating the statement code.
 	var err error
 	w := func(format string, args ...any) {
+		// Do nothing if an error was encountered earlier.
 		if err != nil {
 			// No op if an error was encountered earlier
 			return
@@ -55,6 +57,7 @@ func (s *Statement) Write(writer io.Writer, indentation string) error {
 		_, err = fmt.Fprintf(writer, format, args...)
 	}
 	we := func(e elementWriter, indentation string) {
+		// Do nothing if an error was encountered earlier.
 		if err != nil {
 			// No op if an error was encountered earlier
 			return

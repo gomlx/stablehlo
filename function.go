@@ -228,8 +228,10 @@ func (fn *Function) Closure() *Function {
 
 // Write the function as StableHLO code, with the given indentation.
 func (fn *Function) Write(writer io.Writer, indentation string) error {
+	// Create the formatting w() and we() internal functions to facilitate handling error while generating the statement code.
 	var err error
 	w := func(format string, args ...any) {
+		// Do nothing if an error was encountered earlier.
 		if err != nil {
 			// No op if an error was encountered earlier
 			return
@@ -237,6 +239,7 @@ func (fn *Function) Write(writer io.Writer, indentation string) error {
 		_, err = fmt.Fprintf(writer, format, args...)
 	}
 	we := func(e elementWriter, indentation string) {
+		// Do nothing if an error was encountered earlier.
 		if err != nil {
 			// No op if an error was encountered earlier
 			return
@@ -245,6 +248,7 @@ func (fn *Function) Write(writer io.Writer, indentation string) error {
 	}
 	nextIndent := indentation + IndentationStep
 
+	// Now write the function code.
 	normalFunction := fn.Parent == nil
 	isClosure := fn.Parent != nil
 	if normalFunction {
