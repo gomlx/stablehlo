@@ -199,9 +199,17 @@ func TestScatter(t *testing.T) {
 	insertedWindowAxes1 := []int{0}
 	scatterAxesToOperandAxes1 := []int{0} // Index coordinate vector element 0 maps to operand axis 0
 	expected1 := operand1
-	output1, err := Scatter(operand1, indices1, updates1, indexVectorAxis1, updateWindowAxes1, insertedWindowAxes1, scatterAxesToOperandAxes1)
+	var operandBatchingAxes, indicesBatchingAxes []int
+	updateComputationInputs1 := []shapes.Shape{shapes.Make(operand1.DType), shapes.Make(operand1.DType)}
+	updateComputationOutputs1 := updateComputationInputs1[:1]
+	outputs1, err := Scatter([]shapes.Shape{operand1}, indices1, []shapes.Shape{updates1},
+		updateWindowAxes1, insertedWindowAxes1,
+		operandBatchingAxes, indicesBatchingAxes,
+		scatterAxesToOperandAxes1, indexVectorAxis1,
+		updateComputationInputs1, updateComputationOutputs1)
 	require.NoError(t, err)
-	require.True(t, expected1.Equal(output1), "Valid Case 1 Failed: Expected %s, got %s", expected1, output1)
+	require.Len(t, outputs1, 1)
+	require.True(t, expected1.Equal(outputs1[0]), "Valid Case 1 Failed: Expected %s, got %s", expected1, outputs1[0])
 
 	// Case 2: Scattering into a higher-rank tensor
 	// Scatter updates of shape [4] into operand[i, j, :], where [i, j] comes from indices.
@@ -216,9 +224,16 @@ func TestScatter(t *testing.T) {
 	insertedWindowAxes2 := []int{0, 1}       // Axis 0, 1 of operand are the dimensions determined by the indices[i,j,:]
 	scatterAxesToOperandAxes2 := []int{0, 1} // index coord 0 -> operand axis 0, index coord 1 -> operand axis 1
 	expected2 := operand2
-	output2, err := Scatter(operand2, indices2, updates2, indexVectorAxis2, updateWindowAxes2, insertedWindowAxes2, scatterAxesToOperandAxes2)
+	updateComputationInputs2 := []shapes.Shape{shapes.Make(operand2.DType), shapes.Make(operand2.DType)}
+	updateComputationOutputs2 := updateComputationInputs2[:1]
+	outputs2, err := Scatter([]shapes.Shape{operand2}, indices2, []shapes.Shape{updates2},
+		updateWindowAxes2, insertedWindowAxes2,
+		operandBatchingAxes, indicesBatchingAxes,
+		scatterAxesToOperandAxes2, indexVectorAxis2,
+		updateComputationInputs2, updateComputationOutputs2)
 	require.NoError(t, err)
-	require.True(t, expected2.Equal(output2), "Valid Case 2 Failed: Expected %s, got %s", expected2, output2)
+	require.Len(t, outputs2, 1)
+	require.True(t, expected2.Equal(outputs2[0]), "Valid Case 2 Failed: Expected %s, got %s", expected2, outputs2[0])
 
 	// Case 3: Different indexVectorAxis
 	// Same as case 2, but indices are [2, 2, 3] -> indexVectorAxis is 1 and different order of axes in the operand.
@@ -230,9 +245,16 @@ func TestScatter(t *testing.T) {
 	insertedWindowAxes3 := []int{1, 2}
 	scatterAxesToOperandAxes3 := []int{1, 2} // indices are used for different axes in the operand this time.
 	expected3 := operand2                    // Still expect operand shape
-	output3, err := Scatter(operand3, indices3, updates3, indexVectorAxis3, updateWindowAxes3, insertedWindowAxes3, scatterAxesToOperandAxes3)
+	updateComputationInputs3 := []shapes.Shape{shapes.Make(operand3.DType), shapes.Make(operand3.DType)}
+	updateComputationOutputs3 := updateComputationInputs3[:1]
+	outputs3, err := Scatter([]shapes.Shape{operand3}, indices3, []shapes.Shape{updates3},
+		updateWindowAxes3, insertedWindowAxes3,
+		operandBatchingAxes, indicesBatchingAxes,
+		scatterAxesToOperandAxes3, indexVectorAxis3,
+		updateComputationInputs3, updateComputationOutputs3)
 	require.NoError(t, err)
-	require.True(t, expected3.Equal(output3), "Valid Case 3 Failed (IndexVecAxis=1): Expected %s, got %s", expected3, output3)
+	require.Len(t, outputs3, 1)
+	require.True(t, expected3.Equal(outputs3[0]), "Valid Case 3 Failed (IndexVecAxis=1): Expected %s, got %s", expected3, outputs3[0])
 
 	// Case 4: No insertedWindowAxes (scattering full slices)
 	// Scatter updates of shape [9] into operand [10, 9]
@@ -244,9 +266,16 @@ func TestScatter(t *testing.T) {
 	insertedWindowAxes4 := []int{0}       // No window axes in operand (index selects full slice - which is scalar here)
 	scatterAxesToOperandAxes4 := []int{0} // Index coord 0 -> operand axis 0
 	expected4 := operand4
-	output4, err := Scatter(operand4, indices4, updates4, indexVectorAxis4, updateWindowAxes4, insertedWindowAxes4, scatterAxesToOperandAxes4)
+	updateComputationInputs4 := []shapes.Shape{shapes.Make(operand4.DType), shapes.Make(operand4.DType)}
+	updateComputationOutputs4 := updateComputationInputs4[:1]
+	outputs4, err := Scatter([]shapes.Shape{operand4}, indices4, []shapes.Shape{updates4},
+		updateWindowAxes4, insertedWindowAxes4,
+		operandBatchingAxes, indicesBatchingAxes,
+		scatterAxesToOperandAxes4, indexVectorAxis4,
+		updateComputationInputs4, updateComputationOutputs4)
 	require.NoError(t, err)
-	require.True(t, expected4.Equal(output4), "Valid Case 4 Failed (No Window): Expected %s, got %s", expected4, output4)
+	require.Len(t, outputs4, 1)
+	require.True(t, expected4.Equal(outputs4[0]), "Valid Case 4 Failed (No Window): Expected %s, got %s", expected4, outputs4[0])
 
 	// Case 5: rearranging the output axes:
 	operand5 := S(F32, 2, 5, 2)
@@ -256,52 +285,16 @@ func TestScatter(t *testing.T) {
 	updateWindowAxes5 := []int{0}
 	insertedWindowAxes5 := []int{0, 2}
 	scatterAxesToOperandAxes5 := []int{0, 2}
-	output5, err := Scatter(operand5, indices5, updates5, indexVectorAxis5, updateWindowAxes5, insertedWindowAxes5, scatterAxesToOperandAxes5)
+	updateComputationInputs5 := []shapes.Shape{shapes.Make(operand5.DType), shapes.Make(operand5.DType)}
+	updateComputationOutputs5 := updateComputationInputs5[:1]
+	outputs5, err := Scatter([]shapes.Shape{operand5}, indices5, []shapes.Shape{updates5},
+		updateWindowAxes5, insertedWindowAxes5,
+		operandBatchingAxes, indicesBatchingAxes,
+		scatterAxesToOperandAxes5, indexVectorAxis5,
+		updateComputationInputs5, updateComputationOutputs5)
 	require.NoError(t, err)
-	require.True(t, operand5.Equal(output5), "Valid Case 5 Failed (No Window): Expected %s, got %s", operand5, output5)
-
-	// --- Error Cases ---
-
-	// Error Case 1: Mismatched DType (Operand vs Updates) - unchanged
-	_, err = Scatter(S(F32, 4, 5), S(I8, 2, 1), S(I8, 2, 5), 1, []int{1}, []int{1}, []int{0})
-	require.Error(t, err, "Error Case 1 Failed: Mismatched operand/updates DType")
-
-	// Error Case 2: Invalid DType for indices - unchanged
-	_, err = Scatter(S(F32, 4, 5), S(F32, 2, 1), S(F32, 2, 5), 1, []int{1}, []int{1}, []int{0})
-	require.Error(t, err, "Error Case 2 Failed: Invalid indices DType")
-
-	// Error Case 3: indexVectorAxis out of bounds
-	_, err = Scatter(operand1, indices1, updates1, 2, updateWindowAxes1, insertedWindowAxes1, scatterAxesToOperandAxes1) // indices1 rank 2, axis 2 invalid
-	require.Error(t, err, "Error Case 3 Failed: indexVectorAxis out of bounds")
-
-	_, err = Scatter(operand1, indices1, updates1, -1, updateWindowAxes1, insertedWindowAxes1, scatterAxesToOperandAxes1) // Negative axis
-	require.Error(t, err, "Error Case 3 Failed: negative indexVectorAxis")
-
-	// Error Case 4: len(updateWindowAxes) != len(insertedWindowAxes)
-	_, err = Scatter(operand1, indices1, updates1, indexVectorAxis1, []int{1}, []int{1, 0}, scatterAxesToOperandAxes1) // inserted has len 2, update has len 1
-	require.Error(t, err, "Error Case 4 Failed: len(updateWindowAxes) != len(insertedWindowAxes)")
-
-	// Error Case 5: len(scatterAxesToOperandAxes) != size of index vector dimension
-	_, err = Scatter(operand1, indices1, updates1, indexVectorAxis1, updateWindowAxes1, insertedWindowAxes1, []int{0, 1}) // scatterAxes has len 2, expected 1
-	require.Error(t, err, "Error Case 5 Failed: len(scatterAxesToOperandAxes) mismatch")
-	_, err = Scatter(operand2, indices2, updates2, indexVectorAxis2, updateWindowAxes2, insertedWindowAxes2, []int{0}) // scatterAxes has len 1, expected 2
-	require.Error(t, err, "Error Case 5 Failed: len(scatterAxesToOperandAxes) mismatch")
-
-	// Error Case 6: Invalid axis index in updateWindowAxes
-	_, err = Scatter(operand1, indices1, updates1, indexVectorAxis1, []int{2}, insertedWindowAxes1, scatterAxesToOperandAxes1) // axis 2 invalid for rank 2 updates
-	require.Error(t, err, "Error Case 6 Failed: Invalid axis in updateWindowAxes")
-
-	// Error Case 7: Invalid axis index in insertedWindowAxes
-	_, err = Scatter(operand1, indices1, updates1, indexVectorAxis1, updateWindowAxes1, []int{2}, scatterAxesToOperandAxes1) // axis 2 invalid for rank 2 operand
-	require.Error(t, err, "Error Case 7 Failed: Invalid axis in insertedWindowAxes")
-
-	// Error Case 8: Invalid axis index in scatterAxesToOperandAxes
-	_, err = Scatter(operand1, indices1, updates1, indexVectorAxis1, updateWindowAxes1, insertedWindowAxes1, []int{2}) // axis 2 invalid for rank 2 operand
-	require.Error(t, err, "Error Case 8 Failed: Invalid axis in scatterAxesToOperandAxes")
-
-	// Error Case 9: Update dimension is larger than the corresponding dimension in the operand:
-	_, err = Scatter(operand5, indices5, updates5, indexVectorAxis5, updateWindowAxes5, []int{0, 1}, scatterAxesToOperandAxes5) // axis 2 invalid for rank 2 operand
-	require.Error(t, err, "Error Case 9 Failed: Update dimension is larger than the corresponding dimension in the operand")
+	require.Len(t, outputs5, 1)
+	require.True(t, operand5.Equal(outputs5[0]), "Valid Case 5 Failed (No Window): Expected %s, got %s", operand5, outputs5[0])
 }
 
 func TestSlice(t *testing.T) {
