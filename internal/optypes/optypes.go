@@ -31,6 +31,7 @@ const (
 	Complex
 	Concatenate
 	Convert
+	Convolution
 	Cosine
 	CountLeadingZeros
 	Divide
@@ -87,7 +88,6 @@ const (
 	CollectiveBroadcast
 	CollectivePermute
 	Composite
-	Convolution
 	CustomCall
 	DynamicBroadcastInDim
 	DynamicConv
