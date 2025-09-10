@@ -869,3 +869,24 @@ func MultiScatter(inputs []*Value, scatterIndices *Value, updates []*Value,
 	stmt.AddFunctionParameter("updateFn", updateComputation)
 	return stmt.Outputs, nil
 }
+
+// Convert x to the given dtype.
+//
+// For boolean to numeric conversions, false becomes 0 and true 1.
+//
+// For complex to non-complex conversions, the imaginary part is discarded (or set to 0).
+//
+// Currently, it doesn't work for quantized to/from regular tensors. Use UniformQuantize and UniformDequantize
+// for that.
+func Convert(x *Value, dtype dtypes.DType) (*Value, error) {
+	op := optypes.Convert
+	fn := x.fn
+	if fn.Returned {
+		return nil, errors.Errorf("cannot add operation %s after returning, in function %q",
+			op, fn.Name)
+	}
+	outputShape := x.shape.Clone()
+	outputShape.DType = dtype
+	stmt := fn.addOp(op, outputShape, x)
+	return stmt.Outputs[0], nil
+}

@@ -30,6 +30,7 @@ const (
 	Compare
 	Complex
 	Concatenate
+	Convert
 	Cosine
 	CountLeadingZeros
 	Divide
@@ -85,7 +86,6 @@ const (
 	CollectiveBroadcast
 	CollectivePermute
 	Composite
-	Convert
 	Convolution
 	CustomCall
 	DynamicBroadcastInDim

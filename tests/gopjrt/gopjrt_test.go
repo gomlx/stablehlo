@@ -10,11 +10,11 @@ import (
 	"strings"
 	"testing"
 
-	D "github.com/gomlx/gopjrt/dtypes"
+	"github.com/gomlx/gopjrt/dtypes"
 	"github.com/gomlx/gopjrt/pjrt"
 	. "github.com/gomlx/stablehlo"
 	"github.com/gomlx/stablehlo/types"
-	S "github.com/gomlx/stablehlo/types/shapes"
+	"github.com/gomlx/stablehlo/types/shapes"
 	"github.com/stretchr/testify/require"
 )
 
@@ -116,7 +116,7 @@ func requireBuffersEqual(t *testing.T, expected []FlatAndDims, got []*pjrt.Buffe
 	require.Len(t, got, len(expected))
 	for i, b := range got {
 		gotFlat, gotDims, err := b.ToFlatDataAndDimensions()
-		expectedShape, err := S.FromAnyValue(expected[i].Flat)
+		expectedShape, err := shapes.FromAnyValue(expected[i].Flat)
 		require.NoErrorf(t, err, "failed to get shape for output #%d: %v", i, expected[i].Flat)
 		dtype := expectedShape.DType
 		fmt.Printf("\t - output #%d:\n\t   - Got: dims=%v, flat_values=%v\n", i, gotDims, gotFlat)
@@ -124,7 +124,7 @@ func requireBuffersEqual(t *testing.T, expected []FlatAndDims, got []*pjrt.Buffe
 		require.NoErrorf(t, err, "failed to get buffer contents for output #%d, expected flat value %v", i, expected[i].Flat)
 		require.Equalf(t, expected[i].Dims, gotDims, "output #%d dims don't match", i)
 		switch dtype {
-		case D.Float64, D.Float32:
+		case dtypes.Float64, dtypes.Float32:
 			require.InDeltaSlicef(t, expected[i].Flat, gotFlat, 1e-4, "output #%d flat values don't match", i)
 		default:
 			require.Equalf(t, expected[i].Flat, gotFlat, "output #%d flat values don't match", i)
@@ -164,7 +164,7 @@ func testOps(t *testing.T, client *pjrt.Client) {
 
 	t.Run("Complex", func(t *testing.T) {
 		builder := New(t.Name())
-		shape := S.Make(D.Float64)
+		shape := shapes.Make(dtypes.Float64)
 		fn := builder.Main()
 		lhsV, rhsV := fn.NamedInput("lhs", shape), fn.NamedInput("rhs", shape)
 		must(fn.Return(must1(Complex(lhsV, rhsV))))
@@ -179,9 +179,9 @@ func testOps(t *testing.T, client *pjrt.Client) {
 	t.Run("Clamp", func(t *testing.T) {
 		builder := New(t.Name())
 		fn := builder.Main()
-		minV := fn.NamedInput("min", S.Make(D.Float32))
-		xV := fn.NamedInput("x", S.Make(D.Float32, 3))
-		maxV := fn.NamedInput("max", S.Make(D.Float32))
+		minV := fn.NamedInput("min", shapes.Make(dtypes.Float32))
+		xV := fn.NamedInput("x", shapes.Make(dtypes.Float32, 3))
+		maxV := fn.NamedInput("max", shapes.Make(dtypes.Float32))
 		must(fn.Return(must1(Clamp(minV, xV, maxV))))
 		program := must1(builder.Build())
 		fmt.Printf("%s program:\n%s", t.Name(), program)
@@ -196,9 +196,9 @@ func testOps(t *testing.T, client *pjrt.Client) {
 		builder := New(t.Name())
 		fn := builder.Main()
 		must(fn.Return(
-			must1(fn.Iota(S.Make(D.F32, 2, 2), 0)),
-			must1(fn.Iota(S.Make(D.F32, 2, 2), 1)),
-			must1(fn.Iota(S.Make(D.F32, 4), 0)),
+			must1(fn.Iota(shapes.Make(dtypes.F32, 2, 2), 0)),
+			must1(fn.Iota(shapes.Make(dtypes.F32, 2, 2), 1)),
+			must1(fn.Iota(shapes.Make(dtypes.F32, 4), 0)),
 		))
 		program := must1(builder.Build())
 		fmt.Printf("%s program:\n%s", t.Name(), program)
@@ -213,7 +213,7 @@ func testOps(t *testing.T, client *pjrt.Client) {
 	t.Run("IsFinite", func(t *testing.T) {
 		builder := New(t.Name())
 		fn := builder.Main()
-		input := fn.NamedInput("x", S.Make(D.F64, 6))
+		input := fn.NamedInput("x", shapes.Make(dtypes.F64, 6))
 		must(fn.Return(must1(IsFinite(input))))
 		program := must1(builder.Build())
 		fmt.Printf("%s program:\n%s", t.Name(), program)
@@ -227,8 +227,8 @@ func testOps(t *testing.T, client *pjrt.Client) {
 	t.Run("Reshape", func(t *testing.T) {
 		builder := New(t.Name())
 		fn := builder.Main()
-		x := must1(fn.Iota(S.Make(D.F32, 3, 2), 0))
-		y := must1(Reshape(x, S.Make(D.F32, 2, 3)))
+		x := must1(fn.Iota(shapes.Make(dtypes.F32, 3, 2), 0))
+		y := must1(Reshape(x, shapes.Make(dtypes.F32, 2, 3)))
 		must(fn.Return(y))
 		program := must1(builder.Build())
 		fmt.Printf("%s program:\n%s", t.Name(), program)
@@ -241,8 +241,8 @@ func testOps(t *testing.T, client *pjrt.Client) {
 	t.Run("BroadcastInDim", func(t *testing.T) {
 		builder := New(t.Name())
 		fn := builder.Main()
-		x := must1(fn.Iota(S.Make(D.F32, 3), 0))
-		y := must1(BroadcastInDim(x, S.Make(D.F32, 2, 3), []int{1}))
+		x := must1(fn.Iota(shapes.Make(dtypes.F32, 3), 0))
+		y := must1(BroadcastInDim(x, shapes.Make(dtypes.F32, 2, 3), []int{1}))
 		must(fn.Return(y))
 		program := must1(builder.Build())
 		fmt.Printf("%s program:\n%s", t.Name(), program)
@@ -256,7 +256,7 @@ func testOps(t *testing.T, client *pjrt.Client) {
 		builder := New(t.Name())
 		fn := builder.Main()
 		x := must1(fn.ConstantFromScalar(float32(7.0)))
-		y := must1(BroadcastInDim(x, S.Make(D.F32, 3), nil))
+		y := must1(BroadcastInDim(x, shapes.Make(dtypes.F32, 3), nil))
 		must(fn.Return(y))
 		program := must1(builder.Build())
 		fmt.Printf("%s program:\n%s", t.Name(), program)
@@ -269,8 +269,8 @@ func testOps(t *testing.T, client *pjrt.Client) {
 	t.Run("Gather", func(t *testing.T) {
 		builder := New(t.Name())
 		fn := builder.Main()
-		x := must1(fn.Iota(S.Make(D.F32, 3*5), 0))
-		x = must1(Reshape(x, S.Make(D.F32, 3, 5)))
+		x := must1(fn.Iota(shapes.Make(dtypes.F32, 3*5), 0))
+		x = must1(Reshape(x, shapes.Make(dtypes.F32, 3, 5)))
 		indices := must1(fn.ConstantFromFlatAndDimensions([]int{2, 0}, 2, 1))
 		offsetOutputAxes := []int{1}
 		collapsedSliceAxes := []int{0}
@@ -295,7 +295,7 @@ func testOps(t *testing.T, client *pjrt.Client) {
 	t.Run("Slice", func(t *testing.T) {
 		builder := New(t.Name())
 		fn := builder.Main()
-		x := must1(fn.Iota(S.Make(D.F32, 5), 0))
+		x := must1(fn.Iota(shapes.Make(dtypes.F32, 5), 0))
 		y0 := must1(Slice(x, []int{2}, []int{4}, nil))
 		y1 := must1(Slice(x, []int{2}, []int{5}, []int{2}))
 		must(fn.Return(y0, y1))
@@ -311,8 +311,8 @@ func testOps(t *testing.T, client *pjrt.Client) {
 	t.Run("Concatenate", func(t *testing.T) {
 		builder := New(t.Name())
 		fn := builder.Main()
-		x := must1(fn.Iota(S.Make(D.F32, 2, 3), 1))
-		y := must1(fn.Iota(S.Make(D.F32, 2, 1), 0))
+		x := must1(fn.Iota(shapes.Make(dtypes.F32, 2, 3), 1))
+		y := must1(fn.Iota(shapes.Make(dtypes.F32, 2, 1), 0))
 		z := must1(Concatenate(1, x, y))
 		must(fn.Return(z))
 		program := must1(builder.Build())
@@ -326,12 +326,12 @@ func testOps(t *testing.T, client *pjrt.Client) {
 	t.Run("Reduce", func(t *testing.T) {
 		builder := New(t.Name())
 		fn := builder.Main()
-		x := must1(fn.Iota(S.Make(D.F32, 2*3), 0))
-		x = must1(Reshape(x, S.Make(D.F32, 2, 3)))
+		x := must1(fn.Iota(shapes.Make(dtypes.F32, 2*3), 0))
+		x = must1(Reshape(x, shapes.Make(dtypes.F32, 2, 3)))
 		zero := must1(fn.ConstantFromScalar(float32(0)))
 		reductionFn := fn.Closure()
-		lhs := reductionFn.NamedInput("lhs", S.Make(D.F32))
-		rhs := reductionFn.NamedInput("rhs", S.Make(D.F32))
+		lhs := reductionFn.NamedInput("lhs", shapes.Make(dtypes.F32))
+		rhs := reductionFn.NamedInput("rhs", shapes.Make(dtypes.F32))
 		must(reductionFn.Return(must1(Add(lhs, rhs))))
 		r0 := must1(Reduce(x, zero, reductionFn, 1))
 		r1 := must1(Reduce(x, zero, reductionFn, 0))
@@ -348,17 +348,17 @@ func testOps(t *testing.T, client *pjrt.Client) {
 	t.Run("MultiReduce", func(t *testing.T) {
 		builder := New(t.Name())
 		fn := builder.Main()
-		x := must1(fn.Iota(S.Make(D.F32, 2*3), 0))
-		x = must1(Reshape(x, S.Make(D.F32, 2, 3)))
-		y := must1(fn.Iota(S.Make(D.Int32, 2*3), 0))
-		y = must1(Reshape(y, S.Make(D.Int32, 2, 3)))
+		x := must1(fn.Iota(shapes.Make(dtypes.F32, 2*3), 0))
+		x = must1(Reshape(x, shapes.Make(dtypes.F32, 2, 3)))
+		y := must1(fn.Iota(shapes.Make(dtypes.Int32, 2*3), 0))
+		y = must1(Reshape(y, shapes.Make(dtypes.Int32, 2, 3)))
 		zeroF32 := must1(fn.ConstantFromScalar(float32(0)))
 		zeroI32 := must1(fn.ConstantFromScalar(int32(0)))
 		reductionFn := fn.Closure()
-		lhs0 := reductionFn.NamedInput("lhs0", S.Make(D.F32))
-		lhs1 := reductionFn.NamedInput("lhs1", S.Make(D.Int32))
-		rhs0 := reductionFn.NamedInput("rhs0", S.Make(D.F32))
-		rhs1 := reductionFn.NamedInput("rhs1", S.Make(D.Int32))
+		lhs0 := reductionFn.NamedInput("lhs0", shapes.Make(dtypes.F32))
+		lhs1 := reductionFn.NamedInput("lhs1", shapes.Make(dtypes.Int32))
+		rhs0 := reductionFn.NamedInput("rhs0", shapes.Make(dtypes.F32))
+		rhs1 := reductionFn.NamedInput("rhs1", shapes.Make(dtypes.Int32))
 		must(reductionFn.Return(
 			must1(Add(lhs0, rhs0)),
 			must1(Add(lhs1, rhs1))))
@@ -380,7 +380,7 @@ func testOps(t *testing.T, client *pjrt.Client) {
 		fn := builder.Main()
 		pred0 := must1(fn.ConstantFromFlatAndDimensions([]bool{true, false, true}, 3))
 		pred1 := must1(fn.ConstantFromScalar(false))
-		onTrue := must1(fn.Iota(S.Make(D.F32, 3), 0))
+		onTrue := must1(fn.Iota(shapes.Make(dtypes.F32, 3), 0))
 		onFalse := must1(Negate(onTrue))
 		result0 := must1(Select(pred0, onTrue, onFalse))
 		result1 := must1(Select(pred1, onTrue, onFalse))
@@ -401,9 +401,9 @@ func testOps(t *testing.T, client *pjrt.Client) {
 		c1 := must1(fn.ConstantFromScalar(uint32(0xdeadbeef)))
 		c2 := must1(fn.ConstantFromScalar(uint32(0x7F800000)))
 		must(fn.Return(
-			must1(BitcastConvert(c0, D.Uint32)),
-			must1(BitcastConvert(c1, D.Uint16)),
-			must1(BitcastConvert(c2, D.F32)),
+			must1(BitcastConvert(c0, dtypes.Uint32)),
+			must1(BitcastConvert(c1, dtypes.Uint16)),
+			must1(BitcastConvert(c2, dtypes.F32)),
 		))
 		program := must1(builder.Build())
 		fmt.Printf("%s program:\n%s", t.Name(), program)
@@ -418,8 +418,8 @@ func testOps(t *testing.T, client *pjrt.Client) {
 	t.Run("Transpose", func(t *testing.T) {
 		builder := New(t.Name())
 		fn := builder.Main()
-		x := must1(fn.Iota(S.Make(D.F32, 2*3), 0))
-		x = must1(Reshape(x, S.Make(D.F32, 2, 3)))
+		x := must1(fn.Iota(shapes.Make(dtypes.F32, 2*3), 0))
+		x = must1(Reshape(x, shapes.Make(dtypes.F32, 2, 3)))
 		must(fn.Return(must1(Transpose(x, 1, 0))))
 		program := must1(builder.Build())
 		fmt.Printf("%s program:\n%s", t.Name(), program)
@@ -435,7 +435,7 @@ func testOps(t *testing.T, client *pjrt.Client) {
 			fn := builder.Main()
 			state := must1(fn.ConstantFromFlatAndDimensions([]uint64{42, 1}, 2))
 			const numSamples = 10_000
-			_, noiseV := must2(RngBitGenerator(state, S.Make(D.Uint64, numSamples), algo))
+			_, noiseV := must2(RngBitGenerator(state, shapes.Make(dtypes.Uint64, numSamples), algo))
 			must(fn.Return(noiseV))
 			program := must1(builder.Build())
 			fmt.Printf("%s program:\n%s", t.Name(), program)
@@ -463,19 +463,19 @@ func testOps(t *testing.T, client *pjrt.Client) {
 		fn := builder.Main()
 		zeroF32 := must1(fn.ConstantFromScalar(float32(0)))
 		zeroI32 := must1(fn.ConstantFromScalar(int32(0)))
-		inputsF32 := must1(BroadcastInDim(zeroF32, S.Make(D.F32, 2, 1, 2, 3), nil))
-		inputsI32 := must1(BroadcastInDim(zeroI32, S.Make(D.Int32, 2, 1, 2, 3), nil))
+		inputsF32 := must1(BroadcastInDim(zeroF32, shapes.Make(dtypes.F32, 2, 1, 2, 3), nil))
+		inputsI32 := must1(BroadcastInDim(zeroI32, shapes.Make(dtypes.Int32, 2, 1, 2, 3), nil))
 		scatterIndices := must1(fn.ConstantFromFlatAndDimensions(
 			[]int32{1, 1, 0, 0, 0, 2, 0, 0}, 2, 2, 2))
 
-		updatesF32 := must1(fn.Iota(S.Make(D.F32, 2*2*1), 0))
-		updatesF32 = must1(Reshape(updatesF32, S.Make(D.F32, 2, 2, 1)))
+		updatesF32 := must1(fn.Iota(shapes.Make(dtypes.F32, 2*2*1), 0))
+		updatesF32 = must1(Reshape(updatesF32, shapes.Make(dtypes.F32, 2, 2, 1)))
 		hundredF32 := must1(BroadcastInDim(
 			must1(fn.ConstantFromScalar(float32(100))), updatesF32.Shape(), nil))
 		updatesF32 = must1(Add(updatesF32, hundredF32))
 
-		updatesI32 := must1(fn.Iota(S.Make(D.Int32, 2*2*1), 0))
-		updatesI32 = must1(Reshape(updatesI32, S.Make(D.Int32, 2, 2, 1)))
+		updatesI32 := must1(fn.Iota(shapes.Make(dtypes.Int32, 2*2*1), 0))
+		updatesI32 = must1(Reshape(updatesI32, shapes.Make(dtypes.Int32, 2, 2, 1)))
 		thousandI32 := must1(BroadcastInDim(
 			must1(fn.ConstantFromScalar(int32(1000))), updatesI32.Shape(), nil))
 		updatesI32 = must1(Add(updatesI32, thousandI32))
@@ -487,10 +487,10 @@ func testOps(t *testing.T, client *pjrt.Client) {
 		indexedInputAxes := []int{2, 3}
 		indexVectorAxis := 2
 		updateFn := fn.Closure()
-		lhsF32 := updateFn.NamedInput("lhsF32", S.Make(D.F32))
-		lhsI32 := updateFn.NamedInput("lhsI32", S.Make(D.Int32))
-		rhsF32 := updateFn.NamedInput("rhsF32", S.Make(D.F32))
-		rhsI32 := updateFn.NamedInput("rhsI32", S.Make(D.Int32))
+		lhsF32 := updateFn.NamedInput("lhsF32", shapes.Make(dtypes.F32))
+		lhsI32 := updateFn.NamedInput("lhsI32", shapes.Make(dtypes.Int32))
+		rhsF32 := updateFn.NamedInput("rhsF32", shapes.Make(dtypes.F32))
+		rhsI32 := updateFn.NamedInput("rhsI32", shapes.Make(dtypes.Int32))
 		must(updateFn.Return(
 			must1(Add(lhsF32, rhsF32)),
 			must1(Add(lhsI32, rhsI32)),
@@ -512,6 +512,22 @@ func testOps(t *testing.T, client *pjrt.Client) {
 		}, outputs)
 	})
 
+	t.Run("Convert", func(t *testing.T) {
+		builder := New(t.Name())
+		fn := builder.Main()
+		x0 := must1(fn.Iota(shapes.Make(dtypes.F32, 3), 0))
+		x1 := must1(fn.ConstantFromFlatAndDimensions([]bool{true, false, true}, 3))
+		must(fn.Return(
+			must1(Convert(x0, dtypes.Bool)),
+			must1(Convert(x1, dtypes.Int32))))
+		program := must1(builder.Build())
+		fmt.Printf("%s program:\n%s", t.Name(), program)
+		outputs := compileAndExecute(t, client, program)
+		requireBuffersEqual(t, []FlatAndDims{
+			{[]bool{false, true, true}, []int{3}},
+			{[]int32{1, 0, 1}, []int{3}},
+		}, outputs)
+	})
 }
 
 func TestBinaryOps(t *testing.T) {
@@ -525,9 +541,9 @@ func TestBinaryOps(t *testing.T) {
 func testBinaryOps(t *testing.T, client *pjrt.Client) {
 	testBinaryOp := func(t *testing.T, opName string,
 		op func(lhs, rhs *Value) (*Value, error),
-		dtype D.DType, lhs, rhs any, expected any) {
+		dtype dtypes.DType, lhs, rhs any, expected any) {
 		builder := New(t.Name())
-		shape := S.Make(dtype)
+		shape := shapes.Make(dtype)
 		fn := builder.Main()
 		lhsV, rhsV := fn.NamedInput("lhs", shape), fn.NamedInput("rhs", shape)
 		result := must1(op(lhsV, rhsV))
@@ -541,75 +557,75 @@ func testBinaryOps(t *testing.T, client *pjrt.Client) {
 	}
 
 	t.Run("Add", func(t *testing.T) {
-		testBinaryOp(t, "Add", Add, D.Float32, []float32{3.0}, []float32{7.0}, []float32{10.0})
+		testBinaryOp(t, "Add", Add, dtypes.Float32, []float32{3.0}, []float32{7.0}, []float32{10.0})
 	})
 	t.Run("Atan2", func(t *testing.T) {
-		testBinaryOp(t, "Atan2", Atan2, D.Float32, []float32{3.0}, []float32{7.0},
+		testBinaryOp(t, "Atan2", Atan2, dtypes.Float32, []float32{3.0}, []float32{7.0},
 			[]float32{float32(math.Atan2(3.0, 7.0))})
 	})
 
 	t.Run("Subtract", func(t *testing.T) {
-		testBinaryOp(t, "Subtract", Subtract, D.Float32, []float32{7.0}, []float32{3.0}, []float32{4.0})
+		testBinaryOp(t, "Subtract", Subtract, dtypes.Float32, []float32{7.0}, []float32{3.0}, []float32{4.0})
 	})
 
 	t.Run("Multiply", func(t *testing.T) {
-		testBinaryOp(t, "Multiply", Multiply, D.Float32, []float32{3.0}, []float32{4.0}, []float32{12.0})
+		testBinaryOp(t, "Multiply", Multiply, dtypes.Float32, []float32{3.0}, []float32{4.0}, []float32{12.0})
 	})
 
 	t.Run("Divide", func(t *testing.T) {
-		testBinaryOp(t, "Divide", Divide, D.Float32, []float32{12.0}, []float32{3.0}, []float32{4.0})
+		testBinaryOp(t, "Divide", Divide, dtypes.Float32, []float32{12.0}, []float32{3.0}, []float32{4.0})
 	})
 
 	t.Run("Power", func(t *testing.T) {
-		testBinaryOp(t, "Power", Power, D.Float32, []float32{2.0}, []float32{3.0}, []float32{8.0})
+		testBinaryOp(t, "Power", Power, dtypes.Float32, []float32{2.0}, []float32{3.0}, []float32{8.0})
 	})
 
 	t.Run("And_Uint32", func(t *testing.T) {
-		testBinaryOp(t, "And", And, D.Uint32, []uint32{0b1100}, []uint32{0b1010}, []uint32{0b1000})
+		testBinaryOp(t, "And", And, dtypes.Uint32, []uint32{0b1100}, []uint32{0b1010}, []uint32{0b1000})
 	})
 
 	t.Run("Or_Uint32", func(t *testing.T) {
-		testBinaryOp(t, "Or", Or, D.Uint32, []uint32{0b1100}, []uint32{0b1010}, []uint32{0b1110})
+		testBinaryOp(t, "Or", Or, dtypes.Uint32, []uint32{0b1100}, []uint32{0b1010}, []uint32{0b1110})
 	})
 
 	t.Run("Xor_Uint32", func(t *testing.T) {
-		testBinaryOp(t, "Xor", Xor, D.Uint32, []uint32{0b1100}, []uint32{0b1010}, []uint32{0b0110})
+		testBinaryOp(t, "Xor", Xor, dtypes.Uint32, []uint32{0b1100}, []uint32{0b1010}, []uint32{0b0110})
 	})
 
 	t.Run("And_Bool", func(t *testing.T) {
-		testBinaryOp(t, "And", And, D.Bool, []bool{true}, []bool{false}, []bool{false})
+		testBinaryOp(t, "And", And, dtypes.Bool, []bool{true}, []bool{false}, []bool{false})
 	})
 
 	t.Run("Or_Bool", func(t *testing.T) {
-		testBinaryOp(t, "Or", Or, D.Bool, []bool{true}, []bool{false}, []bool{true})
+		testBinaryOp(t, "Or", Or, dtypes.Bool, []bool{true}, []bool{false}, []bool{true})
 	})
 
 	t.Run("Xor_Bool", func(t *testing.T) {
-		testBinaryOp(t, "Xor", Xor, D.Bool, []bool{true}, []bool{false}, []bool{true})
+		testBinaryOp(t, "Xor", Xor, dtypes.Bool, []bool{true}, []bool{false}, []bool{true})
 	})
 
 	t.Run("ShiftLeft", func(t *testing.T) {
-		testBinaryOp(t, "ShiftLeft", ShiftLeft, D.Uint32, []uint32{0b1}, []uint32{2}, []uint32{0b100})
+		testBinaryOp(t, "ShiftLeft", ShiftLeft, dtypes.Uint32, []uint32{0b1}, []uint32{2}, []uint32{0b100})
 	})
 
 	t.Run("ShiftRightArithmetic", func(t *testing.T) {
-		testBinaryOp(t, "ShiftRightArithmetic", ShiftRightArithmetic, D.Int32, []int32{-8}, []int32{1}, []int32{-4})
+		testBinaryOp(t, "ShiftRightArithmetic", ShiftRightArithmetic, dtypes.Int32, []int32{-8}, []int32{1}, []int32{-4})
 	})
 
 	t.Run("ShiftRightLogical", func(t *testing.T) {
-		testBinaryOp(t, "ShiftRightLogical", ShiftRightLogical, D.Uint32, []uint32{0b1100}, []uint32{2}, []uint32{0b11})
+		testBinaryOp(t, "ShiftRightLogical", ShiftRightLogical, dtypes.Uint32, []uint32{0b1100}, []uint32{2}, []uint32{0b11})
 	})
 
 	t.Run("Reminder", func(t *testing.T) {
-		testBinaryOp(t, "Remainder", Remainder, D.Float32, []float32{7.0}, []float32{4.0}, []float32{3.0})
+		testBinaryOp(t, "Remainder", Remainder, dtypes.Float32, []float32{7.0}, []float32{4.0}, []float32{3.0})
 	})
 
 	t.Run("Maximum", func(t *testing.T) {
-		testBinaryOp(t, "Maximum", Maximum, D.Float32, []float32{3.0}, []float32{7.0}, []float32{7.0})
+		testBinaryOp(t, "Maximum", Maximum, dtypes.Float32, []float32{3.0}, []float32{7.0}, []float32{7.0})
 	})
 
 	t.Run("Minimum", func(t *testing.T) {
-		testBinaryOp(t, "Minimum", Minimum, D.Float32, []float32{3.0}, []float32{7.0}, []float32{3.0})
+		testBinaryOp(t, "Minimum", Minimum, dtypes.Float32, []float32{3.0}, []float32{7.0}, []float32{3.0})
 	})
 
 }
@@ -625,9 +641,9 @@ func TestCompare(t *testing.T) {
 func testCompare(t *testing.T, client *pjrt.Client) {
 	runTest := func(t *testing.T, opName string,
 		direction types.ComparisonDirection, compareType types.ComparisonType,
-		dtype D.DType, lhs, rhs any, expected any) {
+		dtype dtypes.DType, lhs, rhs any, expected any) {
 		builder := New(t.Name())
-		shape := S.Make(dtype)
+		shape := shapes.Make(dtype)
 		fn := builder.Main()
 		lhsV, rhsV := fn.NamedInput("lhs", shape), fn.NamedInput("rhs", shape)
 		result := must1(Compare(lhsV, rhsV, direction, compareType))
@@ -642,32 +658,32 @@ func testCompare(t *testing.T, client *pjrt.Client) {
 
 	t.Run("Float_EQ", func(t *testing.T) {
 		runTest(t, "Compare", types.CompareEQ, types.CompareFloat,
-			D.Float32, []float32{3.0}, []float32{3.0}, []bool{true})
+			dtypes.Float32, []float32{3.0}, []float32{3.0}, []bool{true})
 	})
 
 	t.Run("Signed_GT", func(t *testing.T) {
 		runTest(t, "Compare", types.CompareGT, types.CompareSigned,
-			D.Int32, []int32{7}, []int32{3}, []bool{true})
+			dtypes.Int32, []int32{7}, []int32{3}, []bool{true})
 	})
 
 	t.Run("Unsigned_LT", func(t *testing.T) {
 		runTest(t, "Compare", types.CompareLT, types.CompareUnsigned,
-			D.Uint32, []uint32{3}, []uint32{7}, []bool{true})
+			dtypes.Uint32, []uint32{3}, []uint32{7}, []bool{true})
 	})
 
 	t.Run("TotalOrder_GE", func(t *testing.T) {
 		runTest(t, "Compare", types.CompareGE, types.CompareTotalOrder,
-			D.Float32, []float32{3.0}, []float32{3.0}, []bool{true})
+			dtypes.Float32, []float32{3.0}, []float32{3.0}, []bool{true})
 	})
 
 	t.Run("Float_NE", func(t *testing.T) {
 		runTest(t, "Compare", types.CompareNE, types.CompareFloat,
-			D.Float32, []float32{3.0}, []float32{7.0}, []bool{true})
+			dtypes.Float32, []float32{3.0}, []float32{7.0}, []bool{true})
 	})
 
 	t.Run("Signed_LE", func(t *testing.T) {
 		runTest(t, "Compare", types.CompareLE, types.CompareSigned,
-			D.Int32, []int32{3}, []int32{7}, []bool{true})
+			dtypes.Int32, []int32{3}, []int32{7}, []bool{true})
 	})
 }
 
@@ -684,9 +700,9 @@ func TestUnaryOps(t *testing.T) {
 func testUnaryOps(t *testing.T, client *pjrt.Client) {
 	testUnaryOp := func(t *testing.T, opName string,
 		op func(x *Value) (*Value, error),
-		dtype D.DType, input any, expected any) {
+		dtype dtypes.DType, input any, expected any) {
 		builder := New(t.Name())
-		shape := S.Make(dtype)
+		shape := shapes.Make(dtype)
 		fn := builder.Main()
 		arg := fn.Input(shape)
 		result := must1(op(arg))
@@ -699,116 +715,116 @@ func testUnaryOps(t *testing.T, client *pjrt.Client) {
 	}
 
 	t.Run("Not_Bool", func(t *testing.T) {
-		testUnaryOp(t, "Not", Not, D.Bool, []bool{true}, []bool{false})
+		testUnaryOp(t, "Not", Not, dtypes.Bool, []bool{true}, []bool{false})
 	})
 	t.Run("Not_Uint8", func(t *testing.T) {
-		testUnaryOp(t, "Not", Not, D.Uint8, []uint8{128}, []uint8{127})
+		testUnaryOp(t, "Not", Not, dtypes.Uint8, []uint8{128}, []uint8{127})
 	})
 
 	t.Run("Popcnt_Uint32", func(t *testing.T) {
-		testUnaryOp(t, "Popcnt", Popcnt, D.Uint32, []uint32{0b1011}, []uint32{3})
+		testUnaryOp(t, "Popcnt", Popcnt, dtypes.Uint32, []uint32{0b1011}, []uint32{3})
 	})
 
 	t.Run("CountLeadingZeros_Uint32", func(t *testing.T) {
-		testUnaryOp(t, "CountLeadingZeros", CountLeadingZeros, D.Uint32, []uint32{0b1}, []uint32{31})
+		testUnaryOp(t, "CountLeadingZeros", CountLeadingZeros, dtypes.Uint32, []uint32{0b1}, []uint32{31})
 	})
 
 	t.Run("Erf_Float32", func(t *testing.T) {
-		testUnaryOp(t, "Erf", Erf, D.Float64, []float64{1.0}, []float64{
+		testUnaryOp(t, "Erf", Erf, dtypes.Float64, []float64{1.0}, []float64{
 			math.Erf(1)})
 	})
 
 	t.Run("Exponential_Float32", func(t *testing.T) {
-		testUnaryOp(t, "Exponential", Exponential, D.Float32, []float32{1.0},
+		testUnaryOp(t, "Exponential", Exponential, dtypes.Float32, []float32{1.0},
 			[]float32{float32(math.Exp(1))})
 	})
 
 	t.Run("ExponentialMinusOne_Float32", func(t *testing.T) {
-		testUnaryOp(t, "ExponentialMinusOne", ExponentialMinusOne, D.Float32, []float32{1.0},
+		testUnaryOp(t, "ExponentialMinusOne", ExponentialMinusOne, dtypes.Float32, []float32{1.0},
 			[]float32{float32(math.E - 1)})
 	})
 
 	t.Run("Log_Float32", func(t *testing.T) {
-		testUnaryOp(t, "Log", Log, D.Float32, []float32{2.7183}, []float32{1.0})
+		testUnaryOp(t, "Log", Log, dtypes.Float32, []float32{2.7183}, []float32{1.0})
 	})
 
 	t.Run("LogPlusOne_Float32", func(t *testing.T) {
-		testUnaryOp(t, "LogPlusOne", LogPlusOne, D.Float32, []float32{1.7183}, []float32{1.0})
+		testUnaryOp(t, "LogPlusOne", LogPlusOne, dtypes.Float32, []float32{1.7183}, []float32{1.0})
 	})
 
 	t.Run("Logistic_Float32", func(t *testing.T) {
-		testUnaryOp(t, "Logistic", Logistic, D.Float32, []float32{0.0}, []float32{0.5})
+		testUnaryOp(t, "Logistic", Logistic, dtypes.Float32, []float32{0.0}, []float32{0.5})
 	})
 
 	t.Run("Ceil_Float32", func(t *testing.T) {
-		testUnaryOp(t, "Ceil", Ceil, D.Float32, []float32{1.7}, []float32{2.0})
+		testUnaryOp(t, "Ceil", Ceil, dtypes.Float32, []float32{1.7}, []float32{2.0})
 	})
 
 	t.Run("Floor_Float32", func(t *testing.T) {
-		testUnaryOp(t, "Floor", Floor, D.Float32, []float32{1.7}, []float32{1.0})
+		testUnaryOp(t, "Floor", Floor, dtypes.Float32, []float32{1.7}, []float32{1.0})
 	})
 
 	t.Run("RoundNearestEven_Float32", func(t *testing.T) {
-		testUnaryOp(t, "RoundNearestEven", RoundNearestEven, D.Float32, []float32{2.5}, []float32{2.0})
+		testUnaryOp(t, "RoundNearestEven", RoundNearestEven, dtypes.Float32, []float32{2.5}, []float32{2.0})
 	})
 	t.Run("RoundNearestAfz_Float32", func(t *testing.T) {
-		testUnaryOp(t, "RoundNearestAfz", RoundNearestAfz, D.Float32, []float32{2.5}, []float32{3.0})
+		testUnaryOp(t, "RoundNearestAfz", RoundNearestAfz, dtypes.Float32, []float32{2.5}, []float32{3.0})
 	})
 
 	t.Run("Rsqrt_Float32", func(t *testing.T) {
-		testUnaryOp(t, "Rsqrt", Rsqrt, D.Float32, []float32{4.0}, []float32{0.5})
+		testUnaryOp(t, "Rsqrt", Rsqrt, dtypes.Float32, []float32{4.0}, []float32{0.5})
 	})
 
 	t.Run("Sqrt_Float32", func(t *testing.T) {
-		testUnaryOp(t, "Sqrt", Sqrt, D.Float32, []float32{4.0}, []float32{2.0})
+		testUnaryOp(t, "Sqrt", Sqrt, dtypes.Float32, []float32{4.0}, []float32{2.0})
 	})
 
 	t.Run("Cbrt_Float32", func(t *testing.T) {
-		testUnaryOp(t, "Cbrt", Cbrt, D.Float32, []float32{8.0}, []float32{2.0})
+		testUnaryOp(t, "Cbrt", Cbrt, dtypes.Float32, []float32{8.0}, []float32{2.0})
 	})
 
 	t.Run("Cosine_Float32", func(t *testing.T) {
-		testUnaryOp(t, "Cosine", Cosine, D.Float32, []float32{0.0}, []float32{1.0})
+		testUnaryOp(t, "Cosine", Cosine, dtypes.Float32, []float32{0.0}, []float32{1.0})
 	})
 
 	t.Run("Sine_Float32", func(t *testing.T) {
-		testUnaryOp(t, "Sine", Sine, D.Float32, []float32{0.0}, []float32{0.0})
+		testUnaryOp(t, "Sine", Sine, dtypes.Float32, []float32{0.0}, []float32{0.0})
 	})
 
 	t.Run("Tan_Float32", func(t *testing.T) {
-		testUnaryOp(t, "Tan", Tan, D.Float32, []float32{pi32 / 4}, []float32{1})
+		testUnaryOp(t, "Tan", Tan, dtypes.Float32, []float32{pi32 / 4}, []float32{1})
 	})
 	t.Run("Tanh_Float32", func(t *testing.T) {
-		testUnaryOp(t, "Tanh", Tanh, D.Float32, []float32{0.5},
+		testUnaryOp(t, "Tanh", Tanh, dtypes.Float32, []float32{0.5},
 			[]float32{float32(math.Tanh(0.5))})
 	})
 
 	t.Run("Abs_Float32", func(t *testing.T) {
-		testUnaryOp(t, "Abs", Abs, D.Float32, []float32{-3.0}, []float32{3.0})
+		testUnaryOp(t, "Abs", Abs, dtypes.Float32, []float32{-3.0}, []float32{3.0})
 	})
 
 	t.Run("Negate_Float32", func(t *testing.T) {
-		testUnaryOp(t, "Negate", Negate, D.Float32, []float32{3.0}, []float32{-3.0})
+		testUnaryOp(t, "Negate", Negate, dtypes.Float32, []float32{3.0}, []float32{-3.0})
 	})
 
 	t.Run("Sign_Float32", func(t *testing.T) {
-		testUnaryOp(t, "Sign", Sign, D.Float32, []float32{-3.0}, []float32{-1.0})
+		testUnaryOp(t, "Sign", Sign, dtypes.Float32, []float32{-3.0}, []float32{-1.0})
 	})
 
 	t.Run("Real_Complex64", func(t *testing.T) {
-		testUnaryOp(t, "Real", Real, D.Complex64, []complex64{complex(3.0, 4.0)}, []float32{3.0})
+		testUnaryOp(t, "Real", Real, dtypes.Complex64, []complex64{complex(3.0, 4.0)}, []float32{3.0})
 	})
 
 	t.Run("Real_Complex128", func(t *testing.T) {
-		testUnaryOp(t, "Real", Real, D.Complex128, []complex128{complex(3.0, 4.0)}, []float64{3.0})
+		testUnaryOp(t, "Real", Real, dtypes.Complex128, []complex128{complex(3.0, 4.0)}, []float64{3.0})
 	})
 
 	t.Run("Imag_Complex64", func(t *testing.T) {
-		testUnaryOp(t, "Imag", Imag, D.Complex64, []complex64{complex(3.0, 4.0)}, []float32{4.0})
+		testUnaryOp(t, "Imag", Imag, dtypes.Complex64, []complex64{complex(3.0, 4.0)}, []float32{4.0})
 	})
 
 	t.Run("Imag_Complex128", func(t *testing.T) {
-		testUnaryOp(t, "Imag", Imag, D.Complex128, []complex128{complex(3.0, 4.0)}, []float64{4.0})
+		testUnaryOp(t, "Imag", Imag, dtypes.Complex128, []complex128{complex(3.0, 4.0)}, []float64{4.0})
 	})
 }
 
