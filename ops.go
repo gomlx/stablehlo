@@ -945,8 +945,8 @@ func Pad(x, fill *Value, paddingStart, paddingEnd, paddingInterior []int) (*Valu
 func Convolution(input, kernel *Value,
 	strides []int, paddings [][2]int, lhsDilations, rhsDilations []int, windowReversal []bool,
 	inputBatchAxis, inputChannelsAxis int, inputSpatialAxes []int,
-	kernelBatchAxis, kernelChannelAxis, kernelSpatialAxes []int,
-	outputBatchAxis, outputChannelAxis, outputSpatialAxes []int,
+	kernelInputChannelsAxis, kernelOutputChannelsAxis int, kernelSpatialAxes []int,
+	outputBatchAxis, outputChannelsAxis int, outputSpatialAxes []int,
 	featureGroupCount, batchGroupCount int,
 	precision types.DotGeneralPrecisionType) (*Value, error) {
 	op := optypes.Convolution
@@ -955,5 +955,6 @@ func Convolution(input, kernel *Value,
 		return nil, errors.Errorf("cannot add operation %s after returning, in function %q",
 			op, fn.Name)
 	}
+
 	return nil, nil
 }

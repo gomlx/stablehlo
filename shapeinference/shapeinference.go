@@ -976,14 +976,16 @@ func ReduceWindow(operand shapes.Shape, windowDimensions, strides, baseDilations
 	return shapes.Make(operand.DType, outputDims...), nil
 }
 
-// ConvGeneral returns the expected output shape for the ConvGeneral operation.
-func ConvGeneral(input, kernel shapes.Shape, axes types.ConvolveAxesConfig,
-	strides []int, paddings [][2]int,
-	inputDilations, kernelDilations []int,
+// Convolve returns the expected output shape for the Convolve operation.
+func Convolve(input, kernel shapes.Shape,
+	strides []int, paddings [][2]int, inputDilations, kernelDilations []int, windowReversal []bool,
+	inputBatchAxis, inputChannelsAxis int, inputSpatialAxes []int,
+	kernelInputChannelsAxis, kernelOutputChannelsAxis int, kernelSpatialAxes []int,
+	outputBatchAxis, outputChannelsAxis int, outputSpatialAxes []int,
 	channelGroupCount, batchGroupCount int) (shapes.Shape, error) {
 	// Convenient error returns.
 	errorf := func(format string, args ...any) (shapes.Shape, error) {
-		return shapes.Invalid(), errors.Errorf("ConvGeneral:  "+format, args...)
+		return shapes.Invalid(), errors.Errorf("Convolve:  "+format, args...)
 	}
 
 	if !input.Ok() {
@@ -1004,51 +1006,52 @@ func ConvGeneral(input, kernel shapes.Shape, axes types.ConvolveAxesConfig,
 	}
 
 	// Check axes configuration:
-	if len(axes.InputSpatial) != spatialRank {
-		return errorf("axes.InputSpatial (%v) must provide one value for each spatial axis (%d), input shape is %s",
-			axes.InputSpatial, spatialRank, input)
+	if len(inputSpatialAxes) != spatialRank {
+		return errorf("inputSpatialAxes (%v) must provide one value for each spatial axis (%d), input shape is %s",
+			inputSpatialAxes, spatialRank, input)
 	}
-	inputAxes := utils.SetWith(axes.InputBatch, axes.InputChannels)
-	for _, inputAxis := range axes.InputSpatial {
+	inputAxes := utils.SetWith(inputBatchAxis, inputChannelsAxis)
+	for _, inputAxis := range inputSpatialAxes {
 		if inputAxis < 0 || inputAxis >= rank {
-			return errorf("invalid input axes configuration (axis %d is out-of-bounds): batch=%d, channel=%d, spatial=%v", inputAxis, axes.InputBatch, axes.InputChannels, axes.InputSpatial)
+			return errorf("invalid input axes configuration (axis %d is out-of-bounds): batch=%d, channel=%d, spatial=%v", inputAxis, inputBatchAxis, inputChannelsAxis, inputSpatialAxes)
 		}
 		inputAxes.Insert(inputAxis)
 	}
 	if len(inputAxes) != rank {
-		return errorf("duplicate input axes configuration: batch=%d, channel=%d, spatial=%v", axes.InputBatch, axes.InputChannels, axes.InputSpatial)
+		return errorf("duplicate input axes configuration: batch=%d, channel=%d, spatial=%v", inputBatchAxis, inputChannelsAxis, inputSpatialAxes)
 	}
 
-	if len(axes.KernelSpatial) != spatialRank {
-		return shapes.Invalid(), errors.Errorf("ConvGeneral: axes.KernelSpatial (%v) must provide one value for each spatial axis (%d), kernel shape is %s",
-			axes.InputSpatial, spatialRank, kernel)
+	if len(kernelSpatialAxes) != spatialRank {
+		return shapes.Invalid(), errors.Errorf("Convolve: kernelSpatialAxes (%v) must provide one value for each spatial axis (%d), kernel shape is %s",
+			inputSpatialAxes, spatialRank, kernel)
 	}
-	kernelAxes := utils.SetWith(axes.KernelInputChannels, axes.KernelOutputChannels)
-	for _, kernelAxis := range axes.KernelSpatial {
+	kernelAxes := utils.SetWith(kernelInputChannelsAxis, kernelOutputChannelsAxis)
+	for _, kernelAxis := range kernelSpatialAxes {
 		if kernelAxis < 0 || kernelAxis >= rank {
 			return errorf("invalid kernel axes configuration (axis %d is out-of-bounds): input channel=%d, output channel=%d, spatial=%v",
-				kernelAxis, axes.KernelInputChannels, axes.KernelOutputChannels, axes.KernelSpatial)
+				kernelAxis, kernelInputChannelsAxis, kernelOutputChannelsAxis, kernelSpatialAxes)
 		}
 		kernelAxes.Insert(kernelAxis)
 	}
 	if len(kernelAxes) != rank {
 		return errorf("duplicate kernel axes configuration: input channel=%d, output channel=%d, spatial=%v",
-			axes.KernelInputChannels, axes.KernelOutputChannels, axes.KernelSpatial)
+			kernelInputChannelsAxis, kernelOutputChannelsAxis, kernelSpatialAxes)
 	}
 
-	if len(axes.OutputSpatial) != spatialRank {
-		return errorf("axes.OutputSpatial (%v) must have one value for each spatial axis (%d), input shape is %s",
-			axes.OutputSpatial, spatialRank, input)
+	if len(outputSpatialAxes) != spatialRank {
+		return errorf("outputSpatialAxes (%v) must have one value for each spatial axis (%d), input shape is %s",
+			outputSpatialAxes, spatialRank, input)
 	}
-	outputAxes := utils.SetWith(axes.OutputBatch, axes.OutputChannels)
-	for _, outputAxis := range axes.OutputSpatial {
+	outputAxes := utils.SetWith(outputBatchAxis, outputChannelsAxis)
+	for _, outputAxis := range outputSpatialAxes {
 		if outputAxis < 0 || outputAxis >= rank {
-			return errorf("invalid output axes configuration (axis %d is out-of-bounds): batch=%d, channels=%d, spatial=%v", outputAxis, axes.OutputBatch, axes.OutputChannels, axes.OutputSpatial)
+			return errorf("invalid output axes configuration (axis %d is out-of-bounds): batch=%d, channels=%d, spatial=%v", outputAxis, outputBatchAxis, outputChannelsAxis, outputSpatialAxes)
 		}
 		outputAxes.Insert(outputAxis)
 	}
 	if len(outputAxes) != rank {
-		return errorf("duplicate output axes configuration: batch=%d, channel=%d, spatial=%v", axes.OutputBatch, axes.OutputChannels, axes.OutputSpatial)
+		return errorf("duplicate output axes configuration: batch=%d, channel=%d, spatial=%v",
+			outputBatchAxis, outputChannelsAxis, outputSpatialAxes)
 	}
 
 	// Check strides, paddings, inputDilations and kernelDilations.
@@ -1084,8 +1087,8 @@ func ConvGeneral(input, kernel shapes.Shape, axes types.ConvolveAxesConfig,
 	}
 
 	// Check that channels (feature dimensions) are valid.
-	inputChannels := input.Dim(axes.InputChannels)
-	outputChannels := kernel.Dim(axes.KernelOutputChannels)
+	inputChannels := input.Dim(inputChannelsAxis)
+	outputChannels := kernel.Dim(kernelOutputChannelsAxis)
 	if channelGroupCount < 1 {
 		return errorf("channelGroupCount=%d must be >= 1 for input shape %s", channelGroupCount, input)
 	}
@@ -1095,14 +1098,14 @@ func ConvGeneral(input, kernel shapes.Shape, axes types.ConvolveAxesConfig,
 	if outputChannels%channelGroupCount != 0 {
 		return errorf("kernel output channels dimension %d must be divisible by channelGroupCount %d", outputChannels, channelGroupCount)
 	}
-	kernelInputChannels := kernel.Dim(axes.KernelInputChannels)
+	kernelInputChannels := kernel.Dim(kernelInputChannelsAxis)
 	if inputChannels != kernelInputChannels*channelGroupCount {
 		return errorf("we must have inputChannels (=%d) = kernelInputChannels (=%d) * channelGroupCount (=%d) -- input shape is %s, kernel shape is %s",
 			inputChannels, kernelInputChannels, channelGroupCount, input, kernel)
 	}
 
 	// Check batchGroupCount.
-	inputBatch := input.Dim(axes.InputBatch)
+	inputBatch := input.Dim(inputBatchAxis)
 	if batchGroupCount < 1 {
 		return errorf("batchGroupCount=%d must be >= 1 for input shape %s", batchGroupCount, input)
 	}
@@ -1115,12 +1118,12 @@ func ConvGeneral(input, kernel shapes.Shape, axes types.ConvolveAxesConfig,
 
 	// Find the output shape.
 	output := input.Clone()
-	output.Dimensions[axes.OutputBatch] = inputBatch / batchGroupCount
-	output.Dimensions[axes.OutputChannels] = outputChannels
+	output.Dimensions[outputBatchAxis] = inputBatch / batchGroupCount
+	output.Dimensions[outputChannelsAxis] = outputChannels
 
-	for spatialAxisIdx, inputAxis := range axes.InputSpatial {
+	for spatialAxisIdx, inputAxis := range inputSpatialAxes {
 		inputDim := input.Dim(inputAxis)
-		filterAxis := axes.KernelSpatial[spatialAxisIdx]
+		filterAxis := kernelSpatialAxes[spatialAxisIdx]
 		kernelDim := kernel.Dim(filterAxis)
 		var (
 			stride  int
@@ -1160,7 +1163,7 @@ func ConvGeneral(input, kernel shapes.Shape, axes types.ConvolveAxesConfig,
 				padding[0], padding[1], input)
 		}
 		outputDim := (paddedEffectiveInputDim-effectiveKernelDim)/stride + 1
-		outputSpatialAxis := axes.OutputSpatial[spatialAxisIdx]
+		outputSpatialAxis := outputSpatialAxes[spatialAxisIdx]
 		output.Dimensions[outputSpatialAxis] = outputDim
 	}
 
