@@ -10,9 +10,11 @@ import (
 	"strings"
 
 	"github.com/gomlx/gopjrt/dtypes"
+	"github.com/gomlx/gopjrt/dtypes/bfloat16"
 	"github.com/gomlx/stablehlo/internal/optypes"
 	"github.com/gomlx/stablehlo/internal/utils"
 	"github.com/gomlx/stablehlo/types/shapes"
+	"github.com/x448/float16"
 )
 
 // Statement represents a single operation line in ToStableHLO.
@@ -240,40 +242,56 @@ func float64AsHex(f float64) string {
 
 // floatToStableHLO converts a float to a string. f must be a float32 or float64.
 func floatToStableHLO(fAny any) string {
-	var f float64
-	if f32, ok := fAny.(float32); ok {
+	var f64 float64
+
+	// Each 16-bit float will have it's own infinity/NaN representation, but otherwise they can all be converted
+	// to float64 before printing.
+	if f16, ok := fAny.(float16.Float16); ok {
+		f32 := f16.Float32()
+		if !float32IsFinite(f32) {
+			return fmt.Sprintf("%#x", uint16(f16))
+		}
+		f64 = float64(f32)
+	} else if bf16, ok := fAny.(bfloat16.BFloat16); ok {
+		f32 := bf16.Float32()
+		if !float32IsFinite(f32) {
+			return fmt.Sprintf("%#x", uint16(bf16))
+		}
+		f64 = float64(f32)
+	} else if f32, ok := fAny.(float32); ok {
 		if !float32IsFinite(f32) {
 			return float32AsHex(f32)
 		}
-		f = float64(f32)
+		f64 = float64(f32)
 	} else {
-		f = fAny.(float64)
+		f64 = fAny.(float64)
 		if !float64IsFinite(fAny.(float64)) {
 			return float64AsHex(fAny.(float64))
 		}
 	}
-	if math.IsNaN(f) {
+
+	if math.IsNaN(f64) {
 		return "nan"
 	}
-	if math.IsInf(f, 0) {
+	if math.IsInf(f64, 0) {
 		return "+inf"
 	}
-	if math.IsInf(f, 1) {
+	if math.IsInf(f64, 1) {
 		return "-inf"
 	}
 	format := "%g"
-	if f == math.Trunc(f) {
+	if f64 == math.Trunc(f64) {
 		// f is an integer, make sure we add a decimal point.
 		format = "%.1f"
 	}
-	return fmt.Sprintf(format, f)
+	return fmt.Sprintf(format, f64)
 }
 
 // podToStableHLO convert a POD (plain-old-data) value (scalar floats, ints, bool and complex) to a stableHLO string,
 // with no types attached.
 func podToStableHLO(pod any) string {
 	switch v := pod.(type) {
-	case float32, float64:
+	case float16.Float16, bfloat16.BFloat16, float32, float64:
 		return floatToStableHLO(v)
 
 	case int, int8, int16, int32, int64, uint8, uint16, uint32, uint64:

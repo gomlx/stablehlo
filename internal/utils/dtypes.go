@@ -12,6 +12,10 @@ func DTypeToStableHLO(dtype dtypes.DType) string {
 		return "f64"
 	case dtypes.F32:
 		return "f32"
+	case dtypes.F16:
+		return "f16"
+	case dtypes.BFloat16:
+		return "bf16"
 	case dtypes.S64:
 		return "i64"
 	case dtypes.S32:
