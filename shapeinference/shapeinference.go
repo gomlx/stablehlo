@@ -1422,3 +1422,40 @@ func BitcastConvert(operand shapes.Shape, targetDType dtypes.DType) (outputShape
 	outputShape.Dimensions = outputShape.Dimensions[:len(outputShape.Dimensions)-1]
 	return
 }
+
+func Pad(x, fill shapes.Shape, paddingStart, paddingEnd, paddingInterior []int) (outputShape shapes.Shape, err error) {
+	if !x.Ok() || !fill.Ok() {
+		return shapes.Invalid(), errors.Errorf("Pad: invalid input shapes %s and %s", x, fill)
+	}
+	if x.DType != fill.DType {
+		return shapes.Invalid(), errors.Errorf("Pad: operand (%s) and padding value (%s) must have the same dtype", x, fill)
+	}
+	if !fill.IsScalar() {
+		return shapes.Invalid(), errors.Errorf("Pad: padding value (%s) must be a scalar", fill)
+	}
+	rank := x.Rank()
+	if len(paddingStart) != rank || len(paddingEnd) != rank || len(paddingInterior) != rank {
+		return shapes.Invalid(), errors.Errorf("Pad: number of padding values (%d, %d, %d) must match input rank %d",
+			len(paddingStart), len(paddingEnd), len(paddingInterior), rank)
+	}
+
+	// Check padding values are non-negative.
+	for axis := 0; axis < rank; axis++ {
+		if paddingStart[axis] < 0 || paddingEnd[axis] < 0 || paddingInterior[axis] < 0 {
+			return shapes.Invalid(), errors.Errorf("Pad: padding values must be non-negative, got start=%d, end=%d, interior=%d for axis %d",
+				paddingStart[axis], paddingEnd[axis], paddingInterior[axis], axis)
+		}
+	}
+
+	// Calculate output dimensions.
+	outputDims := make([]int, rank)
+	for axis := 0; axis < rank; axis++ {
+		inputDim := x.Dimensions[axis]
+		if inputDim <= 1 {
+			outputDims[axis] = paddingStart[axis] + paddingEnd[axis] + inputDim
+		} else {
+			outputDims[axis] = paddingStart[axis] + paddingEnd[axis] + inputDim + (inputDim-1)*paddingInterior[axis]
+		}
+	}
+	return shapes.Make(x.DType, outputDims...), nil
+}

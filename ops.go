@@ -890,3 +890,54 @@ func Convert(x *Value, dtype dtypes.DType) (*Value, error) {
 	stmt := fn.addOp(op, outputShape, x)
 	return stmt.Outputs[0], nil
 }
+
+// Pad x at start, end or interior (interleaved) at arbitrary axes.
+//
+// It adds padding values around and in-between the elements of x.
+// For each axis:
+//   - paddingStart elements are inserted before the tensor.
+//   - paddingEnd elements are appended after the tensor.
+//   - paddingInterior elements are inserted between consecutive elements of the tensor.
+//     So setting paddingInterior[i]=2 for axis "i" means 2 elements will be inserted between
+//     every adjacent pair of elements.
+//
+// If any of the padding parameters is not given, it is set to 0 for all axes.
+//
+// The fill value must be a scalar with the same DType as x and determines what value will
+// be used for the padding.
+//
+// The output shape is defined by:
+//
+//	For each axis i in x:
+//	output.Dimensions[i] = paddingStart[i] + x.Dimensions[i] + max((x.Dimensions[i]-1), 0)*paddingInterior[i] + paddingEnd[i]
+func Pad(x, fill *Value, paddingStart, paddingEnd, paddingInterior []int) (*Value, error) {
+	op := optypes.Pad
+	fn := x.fn
+	if fn.Returned {
+		return nil, errors.Errorf("cannot add operation %s after returning, in function %q",
+			op, fn.Name)
+	}
+	if fill.fn != fn {
+		return nil, errors.Errorf("cannot add operation %s to function %q, because fill value is from different function (%q and %q)",
+			op, fn.Name, fill.fn.Name, fn.Name)
+	}
+
+	// Set default values for parameters.
+	for _, padding := range []*[]int{&paddingStart, &paddingEnd, &paddingInterior} {
+		if len(*padding) == 0 {
+			*padding = make([]int, x.shape.Rank())
+		}
+	}
+
+	outputShape, err := shapeinference.Pad(x.shape, fill.shape, paddingStart, paddingEnd, paddingInterior)
+	if err != nil {
+		return nil, err
+	}
+	stmt := fn.addOp(op, outputShape, x, fill)
+	stmt.Attributes = map[string]any{
+		"edge_padding_low":  intSliceToArrayI64StableHLO(paddingStart),
+		"edge_padding_high": intSliceToArrayI64StableHLO(paddingEnd),
+		"interior_padding":  intSliceToArrayI64StableHLO(paddingInterior),
+	}
+	return stmt.Outputs[0], nil
+}

@@ -727,3 +727,91 @@ func TestDotGeneral(t *testing.T) {
 	fmt.Printf("\tdotgeneral.shape=%s\n", output)
 	assert.NoError(t, output.Check(F32, 5, 2, 4, 1))
 }
+
+func TestPad(t *testing.T) {
+	t.Run("Simple1D", func(t *testing.T) {
+		operand := S(F32, 5)
+		fillValue := S(F32) // Scalar F32
+		paddingStart := []int{2}
+		paddingEnd := []int{3}
+		paddingInterior := []int{0}
+		expected := S(F32, 10)
+		output, err := Pad(operand, fillValue, paddingStart, paddingEnd, paddingInterior)
+		require.NoError(t, err)
+		require.True(t, expected.Equal(output), "Expected %s, got %s", expected, output)
+	})
+
+	t.Run("2DWithInterior", func(t *testing.T) {
+		operand := S(F32, 3, 4)
+		fillValue := S(F32)
+		paddingStart := []int{1, 0}
+		paddingEnd := []int{0, 2}
+		paddingInterior := []int{1, 1}
+		expected := S(F32, 6, 9)
+		output, err := Pad(operand, fillValue, paddingStart, paddingEnd, paddingInterior)
+		require.NoError(t, err)
+		require.True(t, expected.Equal(output), "Expected %s, got %s", expected, output)
+	})
+
+	t.Run("3DPadding", func(t *testing.T) {
+		operand := S(F32, 2, 3, 2)
+		fillValue := S(F32)
+		paddingStart := []int{1, 2, 0}
+		paddingEnd := []int{1, 0, 1}
+		paddingInterior := []int{0, 0, 0}
+		expected := S(F32, 4, 5, 3)
+		output, err := Pad(operand, fillValue, paddingStart, paddingEnd, paddingInterior)
+		require.NoError(t, err)
+		require.True(t, expected.Equal(output), "Expected %s, got %s", expected, output)
+	})
+
+	t.Run("ErrorWrongFillValueDType", func(t *testing.T) {
+		operand := S(F32, 3)
+		fillValue := S(I32) // Wrong dtype
+		paddingStart := []int{1}
+		paddingEnd := []int{1}
+		paddingInterior := []int{0}
+		_, err := Pad(operand, fillValue, paddingStart, paddingEnd, paddingInterior)
+		require.Error(t, err)
+	})
+
+	t.Run("ErrorNonScalarFillValue", func(t *testing.T) {
+		operand := S(F32, 3)
+		fillValue := S(F32, 1) // Non-scalar
+		paddingStart := []int{1}
+		paddingEnd := []int{1}
+		paddingInterior := []int{0}
+		_, err := Pad(operand, fillValue, paddingStart, paddingEnd, paddingInterior)
+		require.Error(t, err)
+	})
+
+	t.Run("ErrorMismatchedRank", func(t *testing.T) {
+		operand := S(F32, 3)
+		fillValue := S(F32)
+		paddingStart := []int{1, 0}
+		paddingEnd := []int{1, 1}
+		paddingInterior := []int{0, 0}
+		_, err := Pad(operand, fillValue, paddingStart, paddingEnd, paddingInterior)
+		require.Error(t, err)
+	})
+
+	t.Run("ErrorNegativePadding", func(t *testing.T) {
+		operand := S(F32, 3)
+		fillValue := S(F32)
+		paddingStart := []int{-1}
+		paddingEnd := []int{1}
+		paddingInterior := []int{0}
+		_, err := Pad(operand, fillValue, paddingStart, paddingEnd, paddingInterior)
+		require.Error(t, err)
+	})
+
+	t.Run("ErrorNegativeInterior", func(t *testing.T) {
+		operand := S(F32, 3)
+		fillValue := S(F32)
+		paddingStart := []int{0}
+		paddingEnd := []int{0}
+		paddingInterior := []int{-1}
+		_, err := Pad(operand, fillValue, paddingStart, paddingEnd, paddingInterior)
+		require.Error(t, err)
+	})
+}

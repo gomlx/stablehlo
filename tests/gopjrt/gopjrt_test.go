@@ -528,6 +528,21 @@ func testOps(t *testing.T, client *pjrt.Client) {
 			{[]int32{1, 0, 1}, []int{3}},
 		}, outputs)
 	})
+
+	t.Run("Pad", func(t *testing.T) {
+		builder := New(t.Name())
+		fn := builder.Main()
+		x := must1(fn.Iota(shapes.Make(dtypes.F32, 2, 3, 2), 0))
+		fill := must1(fn.ConstantFromScalar(float32(3.0)))
+		padded := must1(Pad(x, fill, []int{1, 0, 0}, []int{0, 2, 0}, []int{0, 0, 1}))
+		must(fn.Return(padded))
+		program := must1(builder.Build())
+		fmt.Printf("%s program:\n%s", t.Name(), program)
+		outputs := compileAndExecute(t, client, program)
+		requireBuffersEqual(t, []FlatAndDims{
+			{[]float32{3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 0, 3, 0, 0, 3, 0, 0, 3, 0, 3, 3, 3, 3, 3, 3, 1, 3, 1, 1, 3, 1, 1, 3, 1, 3, 3, 3, 3, 3, 3}, []int{3, 5, 3}},
+		}, outputs)
+	})
 }
 
 func TestBinaryOps(t *testing.T) {
