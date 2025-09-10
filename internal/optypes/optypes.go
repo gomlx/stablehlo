@@ -52,6 +52,7 @@ const (
 	Negate
 	Not
 	Or
+	Pad
 	Popcnt
 	Power
 	Real
@@ -102,7 +103,6 @@ const (
 	Infeed
 	OptimizationBarrier
 	Outfeed
-	Pad
 	PartitionId
 	Recv
 	ReducePrecision
