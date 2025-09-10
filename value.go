@@ -40,11 +40,16 @@ func (v *Value) String() string {
 	return "%" + v.name
 }
 
-// NamedValue creates a new named value with the given shape.
-// These are meant to be used as inputs for functions.
-func NamedValue(name string, shape shapes.Shape) *Value {
-	return &Value{
-		shape: shape,
-		name:  name,
+// ConvertToValidName replaces any characters not in { "0"-"9", "a"-"z", "A-Z", "_" } to a "_",
+// making it a valid name for values and function arguments.
+func ConvertToValidName(name string) string {
+	var result string
+	for _, c := range name {
+		if (c >= '0' && c <= '9') || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_' {
+			result += string(c)
+		} else {
+			result += "_"
+		}
 	}
+	return result
 }

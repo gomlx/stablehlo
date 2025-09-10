@@ -91,6 +91,8 @@ func (fn *Function) Input(shape shapes.Shape) *Value {
 // NamedInput creates a new input parameter for a function with the given name -- it
 // must be a unique input name.
 //
+// The name is passed through ConvertToValidName, which converts any non-digit or ASCII letter to an underscore.
+//
 // Names with the format "%d" and "arg%d" are reserved for the default input parameters.
 //
 // Names are used in the StableHLO code and may be helpful for debugging, but
@@ -98,7 +100,7 @@ func (fn *Function) Input(shape shapes.Shape) *Value {
 func (fn *Function) NamedInput(name string, shape shapes.Shape) *Value {
 	value := &Value{
 		fn:    fn,
-		name:  name,
+		name:  ConvertToValidName(name),
 		shape: shape,
 	}
 	fn.Inputs = append(fn.Inputs, value)
