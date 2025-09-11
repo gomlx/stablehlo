@@ -25,7 +25,6 @@ func TestConvolve(t *testing.T) {
 		strides                            []int
 		paddings                           [][2]int
 		inputDilations, kernelDilations    []int
-		windowReversal                     []bool
 		channelGroupCount, batchGroupCount int
 
 		expectedError string
@@ -232,11 +231,8 @@ func TestConvolve(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			if len(tc.windowReversal) == 0 {
-				tc.windowReversal = make([]bool, len(tc.strides))
-			}
 			output, err := Convolve(tc.input, tc.kernel,
-				tc.strides, tc.paddings, tc.inputDilations, tc.kernelDilations, tc.windowReversal,
+				tc.strides, tc.paddings, tc.inputDilations, tc.kernelDilations,
 				tc.inputBatch, tc.inputChannels, tc.inputSpatial,
 				tc.kernelInputChannels, tc.kernelOutputChannels, tc.kernelSpatial,
 				tc.outputBatch, tc.outputChannels, tc.outputSpatial,

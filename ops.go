@@ -3,6 +3,7 @@ package stablehlo
 import (
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/gomlx/gopjrt/dtypes"
@@ -228,14 +229,6 @@ type DotGeneralBuilder struct {
 //
 // Because there are optional parameters, this function returns a DotGeneralBuilder that can
 // be further configured. Call DotGeneralBuilder.Done to get the final DotGeneral node.
-//
-// Example:
-//
-//	// Create a function with a single DotGeneral node.
-//	f := NewFunction()
-//	lhs := f.Constant(types.Float32, []float32{1, 2, 3, 4, 5, 6})
-//	rhs := f.Constant(types.Float32, []float32{1, 2, 3, 4, 5, 6})
-//	dot, err := f.DotGeneral(lhs, []int{-1}, []int{-2}, rhs, []int{-1}, []int{-2}).Done()
 func DotGeneral(
 	lhsOp *Value, lhsContractingAxes, lhsBatchAxes []int,
 	rhsOp *Value, rhsContractingAxes, rhsBatchAxes []int) *DotGeneralBuilder {
@@ -942,19 +935,134 @@ func Pad(x, fill *Value, paddingStart, paddingEnd, paddingInterior []int) (*Valu
 	return stmt.Outputs[0], nil
 }
 
+// Convolution performs a convolution supporting strides, padding, dilations, feature grouping and batch grouping.
+//
+// See description in https://openxla.org/stablehlo/spec#convolution
+//
+// The parameters strides, paddings, inputDilations and kernelDilations can be set to nil, and the default (zeros for paddings
+// and ones for the others) will be used.
+//
+// Note: since the spec mentions that window_reversal will be removed, we didn't include it in the API.
+// If you need it, we can create an alternative API for Convolve with it.
 func Convolution(input, kernel *Value,
-	strides []int, paddings [][2]int, lhsDilations, rhsDilations []int, windowReversal []bool,
+	strides []int, paddings [][2]int, inputDilations, kernelDilations []int,
 	inputBatchAxis, inputChannelsAxis int, inputSpatialAxes []int,
 	kernelInputChannelsAxis, kernelOutputChannelsAxis int, kernelSpatialAxes []int,
 	outputBatchAxis, outputChannelsAxis int, outputSpatialAxes []int,
 	featureGroupCount, batchGroupCount int,
-	precision types.DotGeneralPrecisionType) (*Value, error) {
+	inputPrecision, kernelPrecision types.DotGeneralPrecisionType) (*Value, error) {
 	op := optypes.Convolution
 	fn := input.fn
 	if fn.Returned {
 		return nil, errors.Errorf("cannot add operation %s after returning, in function %q",
 			op, fn.Name)
 	}
+	rank := input.shape.Rank()
+	rankSpatial := rank - 2
 
-	return nil, nil
+	// Set default for any missing slices.
+	windowReversal := make([]bool, rankSpatial)
+	if len(paddings) == 0 {
+		paddings = make([][2]int, rankSpatial)
+	}
+	for _, s := range []*[]int{&strides, &inputDilations, &kernelDilations} {
+		if len(*s) == 0 {
+			*s = slices.Repeat([]int{1}, rankSpatial)
+		}
+	}
+
+	// Fix negative axes.
+	for _, axisConfig := range []*int{&inputBatchAxis, &inputChannelsAxis, &kernelInputChannelsAxis, &kernelOutputChannelsAxis, &outputBatchAxis, &outputChannelsAxis} {
+		adjustedAxis, err := shapeinference.AdjustAxisToRank(*axisConfig, rank)
+		if err != nil {
+			return nil, errors.Errorf("invalid channel/batch axis %d was provided, where the rank of the input/kernel/output is %d",
+				*axisConfig, rank)
+		}
+		*axisConfig = adjustedAxis
+	}
+	for _, s := range []*[]int{&inputSpatialAxes, &kernelSpatialAxes, &outputSpatialAxes} {
+		*s = slices.Clone(*s)
+		for i, axis := range *s {
+			adjustedAxis, err := shapeinference.AdjustAxisToRank(axis, rank)
+			if err != nil {
+				return nil, errors.Errorf("invalid spatial axes %d, where the rank of the input/kernel/output is %d",
+					axis, rank)
+			}
+			(*s)[i] = adjustedAxis
+		}
+	}
+
+	// Call shape inference.
+	outputShape, err := shapeinference.Convolve(input.shape, kernel.shape,
+		strides, paddings, inputDilations, kernelDilations,
+		inputBatchAxis, inputChannelsAxis, inputSpatialAxes,
+		kernelInputChannelsAxis, kernelOutputChannelsAxis, kernelSpatialAxes,
+		outputBatchAxis, outputChannelsAxis, outputSpatialAxes,
+		featureGroupCount, batchGroupCount)
+	if err != nil {
+		return nil, err
+	}
+
+	// Build convolution statement.
+	stmt := fn.addOp(op, outputShape, input, kernel)
+	precisionConfig := literalStrF("[#stablehlo<precision %s>, #stablehlo<precision %s>]",
+		inputPrecision.ToStableHLO(), kernelPrecision.ToStableHLO())
+
+	allPaddings := make([]int, 0, rankSpatial*2)
+	for _, pad := range paddings {
+		allPaddings = append(allPaddings, pad[0], pad[1])
+	}
+	paddingsConfig, err := newTensorLiteralFromFlatAndDimensions(allPaddings, rankSpatial, 2)
+	if err != nil {
+		return nil, errors.WithMessagef(err, "in Convolution paddings values")
+	}
+	convConfig := getConvAxesConfig(inputBatchAxis, inputChannelsAxis, inputSpatialAxes,
+		kernelInputChannelsAxis, kernelOutputChannelsAxis, kernelSpatialAxes,
+		outputBatchAxis, outputChannelsAxis, outputSpatialAxes)
+	stmt.Attributes = map[string]any{
+		"window_strides":      intSliceToArrayI64StableHLO(strides),
+		"padding":             paddingsConfig,
+		"lhs_dilation":        intSliceToArrayI64StableHLO(inputDilations),
+		"rhs_dilation":        intSliceToArrayI64StableHLO(kernelDilations),
+		"window_reversal":     boolSliceToArrayI1StableHLO(windowReversal),
+		"dimension_numbers":   convConfig,
+		"feature_group_count": int64(featureGroupCount),
+		"batch_group_count":   int64(batchGroupCount),
+		"precision_config":    precisionConfig,
+	}
+	return stmt.Outputs[0], nil
+}
+
+// getConvAxesConfig generates the StableHLO convolution dimension numbers string.
+func getConvAxesConfig(
+	inputBatchAxis, inputChannelsAxis int, inputSpatialAxes []int,
+	kernelInputChannelsAxis, kernelOutputChannelsAxis int, kernelSpatialAxes []int,
+	outputBatchAxis, outputChannelsAxis int, outputSpatialAxes []int,
+) literalStr {
+	spatialRank := len(inputSpatialAxes) // == len(kernelSpatialAxes) == len(outputSpatialAxes)
+	setSpatialAxes := func(spatialAxes []int, def []string) {
+		for i, axis := range spatialAxes {
+			def[axis] = strconv.Itoa(i)
+		}
+	}
+
+	inputDef := make([]string, spatialRank+2)
+	inputDef[inputBatchAxis] = "b"
+	inputDef[inputChannelsAxis] = "f"
+	setSpatialAxes(inputSpatialAxes, inputDef)
+
+	outputDef := make([]string, spatialRank+2)
+	outputDef[outputBatchAxis] = "b"
+	outputDef[outputChannelsAxis] = "f"
+	setSpatialAxes(outputSpatialAxes, outputDef)
+
+	kernelDef := make([]string, spatialRank+2)
+	kernelDef[kernelInputChannelsAxis] = "i"
+	kernelDef[kernelOutputChannelsAxis] = "o"
+	setSpatialAxes(kernelSpatialAxes, kernelDef)
+
+	return literalStrF("#stablehlo.conv<[%s]x[%s]->[%s]>",
+		strings.Join(inputDef, ", "),
+		strings.Join(kernelDef, ", "),
+		strings.Join(outputDef, ", "))
 }

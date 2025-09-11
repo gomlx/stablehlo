@@ -978,7 +978,7 @@ func ReduceWindow(operand shapes.Shape, windowDimensions, strides, baseDilations
 
 // Convolve returns the expected output shape for the Convolve operation.
 func Convolve(input, kernel shapes.Shape,
-	strides []int, paddings [][2]int, inputDilations, kernelDilations []int, windowReversal []bool,
+	strides []int, paddings [][2]int, inputDilations, kernelDilations []int,
 	inputBatchAxis, inputChannelsAxis int, inputSpatialAxes []int,
 	kernelInputChannelsAxis, kernelOutputChannelsAxis int, kernelSpatialAxes []int,
 	outputBatchAxis, outputChannelsAxis int, outputSpatialAxes []int,
