@@ -558,6 +558,23 @@ func testOps(t *testing.T, client *pjrt.Client) {
 			{[]float32{3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 0, 3, 0, 0, 3, 0, 0, 3, 0, 3, 3, 3, 3, 3, 3, 1, 3, 1, 1, 3, 1, 1, 3, 1, 3, 3, 3, 3, 3, 3}, []int{3, 5, 3}},
 		}, outputs)
 	})
+
+	t.Run("Reverse", func(t *testing.T) {
+		builder := New(t.Name())
+		fn := builder.Main()
+		x := must1(fn.Iota(shapes.Make(dtypes.F32, 3*2), 0))
+		x = must1(Reshape(x, shapes.Make(dtypes.F32, 2, 3)))
+		must(fn.Return(
+			must1(Reverse(x, 0)),
+			must1(Reverse(x, 1))))
+		program := must1(builder.Build())
+		fmt.Printf("%s program:\n%s", t.Name(), program)
+		outputs := compileAndExecute(t, client, program)
+		requireBuffersEqual(t, []FlatAndDims{
+			{[]float32{3, 4, 5, 0, 1, 2}, []int{2, 3}},
+			{[]float32{2, 1, 0, 5, 4, 3}, []int{2, 3}},
+		}, outputs)
+	})
 }
 
 func TestBinaryOps(t *testing.T) {

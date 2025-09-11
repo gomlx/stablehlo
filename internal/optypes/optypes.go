@@ -60,6 +60,7 @@ const (
 	Remainder
 	Reduce
 	Reshape
+	Reverse
 	RngBitGenerator
 	RoundNearestAfz
 	RoundNearestEven
@@ -108,7 +109,6 @@ const (
 	ReducePrecision
 	ReduceScatter
 	ReduceWindow
-	Reverse
 	Select
 	SelectAndScatter
 	Send

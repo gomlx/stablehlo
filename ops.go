@@ -1066,3 +1066,32 @@ func getConvAxesConfig(
 		strings.Join(kernelDef, ", "),
 		strings.Join(outputDef, ", "))
 }
+
+// Reverse axes of x.
+//
+// E.g.: Reverse([1, 2, 3], axes=0) -> [3, 2, 1]
+func Reverse(x *Value, axes ...int) (*Value, error) {
+	op := optypes.Reverse
+	fn := x.fn
+	if fn.Returned {
+		return nil, errors.Errorf("cannot add operation %s after returning, in function %q",
+			op, fn.Name)
+	}
+
+	// Adjust negative axes.
+	rank := x.shape.Rank()
+	for i, axis := range axes {
+		adjustedAxis, err := shapeinference.AdjustAxisToRank(axis, rank)
+		if err != nil {
+			return nil, errors.Errorf("invalid axis %d for rank(x)=%d", axis, rank)
+		}
+		axes[i] = adjustedAxis
+	}
+
+	// Shape remains the same.
+	stmt := fn.addOp(op, x.shape, x)
+	stmt.Attributes = map[string]any{
+		"dimensions": intSliceToArrayI64StableHLO(axes),
+	}
+	return stmt.Outputs[0], nil
+}
