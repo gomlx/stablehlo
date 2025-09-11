@@ -949,7 +949,7 @@ func Convolution(input, kernel *Value,
 	inputBatchAxis, inputChannelsAxis int, inputSpatialAxes []int,
 	kernelInputChannelsAxis, kernelOutputChannelsAxis int, kernelSpatialAxes []int,
 	outputBatchAxis, outputChannelsAxis int, outputSpatialAxes []int,
-	featureGroupCount, batchGroupCount int,
+	channelGroupCount, batchGroupCount int,
 	inputPrecision, kernelPrecision types.DotGeneralPrecisionType) (*Value, error) {
 	op := optypes.Convolution
 	fn := input.fn
@@ -998,7 +998,7 @@ func Convolution(input, kernel *Value,
 		inputBatchAxis, inputChannelsAxis, inputSpatialAxes,
 		kernelInputChannelsAxis, kernelOutputChannelsAxis, kernelSpatialAxes,
 		outputBatchAxis, outputChannelsAxis, outputSpatialAxes,
-		featureGroupCount, batchGroupCount)
+		channelGroupCount, batchGroupCount)
 	if err != nil {
 		return nil, err
 	}
@@ -1026,7 +1026,7 @@ func Convolution(input, kernel *Value,
 		"rhs_dilation":        intSliceToArrayI64StableHLO(kernelDilations),
 		"window_reversal":     boolSliceToArrayI1StableHLO(windowReversal),
 		"dimension_numbers":   convConfig,
-		"feature_group_count": int64(featureGroupCount),
+		"feature_group_count": int64(channelGroupCount),
 		"batch_group_count":   int64(batchGroupCount),
 		"precision_config":    precisionConfig,
 	}
