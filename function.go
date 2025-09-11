@@ -119,12 +119,16 @@ func (fn *Function) ConstantFromScalar(value any) (*Value, error) {
 		return nil, errors.Errorf("unsupported constant value type %T", value)
 	}
 	shape := shapes.Make(dtype)
+	t, err := newTensorLiteralFromFlatAndDimensions(value)
+	if err != nil {
+		return nil, err
+	}
 	c := &Statement{
 		Builder:  fn.Builder,
 		Function: fn,
 		OpType:   optypes.Constant,
 		Attributes: map[string]any{
-			"value": newTensorLiteral(value),
+			"value": t,
 		},
 		Outputs: []*Value{fn.newValue(shape)},
 	}
@@ -153,10 +157,14 @@ func (fn *Function) ConstantFromFlatAndDimensions(flat any, dimensions ...int) (
 		Attributes: make(map[string]any, 1),
 		Outputs:    []*Value{fn.newValue(shape)},
 	}
+	var err error
 	if shape.IsScalar() {
-		c.Attributes["value"] = newTensorLiteral(flatV.Index(0).Interface())
+		c.Attributes["value"], err = newTensorLiteralFromFlatAndDimensions(flatV.Index(0).Interface())
 	} else {
-		c.Attributes["value"] = newTensorLiteral(flat, dimensions...)
+		c.Attributes["value"], err = newTensorLiteralFromFlatAndDimensions(flat, dimensions...)
+	}
+	if err != nil {
+		return nil, err
 	}
 	fn.Statements = append(fn.Statements, c)
 	return c.Outputs[0], nil
