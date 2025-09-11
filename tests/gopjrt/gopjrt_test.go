@@ -16,27 +16,29 @@ import (
 	"github.com/gomlx/stablehlo/types"
 	"github.com/gomlx/stablehlo/types/shapes"
 	"github.com/stretchr/testify/require"
+	"k8s.io/klog/v2"
 )
 
 var flagPluginNames = flag.String("plugins", "cpu", "List (|-separated) of PJRT plugin names or full paths. E.g. \"cpu|cuda\"")
 
+func init() {
+	klog.InitFlags(nil)
+}
+
 func must(err error) {
 	if err != nil {
+		klog.Errorf("%+v", err)
 		panic(err)
 	}
 }
 
 func must1[T any](value T, err error) T {
-	if err != nil {
-		panic(err)
-	}
+	must(err)
 	return value
 }
 
 func must2[T1, T2 any](value1 T1, value2 T2, err error) (T1, T2) {
-	if err != nil {
-		panic(err)
-	}
+	must(err)
 	return value1, value2
 }
 

@@ -14,6 +14,7 @@ import (
 	"github.com/gomlx/stablehlo/internal/optypes"
 	"github.com/gomlx/stablehlo/internal/utils"
 	"github.com/gomlx/stablehlo/types/shapes"
+	"github.com/pkg/errors"
 	"github.com/x448/float16"
 )
 
@@ -227,6 +228,23 @@ func intSliceToArrayI64StableHLO(ints []int) literalStr {
 	return literalStr(sb.String())
 }
 
+// boolSliceToArrayI1StableHLO converts a slice of bool to a string with comma-separated values, as used
+// by StableHLO for attribute values that are an array of int64.
+func boolSliceToArrayI1StableHLO(values []bool) literalStr {
+	var sb strings.Builder
+	sb.WriteString("array<i1")
+	for i, v := range values {
+		if i == 0 {
+			sb.WriteString(": ")
+		} else {
+			sb.WriteString(", ")
+		}
+		sb.WriteString(fmt.Sprintf("%v", v))
+	}
+	sb.WriteString(">")
+	return literalStr(sb.String())
+}
+
 func float32IsFinite(f float32) bool {
 	return !math.IsInf(float64(f), 0) && !math.IsNaN(float64(f))
 }
@@ -332,20 +350,39 @@ type tensorLiteral struct {
 	dims []int
 }
 
-// newTensorLiteral creates a new tensorLiteral that can be used to render constants.
+// newTensorLiteralFromFlatAndDimensions creates a new tensorLiteral that can be used to render constants.
 //
 // Args:
 // - value is either a scalar value or a flat slice of the values.
 // - dims has the dimensions of the tensor or nil if the value is a scalar.
-func newTensorLiteral(value any, dims ...int) tensorLiteral {
-	return tensorLiteral{value: value, dims: dims}
+func newTensorLiteralFromFlatAndDimensions(value any, dims ...int) (t tensorLiteral, err error) {
+	size := 1
+	for _, dim := range dims {
+		size *= dim
+	}
+
+	valueV := reflect.ValueOf(value)
+	if valueV.Kind() != reflect.Slice && valueV.Kind() != reflect.Array {
+		if len(dims) != 0 {
+			err = errors.Errorf("flat value is not a slice or array for a non-scalar shape, got %T instead (%s)", value, valueV.Kind())
+			return
+		}
+		// Simple scalar value:
+		return tensorLiteral{value: value}, nil
+	}
+
+	if valueV.Len() != size {
+		err = errors.Errorf("expected %d flat elements for shape %v, got %d instead", size, dims, valueV.Len())
+		return
+	}
+	return tensorLiteral{value: value, dims: dims}, nil
 }
 
 // ToStableHLO returns the string representation of the tensor literal.
 func (t tensorLiteral) ToStableHLO() string {
 	valueV := reflect.ValueOf(t.value)
 	var shape shapes.Shape
-	if valueV.Kind() != reflect.Slice {
+	if valueV.Kind() != reflect.Slice && valueV.Kind() != reflect.Array {
 		// Scalar value:
 		shape.DType = dtypes.FromGoType(valueV.Type())
 		return fmt.Sprintf("dense<%s> : %s", podToStableHLO(t.value), shape.ToStableHLO())
