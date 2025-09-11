@@ -66,6 +66,10 @@ func getPluginNames() []string {
 	return names
 }
 
+func pjrtNumClients() int {
+	return len(getPluginNames())
+}
+
 func pjrtClientsIterator(t *testing.T) iter.Seq2[string, *pjrt.Client] {
 	return func(yield func(string, *pjrt.Client) bool) {
 		for _, pluginName := range getPluginNames() {
@@ -78,6 +82,19 @@ func pjrtClientsIterator(t *testing.T) iter.Seq2[string, *pjrt.Client] {
 			if done {
 				return
 			}
+		}
+	}
+}
+
+func iterateClientsAndTest(t *testing.T, testFn func(*testing.T, *pjrt.Client)) {
+	numClients := pjrtNumClients()
+	for pluginName, client := range pjrtClientsIterator(t) {
+		if numClients > 1 {
+			t.Run(pluginName, func(t *testing.T) {
+				testFn(t, client)
+			})
+		} else {
+			testFn(t, client)
 		}
 	}
 }
@@ -133,11 +150,7 @@ func requireBuffersEqual(t *testing.T, expected []FlatAndDims, got []*pjrt.Buffe
 }
 
 func TestOps(t *testing.T) {
-	for pluginName, client := range pjrtClientsIterator(t) {
-		t.Run(pluginName, func(t *testing.T) {
-			testOps(t, client)
-		})
-	}
+	iterateClientsAndTest(t, testOps)
 }
 
 func testOps(t *testing.T, client *pjrt.Client) {
@@ -546,11 +559,7 @@ func testOps(t *testing.T, client *pjrt.Client) {
 }
 
 func TestBinaryOps(t *testing.T) {
-	for pluginName, client := range pjrtClientsIterator(t) {
-		t.Run(pluginName, func(t *testing.T) {
-			testBinaryOps(t, client)
-		})
-	}
+	iterateClientsAndTest(t, testBinaryOps)
 }
 
 func testBinaryOps(t *testing.T, client *pjrt.Client) {
@@ -646,11 +655,7 @@ func testBinaryOps(t *testing.T, client *pjrt.Client) {
 }
 
 func TestCompare(t *testing.T) {
-	for pluginName, client := range pjrtClientsIterator(t) {
-		t.Run(pluginName, func(t *testing.T) {
-			testCompare(t, client)
-		})
-	}
+	iterateClientsAndTest(t, testCompare)
 }
 
 func testCompare(t *testing.T, client *pjrt.Client) {
@@ -705,11 +710,7 @@ func testCompare(t *testing.T, client *pjrt.Client) {
 const pi32 = float32(math.Pi)
 
 func TestUnaryOps(t *testing.T) {
-	for pluginName, client := range pjrtClientsIterator(t) {
-		t.Run(pluginName, func(t *testing.T) {
-			testUnaryOps(t, client)
-		})
-	}
+	iterateClientsAndTest(t, testUnaryOps)
 }
 
 func testUnaryOps(t *testing.T, client *pjrt.Client) {
@@ -844,11 +845,7 @@ func testUnaryOps(t *testing.T, client *pjrt.Client) {
 }
 
 func TestConstants(t *testing.T) {
-	for pluginName, client := range pjrtClientsIterator(t) {
-		t.Run(pluginName, func(t *testing.T) {
-			testConstants(t, client)
-		})
-	}
+	iterateClientsAndTest(t, testConstants)
 }
 
 func testConstants(t *testing.T, client *pjrt.Client) {
