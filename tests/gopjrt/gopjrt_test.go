@@ -166,7 +166,7 @@ func testOps(t *testing.T, client *pjrt.Client) {
 		sum := must1(Add(c1, c2))
 		must(fn.Return(c1, c2, sum, c3, c4))
 		program := must1(b.Build())
-		fmt.Printf("%s program:\n%s", t.Name(), program)
+		fmt.Printf("%s program:\n%s", t.Name(), withLines(program))
 		output := compileAndExecute(t, client, program)
 		requireBuffersEqual(t, []FlatAndDims{
 			{[]float64{1}, nil},
@@ -184,7 +184,7 @@ func testOps(t *testing.T, client *pjrt.Client) {
 		lhsV, rhsV := fn.NamedInput("lhs", shape), fn.NamedInput("rhs", shape)
 		must(fn.Return(must1(Complex(lhsV, rhsV))))
 		program := must1(builder.Build())
-		fmt.Printf("%s program:\n%s", t.Name(), program)
+		fmt.Printf("%s program:\n%s", t.Name(), withLines(program))
 		a := must1(client.BufferFromHost().FromFlatDataWithDimensions([]float64{1.0}, nil).Done())
 		b := must1(client.BufferFromHost().FromFlatDataWithDimensions([]float64{-1.0}, nil).Done())
 		output := compileAndExecute(t, client, program, a, b)
@@ -199,7 +199,7 @@ func testOps(t *testing.T, client *pjrt.Client) {
 		maxV := fn.NamedInput("max", shapes.Make(dtypes.Float32))
 		must(fn.Return(must1(Clamp(minV, xV, maxV))))
 		program := must1(builder.Build())
-		fmt.Printf("%s program:\n%s", t.Name(), program)
+		fmt.Printf("%s program:\n%s", t.Name(), withLines(program))
 		minArg := must1(client.BufferFromHost().FromFlatDataWithDimensions([]float32{-1.0}, nil).Done())
 		maxArg := must1(client.BufferFromHost().FromFlatDataWithDimensions([]float32{1.0}, nil).Done())
 		x := must1(client.BufferFromHost().FromFlatDataWithDimensions([]float32{0.1, -2.2, 3.3}, []int{3}).Done())
@@ -216,7 +216,7 @@ func testOps(t *testing.T, client *pjrt.Client) {
 			must1(fn.Iota(shapes.Make(dtypes.F32, 4), 0)),
 		))
 		program := must1(builder.Build())
-		fmt.Printf("%s program:\n%s", t.Name(), program)
+		fmt.Printf("%s program:\n%s", t.Name(), withLines(program))
 		outputs := compileAndExecute(t, client, program)
 		requireBuffersEqual(t, []FlatAndDims{
 			{[]float32{0, 0, 1, 1}, []int{2, 2}},
@@ -231,7 +231,7 @@ func testOps(t *testing.T, client *pjrt.Client) {
 		input := fn.NamedInput("x", shapes.Make(dtypes.F64, 6))
 		must(fn.Return(must1(IsFinite(input))))
 		program := must1(builder.Build())
-		fmt.Printf("%s program:\n%s", t.Name(), program)
+		fmt.Printf("%s program:\n%s", t.Name(), withLines(program))
 		v := must1(client.BufferFromHost().FromFlatDataWithDimensions([]float64{0, -1, 1, math.Inf(1), math.Inf(-1), math.NaN()}, []int{6}).Done())
 		outputs := compileAndExecute(t, client, program, v)
 		requireBuffersEqual(t, []FlatAndDims{
@@ -246,7 +246,7 @@ func testOps(t *testing.T, client *pjrt.Client) {
 		y := must1(Reshape(x, shapes.Make(dtypes.F32, 2, 3)))
 		must(fn.Return(y))
 		program := must1(builder.Build())
-		fmt.Printf("%s program:\n%s", t.Name(), program)
+		fmt.Printf("%s program:\n%s", t.Name(), withLines(program))
 		outputs := compileAndExecute(t, client, program)
 		requireBuffersEqual(t, []FlatAndDims{
 			{[]float32{0, 0, 1, 1, 2, 2}, []int{2, 3}},
@@ -260,7 +260,7 @@ func testOps(t *testing.T, client *pjrt.Client) {
 		y := must1(BroadcastInDim(x, shapes.Make(dtypes.F32, 2, 3), []int{1}))
 		must(fn.Return(y))
 		program := must1(builder.Build())
-		fmt.Printf("%s program:\n%s", t.Name(), program)
+		fmt.Printf("%s program:\n%s", t.Name(), withLines(program))
 		outputs := compileAndExecute(t, client, program)
 		requireBuffersEqual(t, []FlatAndDims{
 			{[]float32{0, 1, 2, 0, 1, 2}, []int{2, 3}},
@@ -274,7 +274,7 @@ func testOps(t *testing.T, client *pjrt.Client) {
 		y := must1(BroadcastInDim(x, shapes.Make(dtypes.F32, 3), nil))
 		must(fn.Return(y))
 		program := must1(builder.Build())
-		fmt.Printf("%s program:\n%s", t.Name(), program)
+		fmt.Printf("%s program:\n%s", t.Name(), withLines(program))
 		outputs := compileAndExecute(t, client, program)
 		requireBuffersEqual(t, []FlatAndDims{
 			{[]float32{7, 7, 7}, []int{3}},
@@ -298,7 +298,7 @@ func testOps(t *testing.T, client *pjrt.Client) {
 			sliceSizes, false))
 		must(fn.Return(y))
 		program := must1(builder.Build())
-		fmt.Printf("%s program:\n%s", t.Name(), program)
+		fmt.Printf("%s program:\n%s", t.Name(), withLines(program))
 		outputs := compileAndExecute(t, client, program)
 		requireBuffersEqual(t, []FlatAndDims{
 			{[]float32{ /* row=0: */ 10, 11, 12, 13, 14 /* row=1: */, 0, 1, 2, 3, 4}, []int{2, 5}},
@@ -315,7 +315,7 @@ func testOps(t *testing.T, client *pjrt.Client) {
 		y1 := must1(Slice(x, []int{2}, []int{5}, []int{2}))
 		must(fn.Return(y0, y1))
 		program := must1(builder.Build())
-		fmt.Printf("%s program:\n%s", t.Name(), program)
+		fmt.Printf("%s program:\n%s", t.Name(), withLines(program))
 		outputs := compileAndExecute(t, client, program)
 		requireBuffersEqual(t, []FlatAndDims{
 			{[]float32{2, 3}, []int{2}},
@@ -331,7 +331,7 @@ func testOps(t *testing.T, client *pjrt.Client) {
 		z := must1(Concatenate(1, x, y))
 		must(fn.Return(z))
 		program := must1(builder.Build())
-		fmt.Printf("%s program:\n%s", t.Name(), program)
+		fmt.Printf("%s program:\n%s", t.Name(), withLines(program))
 		outputs := compileAndExecute(t, client, program)
 		requireBuffersEqual(t, []FlatAndDims{
 			{[]float32{0, 1, 2, 0, 0, 1, 2, 1}, []int{2, 4}},
@@ -352,7 +352,7 @@ func testOps(t *testing.T, client *pjrt.Client) {
 		r1 := must1(Reduce(x, zero, reductionFn, 0))
 		must(fn.Return(r0, r1))
 		program := must1(builder.Build())
-		fmt.Printf("%s program:\n%s", t.Name(), program)
+		fmt.Printf("%s program:\n%s", t.Name(), withLines(program))
 		outputs := compileAndExecute(t, client, program)
 		requireBuffersEqual(t, []FlatAndDims{
 			{[]float32{3, 12}, []int{2}},
@@ -382,7 +382,7 @@ func testOps(t *testing.T, client *pjrt.Client) {
 			[]*Value{zeroF32, zeroI32}, reductionFn, 1))
 		must(fn.Return(results[0], results[1]))
 		program := must1(builder.Build())
-		fmt.Printf("%s program:\n%s", t.Name(), program)
+		fmt.Printf("%s program:\n%s", t.Name(), withLines(program))
 		outputs := compileAndExecute(t, client, program)
 		requireBuffersEqual(t, []FlatAndDims{
 			{[]float32{3, 12}, []int{2}},
@@ -401,7 +401,7 @@ func testOps(t *testing.T, client *pjrt.Client) {
 		result1 := must1(Select(pred1, onTrue, onFalse))
 		must(fn.Return(result0, result1))
 		program := must1(builder.Build())
-		fmt.Printf("%s program:\n%s", t.Name(), program)
+		fmt.Printf("%s program:\n%s", t.Name(), withLines(program))
 		outputs := compileAndExecute(t, client, program)
 		requireBuffersEqual(t, []FlatAndDims{
 			{[]float32{0, -1, 2}, []int{3}},
@@ -421,7 +421,7 @@ func testOps(t *testing.T, client *pjrt.Client) {
 			must1(BitcastConvert(c2, dtypes.F32)),
 		))
 		program := must1(builder.Build())
-		fmt.Printf("%s program:\n%s", t.Name(), program)
+		fmt.Printf("%s program:\n%s", t.Name(), withLines(program))
 		outputs := compileAndExecute(t, client, program)
 		requireBuffersEqual(t, []FlatAndDims{
 			{[]uint32{0xdeadbeef}, []int{1}},
@@ -437,7 +437,7 @@ func testOps(t *testing.T, client *pjrt.Client) {
 		x = must1(Reshape(x, shapes.Make(dtypes.F32, 2, 3)))
 		must(fn.Return(must1(Transpose(x, 1, 0))))
 		program := must1(builder.Build())
-		fmt.Printf("%s program:\n%s", t.Name(), program)
+		fmt.Printf("%s program:\n%s", t.Name(), withLines(program))
 		outputs := compileAndExecute(t, client, program)
 		requireBuffersEqual(t, []FlatAndDims{
 			{[]float32{0, 3, 1, 4, 2, 5}, []int{3, 2}},
@@ -453,7 +453,7 @@ func testOps(t *testing.T, client *pjrt.Client) {
 			_, noiseV := must2(RngBitGenerator(state, shapes.Make(dtypes.Uint64, numSamples), algo))
 			must(fn.Return(noiseV))
 			program := must1(builder.Build())
-			fmt.Printf("%s program:\n%s", t.Name(), program)
+			fmt.Printf("%s program:\n%s", t.Name(), withLines(program))
 			outputs := compileAndExecute(t, client, program)
 			flat, dims, err := outputs[0].ToFlatDataAndDimensions()
 			require.NoError(t, err)
@@ -536,7 +536,7 @@ func testOps(t *testing.T, client *pjrt.Client) {
 			must1(Convert(x0, dtypes.Bool)),
 			must1(Convert(x1, dtypes.Int32))))
 		program := must1(builder.Build())
-		fmt.Printf("%s program:\n%s", t.Name(), program)
+		fmt.Printf("%s program:\n%s", t.Name(), withLines(program))
 		outputs := compileAndExecute(t, client, program)
 		requireBuffersEqual(t, []FlatAndDims{
 			{[]bool{false, true, true}, []int{3}},
@@ -552,7 +552,7 @@ func testOps(t *testing.T, client *pjrt.Client) {
 		padded := must1(Pad(x, fill, []int{1, 0, 0}, []int{0, 2, 0}, []int{0, 0, 1}))
 		must(fn.Return(padded))
 		program := must1(builder.Build())
-		fmt.Printf("%s program:\n%s", t.Name(), program)
+		fmt.Printf("%s program:\n%s", t.Name(), withLines(program))
 		outputs := compileAndExecute(t, client, program)
 		requireBuffersEqual(t, []FlatAndDims{
 			{[]float32{3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 0, 3, 0, 0, 3, 0, 0, 3, 0, 3, 3, 3, 3, 3, 3, 1, 3, 1, 1, 3, 1, 1, 3, 1, 3, 3, 3, 3, 3, 3}, []int{3, 5, 3}},
@@ -568,13 +568,51 @@ func testOps(t *testing.T, client *pjrt.Client) {
 			must1(Reverse(x, 0)),
 			must1(Reverse(x, 1))))
 		program := must1(builder.Build())
-		fmt.Printf("%s program:\n%s", t.Name(), program)
+		fmt.Printf("%s program:\n%s", t.Name(), withLines(program))
 		outputs := compileAndExecute(t, client, program)
 		requireBuffersEqual(t, []FlatAndDims{
 			{[]float32{3, 4, 5, 0, 1, 2}, []int{2, 3}},
 			{[]float32{2, 1, 0, 5, 4, 3}, []int{2, 3}},
 		}, outputs)
 	})
+
+	t.Run("FFT", func(t *testing.T) {
+		builder := New(t.Name())
+		fn := builder.Main()
+		x := must1(fn.Iota(shapes.Make(dtypes.F32, 3*4*10), 0))
+		x = must1(Reshape(x, shapes.Make(dtypes.F32, 3, 4, 10)))
+		c := must1(Complex(x, x))
+		must(fn.Return(
+			must1(FFT(c, types.FFTForward)),
+			must1(FFT(c, types.FFTInverse)),
+			must1(FFT(x, types.FFTForwardReal)),
+			must1(FFT(c, types.FFTInverseReal)),
+		))
+		program := must1(builder.Build())
+		fmt.Printf("%s program:\n%s", t.Name(), withLines(program))
+		outputs := compileAndExecute(t, client, program)
+
+		gotDims := must1(outputs[0].Dimensions())
+		fmt.Printf("\t- FFTForward output dims: %v\n", gotDims)
+		require.Equal(t, []int{3, 4, 10}, gotDims)
+
+		gotDims = must1(outputs[1].Dimensions())
+		fmt.Printf("\t- FFTInverse output dims: %v\n", gotDims)
+		require.Equal(t, []int{3, 4, 10}, gotDims)
+
+		gotDims = must1(outputs[2].Dimensions())
+		gotDType := must1(outputs[2].DType())
+		fmt.Printf("\t- FFTForwardReal output dtype %s, dims: %v\n", gotDType, gotDims)
+		require.Equal(t, []int{3, 4, 10/2 + 1}, gotDims)
+		require.Equal(t, dtypes.Complex64, gotDType)
+
+		gotDims = must1(outputs[3].Dimensions())
+		gotDType = must1(outputs[3].DType())
+		fmt.Printf("\t- FFTInverseReal output dtype %s, dims: %v\n", gotDType, gotDims)
+		require.Equal(t, []int{3, 4, 2 * (10 - 1)}, gotDims)
+		require.Equal(t, dtypes.Float32, gotDType)
+	})
+
 }
 
 func TestBinaryOps(t *testing.T) {
@@ -592,7 +630,7 @@ func testBinaryOps(t *testing.T, client *pjrt.Client) {
 		result := must1(op(lhsV, rhsV))
 		must(fn.Return(result))
 		program := must1(builder.Build())
-		fmt.Printf("%s program:\n%s", t.Name(), program)
+		fmt.Printf("%s program:\n%s", t.Name(), withLines(program))
 		a := must1(client.BufferFromHost().FromFlatDataWithDimensions(lhs, []int{}).Done())
 		b := must1(client.BufferFromHost().FromFlatDataWithDimensions(rhs, []int{}).Done())
 		output := compileAndExecute(t, client, program, a, b)
@@ -688,7 +726,7 @@ func testCompare(t *testing.T, client *pjrt.Client) {
 		result := must1(Compare(lhsV, rhsV, direction, compareType))
 		must(fn.Return(result))
 		program := must1(builder.Build())
-		fmt.Printf("%s program:\n%s", t.Name(), program)
+		fmt.Printf("%s program:\n%s", t.Name(), withLines(program))
 		a := must1(client.BufferFromHost().FromFlatDataWithDimensions(lhs, []int{}).Done())
 		b := must1(client.BufferFromHost().FromFlatDataWithDimensions(rhs, []int{}).Done())
 		output := compileAndExecute(t, client, program, a, b)
@@ -743,7 +781,7 @@ func testUnaryOps(t *testing.T, client *pjrt.Client) {
 		result := must1(op(arg))
 		must(fn.Return(result))
 		program := must1(builder.Build())
-		fmt.Printf("%s program:\n%s", t.Name(), program)
+		fmt.Printf("%s program:\n%s", t.Name(), withLines(program))
 		a := must1(client.BufferFromHost().FromFlatDataWithDimensions(input, []int{}).Done())
 		output := compileAndExecute(t, client, program, a)
 		requireBuffersEqual(t, []FlatAndDims{{expected, nil}}, output)
@@ -875,7 +913,7 @@ func testConstants(t *testing.T, client *pjrt.Client) {
 		require.NoError(t, err)
 		must(fn.Return(c))
 		program := must1(builder.Build())
-		fmt.Printf("%s program:\n%s", t.Name(), program)
+		fmt.Printf("%s program:\n%s", t.Name(), withLines(program))
 		output := compileAndExecute(t, client, program)[0]
 		gotFlat, gotDim, err := output.ToFlatDataAndDimensions()
 		require.NoError(t, err)
@@ -900,7 +938,7 @@ func testConstants(t *testing.T, client *pjrt.Client) {
 		require.NoError(t, err)
 		must(fn.Return(c))
 		program := must1(builder.Build())
-		fmt.Printf("%s program:\n%s", t.Name(), program)
+		fmt.Printf("%s program:\n%s", t.Name(), withLines(program))
 		output := compileAndExecute(t, client, program)[0]
 		gotFlat, gotDims, err := output.ToFlatDataAndDimensions()
 		require.NoError(t, err)

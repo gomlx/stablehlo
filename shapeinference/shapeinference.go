@@ -1462,3 +1462,83 @@ func Pad(x, fill shapes.Shape, paddingStart, paddingEnd, paddingInterior []int) 
 	}
 	return shapes.Make(x.DType, outputDims...), nil
 }
+
+func FFT(x shapes.Shape, fftType types.FFTType, fftLengths []int) (output shapes.Shape, err error) {
+	if !x.Ok() {
+		return shapes.Invalid(), errors.Errorf("FFT: invalid input shape %s", x)
+	}
+
+	// Check the FFT lengths are valid and match the input rank.
+	rank := x.Rank()
+	if len(fftLengths) > rank {
+		return shapes.Invalid(), errors.Errorf("FFT: number of FFT lengths (%d) cannot exceed input rank (%d)", len(fftLengths), rank)
+	}
+	for i, length := range fftLengths {
+		if length <= 0 {
+			return shapes.Invalid(), errors.Errorf("FFT: fftLength[%d]=%d must be positive", i, length)
+		}
+	}
+
+	// Check input dtype matches FFT type.
+	switch fftType {
+	case types.FFTForward, types.FFTInverse:
+		if !x.DType.IsComplex() {
+			return shapes.Invalid(), errors.Errorf("FFT: FFTForward and FFTInverse require complex input, got %s", x.DType)
+		}
+	case types.FFTForwardReal:
+		if !x.DType.IsFloat() {
+			return shapes.Invalid(), errors.Errorf("FFT: FFTForwardReal requires real (float) input, got %s", x.DType)
+		}
+	case types.FFTInverseReal:
+		if !x.DType.IsComplex() {
+			return shapes.Invalid(), errors.Errorf("FFT: FFTInverseReal requires complex input, got %s", x.DType)
+		}
+	default:
+		return shapes.Invalid(), errors.Errorf("FFT: invalid FFT type %d", fftType)
+	}
+
+	// Calculate output shape:
+	output = x.Clone()
+	switch fftType {
+	case types.FFTForward, types.FFTInverse:
+		// Output shape is the same as input.
+		return
+
+	case types.FFTForwardReal:
+		// Output is complex, with the last FFT dimension halved and rounded up.
+		if len(fftLengths) == 0 {
+			return shapes.Invalid(), errors.New("FFT: FFTForwardReal requires at least one FFT length")
+		}
+		lastFFTDim := fftLengths[len(fftLengths)-1]
+		output.Dimensions[output.Rank()-1] = lastFFTDim/2 + 1
+		if x.DType == dtypes.Float32 {
+			output.DType = dtypes.Complex64
+		} else { // Float64
+			output.DType = dtypes.Complex128
+		}
+
+	case types.FFTInverseReal:
+		// Input must be complex with the last axis dimension being fftLength/2+1
+		if len(fftLengths) == 0 {
+			return shapes.Invalid(), errors.New("FFT: FFTInverseReal requires at least one FFT length")
+		}
+		lastFFTDim := fftLengths[len(fftLengths)-1]
+		if x.Dim(-1) != lastFFTDim/2+1 {
+			return shapes.Invalid(), errors.Errorf("FFT: FFTInverseReal input dimension %d must be equal to fftLength/2+1=%d",
+				x.Dim(-1), lastFFTDim/2+1)
+		}
+		output.Dimensions[output.Rank()-1] = lastFFTDim
+		switch x.DType {
+		case dtypes.Complex64:
+			output.DType = dtypes.Float32
+		case dtypes.Complex128:
+			output.DType = dtypes.Float64
+		default:
+			return shapes.Invalid(), errors.Errorf("FFT: FFTInverseReal dtype not supported: %s", output.DType)
+		}
+
+	default:
+		return shapes.Invalid(), errors.Errorf("FFT: FFTType=%s not supported", fftType)
+	}
+	return
+}

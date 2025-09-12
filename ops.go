@@ -1088,7 +1088,7 @@ func Reverse(x *Value, axes ...int) (*Value, error) {
 		axes[i] = adjustedAxis
 	}
 
-	// Shape remains the same.
+	// The shape remains the same.
 	stmt := fn.addOp(op, x.shape, x)
 	stmt.Attributes = map[string]any{
 		"dimensions": intSliceToArrayI64StableHLO(axes),
@@ -1099,8 +1099,12 @@ func Reverse(x *Value, axes ...int) (*Value, error) {
 // FFT calls the XLA FFT operation, which implements {Forward, Inverse} x {Complex, Real} versions.
 // See documentation in https://openxla.org/stablehlo/spec#fft, but more details in XLA page here:
 // https://openxla.org/xla/operation_semantics#fft.
+//
+// If fftLengths are not given, one is picked for you: based on the last axis dimension for types.FFTForward, types.FFTInverse
+// and types.FFTForwardReal. And (last_dim-1)*2 for FFTInverseReal.
+//
 // The underlying Gopjrt implementation for CPU FFT is backed by Eigen's TensorFFT, and for GPU FFT it uses cuFFT.
-func FFT(x *Value, fftType types.FFTType, fftLength []int) (*Value, error) {
+func FFT(x *Value, fftType types.FFTType, fftLengths ...int) (*Value, error) {
 	op := optypes.Fft
 	fn := x.fn
 	if fn.Returned {
@@ -1108,20 +1112,26 @@ func FFT(x *Value, fftType types.FFTType, fftLength []int) (*Value, error) {
 			op, fn.Name)
 	}
 
-	// Adjust negative axes.
-	rank := x.shape.Rank()
-	for i, axis := range axes {
-		adjustedAxis, err := shapeinference.AdjustAxisToRank(axis, rank)
-		if err != nil {
-			return nil, errors.Errorf("invalid axis %d for rank(x)=%d", axis, rank)
+	// Set default fftLengths if none provided.
+	if len(fftLengths) == 0 {
+		lastDim := x.shape.Dim(-1)
+		switch fftType {
+		case types.FFTForward, types.FFTInverse, types.FFTForwardReal:
+			fftLengths = []int{lastDim}
+		case types.FFTInverseReal:
+			fftLengths = []int{(lastDim - 1) * 2}
 		}
-		axes[i] = adjustedAxis
 	}
 
-	// Shape remains the same.
-	stmt := fn.addOp(op, x.shape, x)
+	outputShape, err := shapeinference.FFT(x.shape, fftType, fftLengths)
+	if err != nil {
+		return nil, err
+	}
+
+	stmt := fn.addOp(op, outputShape, x)
 	stmt.Attributes = map[string]any{
-		"dimensions": intSliceToArrayI64StableHLO(axes),
+		"fft_type":   literalStrF("#stablehlo<fft_type %s>", fftType.ToStableHLO()),
+		"fft_length": intSliceToArrayI64StableHLO(fftLengths),
 	}
 	return stmt.Outputs[0], nil
 }

@@ -196,9 +196,9 @@ func (t FFTType) ToStableHLO() string {
 	case FFTInverse:
 		return "IFFT"
 	case FFTForwardReal:
-		return "FFT_REAL"
+		return "RFFT"
 	case FFTInverseReal:
-		return "IFFT_REAL"
+		return "IRFFT"
 	default:
 		return "FFT_UNKNOWN_TYPE"
 	}
