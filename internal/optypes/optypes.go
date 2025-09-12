@@ -39,6 +39,7 @@ const (
 	Erf
 	Exponential
 	ExponentialMinusOne
+	Fft
 	Floor
 	Gather
 	Imag
@@ -97,7 +98,6 @@ const (
 	DynamicPad
 	DynamicReshape
 	DynamicUpdateSlice
-	Fft
 	GetDimensionSize
 	GetTupleElement
 	If

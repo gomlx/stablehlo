@@ -168,3 +168,38 @@ const (
 )
 
 //go:generate go tool enumer -type=RngBitGeneratorAlgorithm -trimprefix=Rng -transform=snake ops.go
+
+// FFTType defines the type of the FFT operation, see FFT.
+type FFTType int
+
+const (
+	// FFTForward - complex in, complex out.
+	FFTForward FFTType = iota
+
+	// FFTInverse - complex in, complex out.
+	FFTInverse
+
+	// FFTForwardReal - real in, fft_length / 2 + 1 complex out
+	FFTForwardReal
+
+	// FFTInverseReal - fft_length / 2 + 1 complex in
+	FFTInverseReal
+)
+
+//go:generate go tool enumer -type FFTType -trimprefix=FFT ops.go
+
+// ToStableHLO returns the StableHLO representation of the FFT type.
+func (t FFTType) ToStableHLO() string {
+	switch t {
+	case FFTForward:
+		return "FFT"
+	case FFTInverse:
+		return "IFFT"
+	case FFTForwardReal:
+		return "FFT_REAL"
+	case FFTInverseReal:
+		return "IFFT_REAL"
+	default:
+		return "FFT_UNKNOWN_TYPE"
+	}
+}
