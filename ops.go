@@ -1104,7 +1104,7 @@ func Reverse(x *Value, axes ...int) (*Value, error) {
 // and types.FFTForwardReal. And (last_dim-1)*2 for FFTInverseReal.
 //
 // The underlying Gopjrt implementation for CPU FFT is backed by Eigen's TensorFFT, and for GPU FFT it uses cuFFT.
-func FFT(x *Value, fftType types.FFTType, fftLengths ...int) (*Value, error) {
+func FFT(x *Value, fftType types.FFTType, fftLength ...int) (*Value, error) {
 	op := optypes.Fft
 	fn := x.fn
 	if fn.Returned {
@@ -1112,18 +1112,18 @@ func FFT(x *Value, fftType types.FFTType, fftLengths ...int) (*Value, error) {
 			op, fn.Name)
 	}
 
-	// Set default fftLengths if none provided.
-	if len(fftLengths) == 0 {
+	// Set default fftLength if none provided.
+	if len(fftLength) == 0 {
 		lastDim := x.shape.Dim(-1)
 		switch fftType {
 		case types.FFTForward, types.FFTInverse, types.FFTForwardReal:
-			fftLengths = []int{lastDim}
+			fftLength = []int{lastDim}
 		case types.FFTInverseReal:
-			fftLengths = []int{(lastDim - 1) * 2}
+			fftLength = []int{(lastDim - 1) * 2}
 		}
 	}
 
-	outputShape, err := shapeinference.FFT(x.shape, fftType, fftLengths)
+	outputShape, err := shapeinference.FFT(x.shape, fftType, fftLength)
 	if err != nil {
 		return nil, err
 	}
@@ -1131,7 +1131,7 @@ func FFT(x *Value, fftType types.FFTType, fftLengths ...int) (*Value, error) {
 	stmt := fn.addOp(op, outputShape, x)
 	stmt.Attributes = map[string]any{
 		"fft_type":   literalStrF("#stablehlo<fft_type %s>", fftType.ToStableHLO()),
-		"fft_length": intSliceToArrayI64StableHLO(fftLengths),
+		"fft_length": intSliceToArrayI64StableHLO(fftLength),
 	}
 	return stmt.Outputs[0], nil
 }

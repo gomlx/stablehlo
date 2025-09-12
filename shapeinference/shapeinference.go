@@ -1463,17 +1463,17 @@ func Pad(x, fill shapes.Shape, paddingStart, paddingEnd, paddingInterior []int) 
 	return shapes.Make(x.DType, outputDims...), nil
 }
 
-func FFT(x shapes.Shape, fftType types.FFTType, fftLengths []int) (output shapes.Shape, err error) {
+func FFT(x shapes.Shape, fftType types.FFTType, fftLength []int) (output shapes.Shape, err error) {
 	if !x.Ok() {
 		return shapes.Invalid(), errors.Errorf("FFT: invalid input shape %s", x)
 	}
 
 	// Check the FFT lengths are valid and match the input rank.
 	rank := x.Rank()
-	if len(fftLengths) > rank {
-		return shapes.Invalid(), errors.Errorf("FFT: number of FFT lengths (%d) cannot exceed input rank (%d)", len(fftLengths), rank)
+	if len(fftLength) > rank {
+		return shapes.Invalid(), errors.Errorf("FFT: number of FFT lengths (%d) cannot exceed input rank (%d)", len(fftLength), rank)
 	}
-	for i, length := range fftLengths {
+	for i, length := range fftLength {
 		if length <= 0 {
 			return shapes.Invalid(), errors.Errorf("FFT: fftLength[%d]=%d must be positive", i, length)
 		}
@@ -1506,10 +1506,10 @@ func FFT(x shapes.Shape, fftType types.FFTType, fftLengths []int) (output shapes
 
 	case types.FFTForwardReal:
 		// Output is complex, with the last FFT dimension halved and rounded up.
-		if len(fftLengths) == 0 {
+		if len(fftLength) == 0 {
 			return shapes.Invalid(), errors.New("FFT: FFTForwardReal requires at least one FFT length")
 		}
-		lastFFTDim := fftLengths[len(fftLengths)-1]
+		lastFFTDim := fftLength[len(fftLength)-1]
 		output.Dimensions[output.Rank()-1] = lastFFTDim/2 + 1
 		if x.DType == dtypes.Float32 {
 			output.DType = dtypes.Complex64
@@ -1519,10 +1519,10 @@ func FFT(x shapes.Shape, fftType types.FFTType, fftLengths []int) (output shapes
 
 	case types.FFTInverseReal:
 		// Input must be complex with the last axis dimension being fftLength/2+1
-		if len(fftLengths) == 0 {
+		if len(fftLength) == 0 {
 			return shapes.Invalid(), errors.New("FFT: FFTInverseReal requires at least one FFT length")
 		}
-		lastFFTDim := fftLengths[len(fftLengths)-1]
+		lastFFTDim := fftLength[len(fftLength)-1]
 		if x.Dim(-1) != lastFFTDim/2+1 {
 			return shapes.Invalid(), errors.Errorf("FFT: FFTInverseReal input dimension %d must be equal to fftLength/2+1=%d",
 				x.Dim(-1), lastFFTDim/2+1)
