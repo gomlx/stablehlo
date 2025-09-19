@@ -877,77 +877,102 @@ func ArgMinMax(operand shapes.Shape, axis int, outputDType dtypes.DType) (output
 // ReduceWindow returns the expected output shape for the operation.
 //
 // Notice it doesn't take as input the reductionType parameter, since it doesn't affect the output shape.
-func ReduceWindow(operand shapes.Shape, windowDimensions, strides, baseDilations, windowDilations []int, paddings [][2]int) (shapes.Shape, error) {
-	if !operand.Ok() {
-		return shapes.Invalid(), errors.Errorf("ReduceWindow: invalid operand shape %s", operand)
+func ReduceWindow(inputs, initialValues []shapes.Shape, reductionInputs, reductionOutputs []shapes.Shape,
+	windowDimensions, strides, baseDilations, windowDilations []int, paddings [][2]int) (outputs []shapes.Shape, err error) {
+	numReductions := len(inputs)
+	if numReductions < 0 {
+		return nil, errors.New("ReduceWindow requires at least one input")
 	}
-	rank := operand.Rank()
+	baseShape := inputs[0]
+	for i, input := range inputs {
+		if !input.Ok() {
+			return nil, errors.Errorf("ReduceWindow: invalid input[%d] shape %s", i, input)
+		}
+		err = input.CheckDims(baseShape.Dimensions...)
+		if err != nil {
+			err = errors.WithMessagef(err, "ReduceWindow: all inputs must have the same shape, inputs[0] has shape %s, but inputs[%d] has shape %s",
+				baseShape, i, input)
+			return
+		}
+	}
+	rank := baseShape.Rank()
+	for i, initialValue := range initialValues {
+		if initialValue.DType != inputs[i].DType {
+			return nil, errors.Errorf("ReduceWindow: initialValue[%d] has DType %s, but inputs[%d] has DType %s",
+				i, initialValue.DType, i, inputs[i].DType)
+		}
+		if !initialValue.IsScalar() {
+			return nil, errors.Errorf("ReduceWindow: initialValue[%d] must be a scalar, but got shape %s", i, initialValue)
+		}
+	}
+
+	// Check that all reduction inputs and outputs are valid.
+	if len(reductionInputs) != 2*numReductions {
+		return nil, errors.Errorf("The reduction function for the ReduceWindow operation must have 2 inputs for each initialValue, but reduction has %d inputs for 2*%d=%d initial values",
+			len(reductionInputs), len(initialValues), 2*len(initialValues))
+	}
+	if len(reductionOutputs) != numReductions {
+		return nil, errors.Errorf("The reduction function for the ReduceWindow operation must have 1 output for each initialValue, but reduction has %d outputs for %d initial values",
+			len(reductionOutputs), len(initialValues))
+	}
+	for i := range numReductions {
+		if reductionInputs[i].DType != reductionInputs[i+numReductions].DType || reductionInputs[i].DType != reductionOutputs[i].DType {
+			return nil, errors.Errorf("ReduceWindow requires the same dtype for lhs[i], rhs[i] inputs and output[i], got lhs[%d]=%s and rhs[%d+%d]=%s and output[%d]=%s",
+				i, reductionInputs[i], i, numReductions, reductionInputs[i+numReductions], i, reductionOutputs[i])
+		}
+		// TODO: check that inputs[i].DType is promotable to reductionInputs[1].DType.
+	}
 
 	// Validate lengths of slice parameters against rank.
-	if len(windowDimensions) != 0 && len(windowDimensions) != rank {
-		return shapes.Invalid(), errors.Errorf("ReduceWindow: len(windowDimensions)=%d, but operand rank is %d", len(windowDimensions), rank)
+	if len(windowDimensions) != rank {
+		return nil, errors.Errorf("ReduceWindow: len(windowDimensions)=%d, but inputs rank is %d", len(windowDimensions), rank)
 	}
-	if len(strides) != 0 && len(strides) != rank {
-		return shapes.Invalid(), errors.Errorf("ReduceWindow: len(strides)=%d, but operand rank is %d", len(strides), rank)
+	if len(strides) != rank {
+		return nil, errors.Errorf("ReduceWindow: len(strides)=%d, but inputs rank is %d", len(strides), rank)
 	}
-	if len(paddings) != 0 && len(paddings) != rank {
-		return shapes.Invalid(), errors.Errorf("ReduceWindow: len(paddings)=%d, but operand rank is %d", len(paddings), rank)
+	if len(paddings) != rank {
+		return nil, errors.Errorf("ReduceWindow: len(paddings)=%d, but inputs rank is %d", len(paddings), rank)
 	}
-	if baseDilations != nil && len(baseDilations) != rank {
-		return shapes.Invalid(), errors.Errorf("ReduceWindow: baseDilations is not nil and len(baseDilations)=%d, but operand rank is %d", len(baseDilations), rank)
+	if len(baseDilations) != rank {
+		return nil, errors.Errorf("ReduceWindow: baseDilations is not nil and len(baseDilations)=%d, but inputs rank is %d", len(baseDilations), rank)
 	}
-	if windowDilations != nil && len(windowDilations) != rank {
-		return shapes.Invalid(), errors.Errorf("ReduceWindow: windowDilations is not nil and len(windowDilations)=%d, but operand rank is %d", len(windowDilations), rank)
+	if len(windowDilations) != rank {
+		return nil, errors.Errorf("ReduceWindow: windowDilations is not nil and len(windowDilations)=%d, but inputs rank is %d", len(windowDilations), rank)
 	}
 
 	// If operand is a scalar (rank 0), the output is also a scalar of the same type.
 	// All dimension-specific parameters (windowDimensions, strides, etc.) must be empty,
 	// which is enforced by the length checks above (e.g., len(windowDimensions) == rank == 0).
 	if rank == 0 {
-		return operand, nil
+		outputs = inputs
+		return
 	}
 
 	// Each output dimension is calculated orthogonally to the others.
 	outputDims := make([]int, rank)
+	operand := inputs[0]
 	for i := 0; i < rank; i++ {
 		inputDim := operand.Dimensions[i] // Already validated to be > 0 by shapes.Make
-		windowDim := 1
-		if len(windowDimensions) > 0 {
-			windowDim = windowDimensions[i]
-			if windowDim < 1 {
-				return shapes.Invalid(), errors.Errorf("ReduceWindow: windowDimensions[%d]=%d must be >= 1 for operand shape %s", i, windowDim, operand)
-			}
+		windowDim := windowDimensions[i]
+		if windowDim < 1 {
+			return nil, errors.Errorf("ReduceWindow: windowDimensions[%d]=%d must be >= 1 for operand shape %s", i, windowDim, operand)
 		}
-		stride := windowDim
-		if len(strides) > 0 {
-			stride = strides[i]
-			if stride < 1 {
-				return shapes.Invalid(), errors.Errorf("ReduceWindow: strides[%d]=%d must be >= 1 for operand shape %s", i, stride, operand)
-			}
+		stride := strides[i]
+		if stride < 1 {
+			return nil, errors.Errorf("ReduceWindow: strides[%d]=%d must be >= 1 for operand shape %s", i, stride, operand)
 		}
-		paddingLow, paddingHigh := 0, 0
-		if len(paddings) > 0 {
-			paddingLow = paddings[i][0]
-			paddingHigh = paddings[i][1]
-			if paddingLow < 0 || paddingHigh < 0 {
-				return shapes.Invalid(), errors.Errorf("ReduceWindow: paddings[%d]=[%d, %d] must be non-negative for operand shape %s", i, paddingLow, paddingHigh, operand)
-			}
+		paddingLow := paddings[i][0]
+		paddingHigh := paddings[i][1]
+		if paddingLow < 0 || paddingHigh < 0 {
+			return nil, errors.Errorf("ReduceWindow: paddings[%d]=[%d, %d] must be non-negative for operand shape %s", i, paddingLow, paddingHigh, operand)
 		}
-
-		baseDilation := 1
-		if baseDilations != nil {
-			baseDilation = baseDilations[i]
-			if baseDilation < 1 {
-				return shapes.Invalid(), errors.Errorf("ReduceWindow: baseDilations[%d]=%d must be >= 1 for operand shape %s", i, baseDilation, operand)
-			}
+		baseDilation := baseDilations[i]
+		if baseDilation < 1 {
+			return nil, errors.Errorf("ReduceWindow: baseDilations[%d]=%d must be >= 1 for operand shape %s", i, baseDilation, operand)
 		}
-
-		windowDilation := 1
-		if windowDilations != nil {
-			windowDilation = windowDilations[i]
-			if windowDilation < 1 {
-				return shapes.Invalid(), errors.Errorf("ReduceWindow: windowDilations[%d]=%d must be >= 1 for operand shape %s", i, windowDilation, operand)
-			}
+		windowDilation := windowDilations[i]
+		if windowDilation < 1 {
+			return nil, errors.Errorf("ReduceWindow: windowDilations[%d]=%d must be >= 1 for operand shape %s", i, windowDilation, operand)
 		}
 
 		// Effective input dimension after base dilation.
@@ -964,7 +989,7 @@ func ReduceWindow(operand shapes.Shape, windowDimensions, strides, baseDilations
 		// output_dim = floor((padded_input_size - effective_window_size) / stride) + 1
 		// The numerator must be non-negative for the output dimension to be at least 1.
 		if effectiveWindowDim > paddedEffectiveInputDim {
-			return shapes.Invalid(), errors.Errorf(
+			return nil, errors.Errorf(
 				"ReduceWindow: effective window dimension %d for axis %d is larger than padded effective input dimension %d. (input_dim: %d, base_dilation: %d, window_dim: %d, window_dilation: %d, padding: [%d,%d]) for operand shape %s",
 				effectiveWindowDim, i, paddedEffectiveInputDim, inputDim, baseDilation, windowDim, windowDilation, paddingLow, paddingHigh, operand)
 		}
@@ -973,7 +998,11 @@ func ReduceWindow(operand shapes.Shape, windowDimensions, strides, baseDilations
 		outputDims[i] = numerator/stride + 1
 	}
 
-	return shapes.Make(operand.DType, outputDims...), nil
+	outputs = make([]shapes.Shape, len(inputs))
+	for i, output := range reductionOutputs {
+		outputs[i] = shapes.Make(output.DType, outputDims...)
+	}
+	return
 }
 
 // Convolve returns the expected output shape for the Convolve operation.

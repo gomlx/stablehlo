@@ -1135,3 +1135,110 @@ func FFT(x *Value, fftType types.FFTType, fftLength ...int) (*Value, error) {
 	}
 	return stmt.Outputs[0], nil
 }
+
+// ReduceWindow reduces the inputs using arbitrary windows around each element.
+//
+// Each resulting element for input is initialized with initValue (e.g.: for a sum, it's 0, for a product it is 1),
+// and then each value is combined with the window around the element using the reduction function.
+//
+// The reduction function must be created with Builder.NewClosure.
+// If there are N inputs and initialValues, the reduction function should have a signature
+// `(lhs, rhs) out`, where lhs, rhs and out are scalars.
+func ReduceWindow(input, initialValue *Value, reduction *Function,
+	windowDimensions, strides, inputDilations, windowDilations []int,
+	padding [][2]int) (*Value, error) {
+	results, err := MultiReduceWindow([]*Value{input}, []*Value{initialValue}, reduction,
+		windowDimensions, strides, inputDilations, windowDilations, padding)
+	if err != nil {
+		return nil, err
+	}
+	return results[0], nil
+}
+
+// MultiReduceWindow reduces the inputs using arbitrary windows around each element.
+//
+// Each resulting element for inputs[i] is initialized with initValues[i] (e.g.: for a sum, it's 0, for a product it is 1),
+// and then each value is combined with the window around the element using the reduction function.
+//
+// The reduction function must be created with Builder.NewClosure.
+// If there are N inputs and initialValues, the reduction function should have a signature
+// (lhs_1, ... lhs_N, rhs_1, ... lhs_N) and output (out_1 ... out_N), where lhs_i and rhs_i are scalars.
+//
+// It returns N results for each aggregated value.
+//
+// See Reduce for a version that accepts a single input.
+//
+// TODO: promotion of types doesn't seem to be working according to the spec in
+// https://openxla.org/stablehlo/spec#reduce.
+func MultiReduceWindow(inputs, initialValues []*Value, reduction *Function,
+	windowDimensions, strides, inputDilations, windowDilations []int,
+	padding [][2]int) ([]*Value, error) {
+	op := optypes.ReduceWindow
+	if len(inputs) == 0 {
+		return nil, errors.New("MultiReduce requires at least one input")
+	}
+	fn := inputs[0].fn
+	if fn.Returned {
+		return nil, errors.Errorf("cannot add operation %s after returning, in function %q",
+			op, fn.Name)
+	}
+	for i, operand := range inputs {
+		if operand.fn != fn {
+			return nil, errors.Errorf("cannot add operation %s to function %q, because inputs[%d] is from different function (%q and %q)",
+				op, fn.Name, i, operand.fn.Name, fn.Name)
+		}
+	}
+	for i, operand := range initialValues {
+		if operand.fn != fn {
+			return nil, errors.Errorf("cannot add operation %s to function %q, because initialValues[%d] is from different function (%q and %q)",
+				op, fn.Name, i, operand.fn.Name, fn.Name)
+		}
+	}
+
+	// Initialize default values for parameters.
+	rank := inputs[0].shape.Rank()
+	for _, param := range []*[]int{&windowDimensions, &strides, &inputDilations, &windowDilations} {
+		if len(*param) == 0 {
+			*param = make([]int, rank)
+			for i := range *param {
+				(*param)[i] = 1
+			}
+		}
+	}
+	if len(padding) == 0 {
+		// Default padding of 0.
+		padding = make([][2]int, rank)
+	}
+
+	outputsShapes, err := shapeinference.ReduceWindow(
+		valuesToShapes(inputs), valuesToShapes(initialValues),
+		valuesToShapes(reduction.Inputs), reduction.Outputs,
+		windowDimensions, strides, inputDilations, windowDilations,
+		padding)
+	if err != nil {
+		return nil, err
+	}
+	allInputs := append(slices.Clone(inputs), initialValues...)
+	stmt := fn.addMultiOp(op, outputsShapes, allInputs)
+	stmt.Attributes = map[string]any{
+		"window_dimensions": intSliceToArrayI64StableHLO(windowDimensions),
+		"window_strides":    intSliceToArrayI64StableHLO(strides),
+		"base_dilations":    intSliceToArrayI64StableHLO(inputDilations),
+		"window_dilations":  intSliceToArrayI64StableHLO(windowDilations),
+		"base_dilation":     intSliceToArrayI64StableHLO(windowDilations),
+	}
+	stmt.AddFunctionParameter("reductionFn", reduction)
+
+	// Encode padding:
+	allPaddings := make([]int, 0, rank*2)
+	for _, pad := range padding {
+		allPaddings = append(allPaddings, pad[0], pad[1])
+	}
+	paddingsConfig, err := newTensorLiteralFromFlatAndDimensions(allPaddings, rank, 2)
+	if err != nil {
+		return nil, errors.WithMessagef(err, "in Convolution paddings values")
+	}
+	stmt.Attributes["padding"] = paddingsConfig
+
+	return stmt.Outputs, nil
+}

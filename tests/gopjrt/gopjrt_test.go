@@ -613,6 +613,33 @@ func testOps(t *testing.T, client *pjrt.Client) {
 		require.Equal(t, dtypes.Float32, gotDType)
 	})
 
+	t.Run("ReduceWindow", func(t *testing.T) {
+		builder := New(t.Name())
+		fn := builder.Main()
+		x := must1(fn.Iota(shapes.Make(dtypes.F32, 2*3), 0))
+		x = must1(Reshape(x, shapes.Make(dtypes.F32, 2, 3)))
+		zero := must1(fn.ConstantFromScalar(float32(0)))
+		reductionFn := fn.Closure()
+		lhs := reductionFn.NamedInput("lhs", shapes.Make(dtypes.F32))
+		rhs := reductionFn.NamedInput("rhs", shapes.Make(dtypes.F32))
+		must(reductionFn.Return(must1(Add(lhs, rhs))))
+		r0 := must1(ReduceWindow(x, zero, reductionFn,
+			[]int{2, 2}, nil, nil, nil, nil))
+		r1 := must1(ReduceWindow(x, zero, reductionFn,
+			[]int{2, 2}, nil, nil, nil, [][2]int{{1, 1}, {1, 1}}))
+		must(fn.Return(r0, r1))
+		program := must1(builder.Build())
+		fmt.Printf("%s program:\n%s", t.Name(), withLines(program))
+		outputs := compileAndExecute(t, client, program)
+		requireBuffersEqual(t, []FlatAndDims{
+			{[]float32{8, 12}, []int{1, 2}},
+			{[]float32{
+				0, 1, 3, 2,
+				3, 8, 12, 7,
+				3, 7, 9, 5}, []int{3, 4}},
+		}, outputs)
+	})
+
 }
 
 func TestBinaryOps(t *testing.T) {

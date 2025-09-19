@@ -60,6 +60,7 @@ const (
 	Real
 	Remainder
 	Reduce
+	ReduceWindow
 	Reshape
 	Reverse
 	RngBitGenerator
@@ -108,7 +109,6 @@ const (
 	Recv
 	ReducePrecision
 	ReduceScatter
-	ReduceWindow
 	Select
 	SelectAndScatter
 	Send
