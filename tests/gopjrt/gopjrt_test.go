@@ -624,9 +624,9 @@ func testOps(t *testing.T, client *pjrt.Client) {
 		rhs := reductionFn.NamedInput("rhs", shapes.Make(dtypes.F32))
 		must(reductionFn.Return(must1(Add(lhs, rhs))))
 		r0 := must1(ReduceWindow(x, zero, reductionFn,
-			[]int{2, 2}, nil, nil, nil, nil))
+			[]int{2, 2}, []int{1, 1}, nil, nil, nil))
 		r1 := must1(ReduceWindow(x, zero, reductionFn,
-			[]int{2, 2}, nil, nil, nil, [][2]int{{1, 1}, {1, 1}}))
+			[]int{2, 2}, []int{1, 1}, nil, nil, [][2]int{{1, 1}, {1, 1}}))
 		must(fn.Return(r0, r1))
 		program := must1(builder.Build())
 		fmt.Printf("%s program:\n%s", t.Name(), withLines(program))

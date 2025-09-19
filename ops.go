@@ -1144,6 +1144,12 @@ func FFT(x *Value, fftType types.FFTType, fftLength ...int) (*Value, error) {
 // The reduction function must be created with Builder.NewClosure.
 // If there are N inputs and initialValues, the reduction function should have a signature
 // `(lhs, rhs) out`, where lhs, rhs and out are scalars.
+//
+// If strides is not set, it defaults to the value of windowDimensions -- the stride matches the window size.
+//
+// See MultiReduceWindow for a version that supports reducing multiple inputs at once.
+//
+// TODO: promotion of types doesn't seem to be working according to the spec in
 func ReduceWindow(input, initialValue *Value, reduction *Function,
 	windowDimensions, strides, inputDilations, windowDilations []int,
 	padding [][2]int) (*Value, error) {
@@ -1166,10 +1172,11 @@ func ReduceWindow(input, initialValue *Value, reduction *Function,
 //
 // It returns N results for each aggregated value.
 //
-// See Reduce for a version that accepts a single input.
+// See ReduceWindow for a version that accepts a single input.
+//
+// If strides is not set, it defaults to the value of windowDimensions -- the stride matches the window size.
 //
 // TODO: promotion of types doesn't seem to be working according to the spec in
-// https://openxla.org/stablehlo/spec#reduce.
 func MultiReduceWindow(inputs, initialValues []*Value, reduction *Function,
 	windowDimensions, strides, inputDilations, windowDilations []int,
 	padding [][2]int) ([]*Value, error) {
@@ -1197,13 +1204,17 @@ func MultiReduceWindow(inputs, initialValues []*Value, reduction *Function,
 
 	// Initialize default values for parameters.
 	rank := inputs[0].shape.Rank()
-	for _, param := range []*[]int{&windowDimensions, &strides, &inputDilations, &windowDilations} {
+	for _, param := range []*[]int{&windowDimensions, &inputDilations, &windowDilations} {
 		if len(*param) == 0 {
 			*param = make([]int, rank)
 			for i := range *param {
 				(*param)[i] = 1
 			}
 		}
+	}
+	if len(strides) == 0 {
+		// Default stride is the windowDimension.
+		strides = slices.Clone(windowDimensions)
 	}
 	if len(padding) == 0 {
 		// Default padding of 0.
