@@ -1480,10 +1480,10 @@ func Pad(x, fill shapes.Shape, paddingStart, paddingEnd, paddingInterior []int) 
 			len(paddingStart), len(paddingEnd), len(paddingInterior), rank)
 	}
 
-	// Check padding values are non-negative.
-	for axis := 0; axis < rank; axis++ {
-		if paddingStart[axis] < 0 || paddingEnd[axis] < 0 || paddingInterior[axis] < 0 {
-			return shapes.Invalid(), errors.Errorf("Pad: padding values must be non-negative, got start=%d, end=%d, interior=%d for axis %d",
+	// Check that interior padding values are non-negative.
+	for axis := range rank {
+		if paddingInterior[axis] < 0 {
+			return shapes.Invalid(), errors.Errorf("Pad: interior padding values must be non-negative, got start=%d, end=%d, interior=%d for axis %d",
 				paddingStart[axis], paddingEnd[axis], paddingInterior[axis], axis)
 		}
 	}

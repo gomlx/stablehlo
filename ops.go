@@ -898,10 +898,13 @@ func Convert(x *Value, dtype dtypes.DType) (*Value, error) {
 // It adds padding values around and in-between the elements of x.
 // For each axis:
 //   - paddingStart elements are inserted before the tensor.
+//     This value can be negative, in which case elements are removed from the start of the axis.
 //   - paddingEnd elements are appended after the tensor.
+//     This value can be negative, in which case elements are removed from the start of the axis.
 //   - paddingInterior elements are inserted between consecutive elements of the tensor.
 //     So setting paddingInterior[i]=2 for axis "i" means 2 elements will be inserted between
 //     every adjacent pair of elements.
+//     paddingInterior can not be negative.
 //
 // If any of the padding parameters is not given, it is set to 0 for all axes.
 //
@@ -1333,5 +1336,35 @@ func SelectAndScatter(input, scatterSource, initialValue *Value,
 		return nil, errors.WithMessagef(err, "in Convolution paddings values")
 	}
 	stmt.Attributes["padding"] = paddingsConfig
+	return stmt.Outputs[0], nil
+}
+
+// DynamicSlice extracts a slice from the operand at the startIndices position and the given sliceSizes.
+//
+// - startIndices: scalar tensors, one per axis of operand: len(startIndices) == operand.Rank().
+// - sliceSizes: static values and fixed to keep the shape of the output static.
+//
+// The startIndices are adjusted as follows:
+//
+//	adjustedStartIndices[i] = clamp(0, StartIndices[i], operand.Dimensions[i] - sliceSizes[i])
+func DynamicSlice(operand *Value, startIndices []*Value, sliceSizes []int) (*Value, error) {
+	op := optypes.DynamicSlice
+	fn := operand.fn
+	if fn.Returned {
+		return nil, errors.Errorf("cannot add operation %s after returning, in function %q",
+			op, fn.Name)
+	}
+	for axis, idx := range startIndices {
+		if idx.fn != fn {
+			return nil, errors.Errorf("cannot add operation %s to function %q, because operand and startIndices[%d] are from different function (%q and %q)",
+				op, fn.Name, axis, fn.Name, idx.fn.Name)
+		}
+	}
+	outputShape := operand.shape.Clone()
+	for axis, size := range sliceSizes {
+		outputShape.Dimensions[axis] = size
+	}
+	stmt := fn.addOp(op, outputShape, append([]*Value{operand}, startIndices...)...)
+	stmt.Attributes = map[string]any{"slice_sizes": intSliceToArrayI64StableHLO(sliceSizes)}
 	return stmt.Outputs[0], nil
 }

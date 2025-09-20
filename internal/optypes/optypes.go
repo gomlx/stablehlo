@@ -36,6 +36,8 @@ const (
 	CountLeadingZeros
 	Divide
 	DotGeneral
+	DynamicSlice
+	DynamicUpdateSlice
 	Erf
 	Exponential
 	ExponentialMinusOne
@@ -100,7 +102,6 @@ const (
 	DynamicIota
 	DynamicPad
 	DynamicReshape
-	DynamicUpdateSlice
 	GetDimensionSize
 	GetTupleElement
 	If
