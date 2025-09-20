@@ -776,7 +776,7 @@ func Scatter(inputs []shapes.Shape, scatterIndices shapes.Shape, updates []shape
 	}
 	for i := range len(inputs) {
 		dtype := updateComputationInputs[i].DType
-		if inputs[i].DType.IsPromotableTo(dtype) {
+		if !inputs[i].DType.IsPromotableTo(dtype) {
 			return nil, errors.Errorf(
 				"inputs[%d].DType=%s is not promotable to updateComputationFn input parameter #%d's dtype (%s)",
 				i, inputs[i].DType, i, dtype)
@@ -925,7 +925,7 @@ func ReduceWindow(inputs, initialValues []shapes.Shape, reductionInputs, reducti
 			return nil, errors.Errorf("ReduceWindow requires the same dtype for lhs[i], rhs[i] inputs and output[i], got lhs[%d]=%s and rhs[%d+%d]=%s and output[%d]=%s",
 				i, reductionInputs[i], i, numReductions, reductionInputs[i+numReductions], i, reductionOutputs[i])
 		}
-		if inputs[i].DType.IsPromotableTo(dtype) {
+		if !inputs[i].DType.IsPromotableTo(dtype) {
 			return nil, errors.Errorf(
 				"inputs[%d].DType=%s is not promotable to reductionFn input parameter #%d's dtype (%s)",
 				i, inputs[i].DType, i, dtype)
