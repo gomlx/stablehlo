@@ -1266,17 +1266,10 @@ func MultiReduceWindow(inputs, initialValues []*Value, reductionFn *Function,
 	return stmt.Outputs, nil
 }
 
-// SelectAndScatter performs an operation using a select function and a scatter function on an input tensor.
-// The operation is applied in a sliding window, determined by window dimensions, strides, and paddings.
+// SelectAndScatter performs a ReduceWindow on the input, selecting one value per window (using the selectFn to choose the value),
+// and then aggregating this value into the output (at the same index as the input).
 //
-// The initialValue is used during the selection.
-//
-// selectFn is used to define a comparison operation for selecting elements in the window.
-// scatterFn is used to define the reduction operation for scattering selected elements.
-// windowDimensions specifies the size of the sliding window for each dimension in the input tensor.
-// strides specifies the step size for the sliding window in each dimension of the input tensor.
-// paddings specifies the padding configuration, where each entry defines before and after padding for a dimension.
-// Returns a new tensor as the result of the SelectAndScatter operation or an error if input validation fails.
+// The return result has the same shape as the input, and it is populated with the initialValue.
 func SelectAndScatter(input, scatterSource, initialValue *Value,
 	selectFn, scatterFn *Function,
 	windowDimensions, strides []int, paddings [][2]int) (*Value, error) {
