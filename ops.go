@@ -224,7 +224,7 @@ type DotGeneralBuilder struct {
 //     those dimensions.
 //
 // It follows that the resulting dimension number starts with the batch dimension, then the 'lhs'
-// non-contracting/non-batch dimension and finally the 'rhs' non-contracting/non-batch dimension.
+// non-contracting/non-batch dimension, and finally the 'rhs' non-contracting/non-batch dimension.
 // It provides the basic means of implementing Einsum.
 //
 // Because there are optional parameters, this function returns a DotGeneralBuilder that can
@@ -572,8 +572,8 @@ func Concatenate(axis int, operands ...*Value) (*Value, error) {
 // So one could reduce-sum a 4bit quantized tensor directly into a Float32.
 //
 // See MultiReduce for a version that accepts multiple inputs and outputs.
-func Reduce(x, initialValue *Value, reduction *Function, axes ...int) (*Value, error) {
-	results, err := MultiReduce([]*Value{x}, []*Value{initialValue}, reduction, axes...)
+func Reduce(x, initialValue *Value, reductionFn *Function, axes ...int) (*Value, error) {
+	results, err := MultiReduce([]*Value{x}, []*Value{initialValue}, reductionFn, axes...)
 	if err != nil {
 		return nil, err
 	}
@@ -596,7 +596,7 @@ func Reduce(x, initialValue *Value, reduction *Function, axes ...int) (*Value, e
 //
 // TODO: promotion of types doesn't seem to be working according to the spec in
 // https://openxla.org/stablehlo/spec#reduce.
-func MultiReduce(inputs, initialValues []*Value, reduction *Function, axes ...int) ([]*Value, error) {
+func MultiReduce(inputs, initialValues []*Value, reductionFn *Function, axes ...int) ([]*Value, error) {
 	op := optypes.Reduce
 	if len(inputs) == 0 {
 		return nil, errors.New("MultiReduce requires at least one operand")
@@ -618,9 +618,14 @@ func MultiReduce(inputs, initialValues []*Value, reduction *Function, axes ...in
 				op, fn.Name, i, operand.fn.Name, fn.Name)
 		}
 	}
+	if reductionFn.Parent != fn {
+		return nil, errors.Errorf("cannot add operation %s because reductionFn is not a StableHLO closure of %s",
+			op, fn.Name)
+	}
+
 	outputsShapes, err := shapeinference.Reduce(
 		valuesToShapes(inputs), valuesToShapes(initialValues),
-		valuesToShapes(reduction.Inputs), reduction.Outputs,
+		valuesToShapes(reductionFn.Inputs), reductionFn.Outputs,
 		axes)
 	if err != nil {
 		return nil, err
@@ -630,7 +635,7 @@ func MultiReduce(inputs, initialValues []*Value, reduction *Function, axes ...in
 	stmt.Attributes = map[string]any{
 		"dimensions": intSliceToArrayI64StableHLO(axes),
 	}
-	stmt.AddFunctionParameter("reductionFn", reduction)
+	stmt.AddFunctionParameter("reductionFn", reductionFn)
 	return stmt.Outputs, nil
 }
 
@@ -775,13 +780,13 @@ func Scatter(input, scatterIndices, updates *Value,
 	inputBatchingAxes, scatterIndicesBatchingAxes []int,
 	indexedInputAxes []int, indexVectorAxis int,
 	indicesAreSorted, uniqueIndices bool,
-	updateComputation *Function) (*Value, error) {
+	updateComputationFn *Function) (*Value, error) {
 	results, err := MultiScatter([]*Value{input}, scatterIndices, []*Value{updates},
 		updateWindowAxes, insertedWindowAxes,
 		inputBatchingAxes, scatterIndicesBatchingAxes,
 		indexedInputAxes, indexVectorAxis,
 		indicesAreSorted, uniqueIndices,
-		updateComputation)
+		updateComputationFn)
 	if err != nil {
 		return nil, err
 	}
@@ -795,7 +800,7 @@ func MultiScatter(inputs []*Value, scatterIndices *Value, updates []*Value,
 	inputBatchingAxes, scatterIndicesBatchingAxes []int,
 	indexedInputAxes []int, indexVectorAxis int,
 	indicesAreSorted, uniqueIndices bool,
-	updateComputation *Function) ([]*Value, error) {
+	updateComputationFn *Function) ([]*Value, error) {
 	op := optypes.Scatter
 	if len(inputs) == 0 {
 		return nil, errors.New("MultiScatter requires at least one input")
@@ -825,16 +830,20 @@ func MultiScatter(inputs []*Value, scatterIndices *Value, updates []*Value,
 		return nil, errors.Errorf("cannot add operation %s to function %q, because scatterIndices is from different function (%q and %q)",
 			op, fn.Name, scatterIndices.fn.Name, fn.Name)
 	}
+	if updateComputationFn.Parent != fn {
+		return nil, errors.Errorf("cannot add operation %s because updateComputationFn is not a StableHLO closure of %q",
+			op, fn.Name)
+	}
 
 	inputsShapes := valuesToShapes(inputs)
 	updatesShapes := valuesToShapes(updates)
-	updateComputationInputShapes := valuesToShapes(updateComputation.Inputs)
+	updateComputationInputShapes := valuesToShapes(updateComputationFn.Inputs)
 	outputShapes, err := shapeinference.Scatter(
 		inputsShapes, scatterIndices.shape, updatesShapes,
 		updateWindowAxes, insertedWindowAxes,
 		inputBatchingAxes, scatterIndicesBatchingAxes,
 		indexedInputAxes, indexVectorAxis,
-		updateComputationInputShapes, updateComputation.Outputs)
+		updateComputationInputShapes, updateComputationFn.Outputs)
 	if err != nil {
 		return nil, err
 	}
@@ -859,7 +868,7 @@ func MultiScatter(inputs []*Value, scatterIndices *Value, updates []*Value,
 		"indices_are_sorted": indicesAreSorted,
 		"unique_indices":     uniqueIndices,
 	}
-	stmt.AddFunctionParameter("updateFn", updateComputation)
+	stmt.AddFunctionParameter("updateFn", updateComputationFn)
 	return stmt.Outputs, nil
 }
 
@@ -935,11 +944,11 @@ func Pad(x, fill *Value, paddingStart, paddingEnd, paddingInterior []int) (*Valu
 	return stmt.Outputs[0], nil
 }
 
-// Convolution performs a convolution supporting strides, padding, dilations, feature grouping and batch grouping.
+// Convolution performs a convolution supporting strides, padding, dilations, feature grouping, and batch grouping.
 //
 // See description in https://openxla.org/stablehlo/spec#convolution
 //
-// The parameters strides, paddings, inputDilations and kernelDilations can be set to nil, and the default (zeros for paddings
+// The parameters strides, paddings, inputDilations, and kernelDilations can be set to nil, and the default (zeros for paddings
 // and ones for the others) will be used.
 //
 // Note: since the spec mentions that window_reversal will be removed, we didn't include it in the API.
@@ -1100,7 +1109,7 @@ func Reverse(x *Value, axes ...int) (*Value, error) {
 // See documentation in https://openxla.org/stablehlo/spec#fft, but more details in XLA page here:
 // https://openxla.org/xla/operation_semantics#fft.
 //
-// If fftLengths are not given, one is picked for you: based on the last axis dimension for types.FFTForward, types.FFTInverse
+// If fftLengths are not given, one is picked for you: based on the last axis dimension for types.FFTForward, types.FFTInverse,
 // and types.FFTForwardReal. And (last_dim-1)*2 for FFTInverseReal.
 //
 // The underlying Gopjrt implementation for CPU FFT is backed by Eigen's TensorFFT, and for GPU FFT it uses cuFFT.
@@ -1150,10 +1159,10 @@ func FFT(x *Value, fftType types.FFTType, fftLength ...int) (*Value, error) {
 // See MultiReduceWindow for a version that supports reducing multiple inputs at once.
 //
 // TODO: promotion of types doesn't seem to be working according to the spec in
-func ReduceWindow(input, initialValue *Value, reduction *Function,
+func ReduceWindow(input, initialValue *Value, reductionFn *Function,
 	windowDimensions, strides, inputDilations, windowDilations []int,
 	padding [][2]int) (*Value, error) {
-	results, err := MultiReduceWindow([]*Value{input}, []*Value{initialValue}, reduction,
+	results, err := MultiReduceWindow([]*Value{input}, []*Value{initialValue}, reductionFn,
 		windowDimensions, strides, inputDilations, windowDilations, padding)
 	if err != nil {
 		return nil, err
@@ -1177,9 +1186,9 @@ func ReduceWindow(input, initialValue *Value, reduction *Function,
 // If strides is not set, it defaults to the value of windowDimensions -- the stride matches the window size.
 //
 // TODO: promotion of types doesn't seem to be working according to the spec in
-func MultiReduceWindow(inputs, initialValues []*Value, reduction *Function,
+func MultiReduceWindow(inputs, initialValues []*Value, reductionFn *Function,
 	windowDimensions, strides, inputDilations, windowDilations []int,
-	padding [][2]int) ([]*Value, error) {
+	paddings [][2]int) ([]*Value, error) {
 	op := optypes.ReduceWindow
 	if len(inputs) == 0 {
 		return nil, errors.New("MultiReduce requires at least one input")
@@ -1201,6 +1210,10 @@ func MultiReduceWindow(inputs, initialValues []*Value, reduction *Function,
 				op, fn.Name, i, operand.fn.Name, fn.Name)
 		}
 	}
+	if reductionFn.Parent != fn {
+		return nil, errors.Errorf("cannot add operation %s because reductionFn is not a StableHLO closure for function %q",
+			op, fn.Name)
+	}
 
 	// Initialize default values for parameters.
 	rank := inputs[0].shape.Rank()
@@ -1213,19 +1226,19 @@ func MultiReduceWindow(inputs, initialValues []*Value, reduction *Function,
 		}
 	}
 	if len(strides) == 0 {
-		// Default stride is the windowDimension.
+		// The default stride is the corresponding windowDimension.
 		strides = slices.Clone(windowDimensions)
 	}
-	if len(padding) == 0 {
-		// Default padding of 0.
-		padding = make([][2]int, rank)
+	if len(paddings) == 0 {
+		// Default paddings of 0.
+		paddings = make([][2]int, rank)
 	}
 
 	outputsShapes, err := shapeinference.ReduceWindow(
 		valuesToShapes(inputs), valuesToShapes(initialValues),
-		valuesToShapes(reduction.Inputs), reduction.Outputs,
+		valuesToShapes(reductionFn.Inputs), reductionFn.Outputs,
 		windowDimensions, strides, inputDilations, windowDilations,
-		padding)
+		paddings)
 	if err != nil {
 		return nil, err
 	}
@@ -1234,15 +1247,14 @@ func MultiReduceWindow(inputs, initialValues []*Value, reduction *Function,
 	stmt.Attributes = map[string]any{
 		"window_dimensions": intSliceToArrayI64StableHLO(windowDimensions),
 		"window_strides":    intSliceToArrayI64StableHLO(strides),
-		"base_dilations":    intSliceToArrayI64StableHLO(inputDilations),
 		"window_dilations":  intSliceToArrayI64StableHLO(windowDilations),
-		"base_dilation":     intSliceToArrayI64StableHLO(windowDilations),
+		"base_dilations":    intSliceToArrayI64StableHLO(windowDilations),
 	}
-	stmt.AddFunctionParameter("reductionFn", reduction)
+	stmt.AddFunctionParameter("reductionFn", reductionFn)
 
-	// Encode padding:
+	// Encode paddings:
 	allPaddings := make([]int, 0, rank*2)
-	for _, pad := range padding {
+	for _, pad := range paddings {
 		allPaddings = append(allPaddings, pad[0], pad[1])
 	}
 	paddingsConfig, err := newTensorLiteralFromFlatAndDimensions(allPaddings, rank, 2)
@@ -1252,4 +1264,81 @@ func MultiReduceWindow(inputs, initialValues []*Value, reduction *Function,
 	stmt.Attributes["padding"] = paddingsConfig
 
 	return stmt.Outputs, nil
+}
+
+// SelectAndScatter performs an operation using a select function and a scatter function on an input tensor.
+// The operation is applied in a sliding window, determined by window dimensions, strides, and paddings.
+//
+// The initialValue is used during the selection.
+//
+// selectFn is used to define a comparison operation for selecting elements in the window.
+// scatterFn is used to define the reduction operation for scattering selected elements.
+// windowDimensions specifies the size of the sliding window for each dimension in the input tensor.
+// strides specifies the step size for the sliding window in each dimension of the input tensor.
+// paddings specifies the padding configuration, where each entry defines before and after padding for a dimension.
+// Returns a new tensor as the result of the SelectAndScatter operation or an error if input validation fails.
+func SelectAndScatter(input, scatterSource, initialValue *Value,
+	selectFn, scatterFn *Function,
+	windowDimensions, strides []int, paddings [][2]int) (*Value, error) {
+	op := optypes.SelectAndScatter
+	fn := input.fn
+	if fn.Returned {
+		return nil, errors.Errorf("cannot add operation %s after returning, in function %q",
+			op, fn.Name)
+	}
+	if scatterSource.fn != fn {
+		return nil, errors.Errorf("cannot add operation %s to function %q, because input and scatterSource are from different function (%q and %q)",
+			op, fn.Name, fn.Name, scatterSource.fn.Name)
+	}
+	if initialValue.fn != fn {
+		return nil, errors.Errorf("cannot add operation %s to function %q, because input and initialValue are from different function (%q and %q)",
+			op, fn.Name, fn.Name, initialValue.fn.Name)
+	}
+
+	// Initialize default values for parameters.
+	rank := input.shape.Rank()
+	if len(windowDimensions) == 0 {
+		windowDimensions = make([]int, rank)
+		for i := range windowDimensions {
+			windowDimensions[i] = 1
+		}
+	}
+	if len(strides) == 0 {
+		// The default stride is the corresponding windowDimension.
+		strides = slices.Clone(windowDimensions)
+	}
+	if len(paddings) == 0 {
+		// Default paddings of 0.
+		paddings = make([][2]int, rank)
+	}
+
+	if selectFn.Parent != fn {
+		return nil, errors.Errorf("cannot add operation %s because selectFn is not a StableHLO closure for function %q",
+			op, fn.Name)
+	}
+	if scatterFn.Parent != fn {
+		return nil, errors.Errorf("cannot add operation %s because scatterFn is not a StableHLO closure for function %q",
+			op, fn.Name)
+	}
+
+	outputShape := input.shape
+	stmt := fn.addOp(op, outputShape, input, scatterSource, initialValue)
+	stmt.Attributes = map[string]any{
+		"window_dimensions": intSliceToArrayI64StableHLO(windowDimensions),
+		"window_strides":    intSliceToArrayI64StableHLO(strides),
+	}
+	stmt.AddFunctionParameter("selectFn", selectFn)
+	stmt.AddFunctionParameter("scatterFn", scatterFn)
+
+	// Encode paddings:
+	allPaddings := make([]int, 0, rank*2)
+	for _, pad := range paddings {
+		allPaddings = append(allPaddings, pad[0], pad[1])
+	}
+	paddingsConfig, err := newTensorLiteralFromFlatAndDimensions(allPaddings, rank, 2)
+	if err != nil {
+		return nil, errors.WithMessagef(err, "in Convolution paddings values")
+	}
+	stmt.Attributes["padding"] = paddingsConfig
+	return stmt.Outputs[0], nil
 }

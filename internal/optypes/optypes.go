@@ -68,6 +68,8 @@ const (
 	RoundNearestEven
 	Rsqrt
 	Scatter
+	Select
+	SelectAndScatter
 	ShiftLeft
 	ShiftRightArithmetic
 	ShiftRightLogical
@@ -109,8 +111,6 @@ const (
 	Recv
 	ReducePrecision
 	ReduceScatter
-	Select
-	SelectAndScatter
 	Send
 	TriangularSolve
 	Tuple

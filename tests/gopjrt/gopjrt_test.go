@@ -640,6 +640,43 @@ func testOps(t *testing.T, client *pjrt.Client) {
 		}, outputs)
 	})
 
+	t.Run("SelectAndScatter", func(t *testing.T) {
+		builder := New(t.Name())
+		fn := builder.Main()
+		x := must1(fn.Iota(shapes.Make(dtypes.F32, 2*3), 0))
+		x = must1(Reshape(x, shapes.Make(dtypes.F32, 2, 3)))
+		initialValue := must1(fn.ConstantFromScalar(float32(0)))
+		one := must1(fn.ConstantFromScalar(float32(1)))
+		source0 := must1(BroadcastInDim(one, shapes.Make(dtypes.F32, 1, 2), nil))
+		source1 := must1(BroadcastInDim(one, shapes.Make(dtypes.F32, 3, 4), nil))
+
+		selectFn := fn.Closure() // return lhs >= rhs  --> it will select the max of the window.
+		{
+			lhs := selectFn.NamedInput("lhs", shapes.Make(dtypes.F32))
+			rhs := selectFn.NamedInput("rhs", shapes.Make(dtypes.F32))
+			must(selectFn.Return(must1(Compare(lhs, rhs, types.CompareGE, types.CompareFloat))))
+		}
+		scatterFn := fn.Closure() // return lhs+rhs  --> it will sum all contributions to the location.
+		{
+			lhs := scatterFn.NamedInput("lhs", shapes.Make(dtypes.F32))
+			rhs := scatterFn.NamedInput("rhs", shapes.Make(dtypes.F32))
+			must(scatterFn.Return(must1(Add(lhs, rhs))))
+		}
+
+		r0 := must1(SelectAndScatter(x, source0, initialValue, selectFn, scatterFn,
+			[]int{2, 2}, []int{1, 1}, nil))
+		r1 := must1(SelectAndScatter(x, source1, initialValue, selectFn, scatterFn,
+			[]int{2, 2}, []int{1, 1}, [][2]int{{1, 1}, {1, 1}}))
+		must(fn.Return(r0, r1))
+		program := must1(builder.Build())
+		fmt.Printf("%s program:\n%s", t.Name(), withLines(program))
+		outputs := compileAndExecute(t, client, program)
+		requireBuffersEqual(t, []FlatAndDims{
+			{[]float32{0, 0, 0, 0, 1, 1}, []int{2, 3}},
+			{[]float32{1, 1, 2, 2, 2, 4}, []int{2, 3}}},
+			outputs)
+	})
+
 }
 
 func TestBinaryOps(t *testing.T) {

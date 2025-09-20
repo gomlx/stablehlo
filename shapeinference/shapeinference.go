@@ -776,7 +776,11 @@ func Scatter(inputs []shapes.Shape, scatterIndices shapes.Shape, updates []shape
 	}
 	for i := range len(inputs) {
 		dtype := updateComputationInputs[i].DType
-		// TODO: check that inputs[i].DType is promotable to dtype.
+		if inputs[i].DType.IsPromotableTo(dtype) {
+			return nil, errors.Errorf(
+				"inputs[%d].DType=%s is not promotable to updateComputationFn input parameter #%d's dtype (%s)",
+				i, inputs[i].DType, i, dtype)
+		}
 		if dtype != updateComputationInputs[i+len(inputs)].DType {
 			return nil, errors.Errorf(
 				"updateComputation input #%d (%s) must match the dtype of the corresponding input #(%d + %d) (%s)",
@@ -916,11 +920,16 @@ func ReduceWindow(inputs, initialValues []shapes.Shape, reductionInputs, reducti
 			len(reductionOutputs), len(initialValues))
 	}
 	for i := range numReductions {
-		if reductionInputs[i].DType != reductionInputs[i+numReductions].DType || reductionInputs[i].DType != reductionOutputs[i].DType {
+		dtype := reductionInputs[i].DType
+		if dtype != reductionInputs[i+numReductions].DType || dtype != reductionOutputs[i].DType {
 			return nil, errors.Errorf("ReduceWindow requires the same dtype for lhs[i], rhs[i] inputs and output[i], got lhs[%d]=%s and rhs[%d+%d]=%s and output[%d]=%s",
 				i, reductionInputs[i], i, numReductions, reductionInputs[i+numReductions], i, reductionOutputs[i])
 		}
-		// TODO: check that inputs[i].DType is promotable to reductionInputs[1].DType.
+		if inputs[i].DType.IsPromotableTo(dtype) {
+			return nil, errors.Errorf(
+				"inputs[%d].DType=%s is not promotable to reductionFn input parameter #%d's dtype (%s)",
+				i, inputs[i].DType, i, dtype)
+		}
 	}
 
 	// Validate lengths of slice parameters against rank.
