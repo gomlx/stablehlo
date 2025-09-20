@@ -696,6 +696,34 @@ func testOps(t *testing.T, client *pjrt.Client) {
 			{[]float32{1, 2, 4, 5}, []int{2, 2}},
 		}, outputs)
 	})
+
+	t.Run("DynamicUpdateSlice", func(t *testing.T) {
+		builder := New(t.Name())
+		fn := builder.Main()
+		x := must1(fn.Iota(shapes.Make(dtypes.F32, 3*3), 0))
+		x = must1(Reshape(x, shapes.Make(dtypes.F32, 3, 3)))
+		mil := must1(fn.ConstantFromScalar(float32(1000)))
+		update := must1(fn.Iota(shapes.Make(dtypes.F32, 2*2), 0))
+		update = must1(Reshape(update, shapes.Make(dtypes.F32, 2, 2)))
+		update = must1(Add(
+			must1(BroadcastInDim(mil, shapes.Make(dtypes.F32, 2, 2), nil)),
+			update))
+		one := must1(fn.ConstantFromScalar(int32(1)))
+		minusOne := must1(fn.ConstantFromScalar(int32(-1)))
+		must(fn.Return(must1(
+			DynamicUpdateSlice(x, update, []*Value{minusOne, one}))))
+		program := must1(builder.Build())
+		fmt.Printf("%s program:\n%s", t.Name(), withLines(program))
+		outputs := compileAndExecute(t, client, program)
+		requireBuffersEqual(t, []FlatAndDims{
+			// Notice that because of the clamp imposed by DynamicSlice, the startIndices are moved to {0, 1}:
+			{[]float32{
+				0, 1000, 1001,
+				3, 1002, 1003,
+				6, 7, 8}, []int{3, 3}},
+		}, outputs)
+	})
+
 }
 
 func TestBinaryOps(t *testing.T) {

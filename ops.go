@@ -1341,6 +1341,7 @@ func SelectAndScatter(input, scatterSource, initialValue *Value,
 
 // DynamicSlice extracts a slice from the operand at the startIndices position and the given sliceSizes.
 //
+// - operand: tensor from where to take the slice.
 // - startIndices: scalar tensors, one per axis of operand: len(startIndices) == operand.Rank().
 // - sliceSizes: static values and fixed to keep the shape of the output static.
 //
@@ -1366,5 +1367,39 @@ func DynamicSlice(operand *Value, startIndices []*Value, sliceSizes []int) (*Val
 	}
 	stmt := fn.addOp(op, outputShape, append([]*Value{operand}, startIndices...)...)
 	stmt.Attributes = map[string]any{"slice_sizes": intSliceToArrayI64StableHLO(sliceSizes)}
+	return stmt.Outputs[0], nil
+}
+
+// DynamicUpdateSlice updates the operand with the values given in update, at the position given by startIndices.
+//
+// - operand: original value that to be updated.
+// - update: values to "paste" on top of operand, at position startIndices.
+// - startIndices: scalar tensors, one per axis of operand: len(startIndices) == operand.Rank().
+// - sliceSizes: static values and fixed to keep the shape of the output static.
+//
+// It returns a value with the same shape as the operand, with the values updated.
+//
+// The startIndices are adjusted as follows:
+//
+//	adjustedStartIndices[i] = clamp(0, StartIndices[i], operand.Dimensions[i] - update.Dimensions[i])
+func DynamicUpdateSlice(operand, update *Value, startIndices []*Value) (*Value, error) {
+	op := optypes.DynamicUpdateSlice
+	fn := operand.fn
+	if fn.Returned {
+		return nil, errors.Errorf("cannot add operation %s after returning, in function %q",
+			op, fn.Name)
+	}
+	if update.fn != fn {
+		return nil, errors.Errorf("cannot add operation %s to function %q, because operand and update are from different function (%q and %q)",
+			op, fn.Name, fn.Name, update.fn.Name)
+	}
+	for axis, idx := range startIndices {
+		if idx.fn != fn {
+			return nil, errors.Errorf("cannot add operation %s to function %q, because operand and startIndices[%d] are from different function (%q and %q)",
+				op, fn.Name, axis, fn.Name, idx.fn.Name)
+		}
+	}
+	outputShape := operand.shape.Clone()
+	stmt := fn.addOp(op, outputShape, append([]*Value{operand, update}, startIndices...)...)
 	return stmt.Outputs[0], nil
 }
