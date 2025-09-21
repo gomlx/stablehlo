@@ -4,11 +4,10 @@
 [![Slack](https://img.shields.io/badge/Slack-GoMLX-purple.svg?logo=slack)](https://app.slack.com/client/T029RQSE6/C08TX33BX6U)
 
 > [!Note]
-> 🚧 UNDER CONSTRUCTION 🚧
-> 
-> Don't use yet. Collaborations are welcome though, get in touch 
-> in our [Slack channel #gomlx](https://app.slack.com/client/T029RQSE6/C08TX33BX6U)
+> Discussion in the [Slack channel #gomlx](https://app.slack.com/client/T029RQSE6/C08TX33BX6U)
 > (you can [join the slack server here](https://invite.slack.golangbridge.org/))
+
+<img align="right" src="docs/gomlx_stablehlo_gopher.png" alt="GoMLX Gopher" width="220px"/>
 
 [StableHLO](https://openxla.org/stablehlo) is an operation set for high-level operations (HLO) in machine learning (ML) models. 
 
@@ -29,6 +28,14 @@ See:
 * [Goprjt](https://github.com/gomlx/gopjrt): a Go wrapper for PJRT C API, capable of executing StableHLO programs,
   for a lower level API.
 
+## Status of Operations
+
+Most operations are already implemented. See the [list of supported operations](https://github.com/gomlx/stablehlo/blob/main/internal/optypes/optypes.go#L91)
+(the ones not implemented are in the bottom of the list).
+
+If you need a specific operation, please open an issue.
+
+See also the [CHANGELOG](https://github.com/gomlx/stablehlo/blob/main/docs/CHANGELOG.md).
 
 ## Dynamic Shapes Support: unbounded dynamism using shape polymorphism only!
 
