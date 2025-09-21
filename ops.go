@@ -1403,3 +1403,66 @@ func DynamicUpdateSlice(operand, update *Value, startIndices []*Value) (*Value, 
 	stmt := fn.addOp(op, outputShape, append([]*Value{operand, update}, startIndices...)...)
 	return stmt.Outputs[0], nil
 }
+
+// BatchNormInference implements batch normalization for inference. See details in
+// https://www.tensorflow.org/xla/operation_semantics#batchnorminference.
+//
+// Based on the paper "Batch Normalization: Accelerating Deep Network Training by Reducing
+// Internal Covariate Shift" (Sergey Ioffe, Christian Szegedy), https://arxiv.org/abs/1502.03167.
+func BatchNormInference(operand, scale, offset, mean, variance *Value, epsilon float32, featureAxis int) (*Value, error) {
+	op := optypes.BatchNormInference
+	fn := operand.fn
+	if fn.Returned {
+		return nil, errors.Errorf("cannot add operation %s after returning, in function %q",
+			op, fn.Name)
+	}
+	if scale.fn != fn || offset.fn != fn || mean.fn != fn || variance.fn != fn {
+		return nil, errors.Errorf("cannot add operation %s to function %q, because operands are from different functions",
+			op, fn.Name)
+	}
+
+	// Adjust negative axis.
+	adjustedAxis, err := shapeinference.AdjustAxisToRank(featureAxis, operand.shape.Rank())
+	if err != nil {
+		return nil, errors.Errorf("invalid feature axis %d for rank(operand)=%d",
+			featureAxis, operand.shape.Rank())
+	}
+	featureAxis = adjustedAxis
+
+	// Output shape is identical to operand.
+	outputShape := operand.shape.Clone()
+
+	stmt := fn.addOp(op, outputShape, operand, scale, offset, mean, variance)
+	stmt.Attributes = map[string]any{
+		"epsilon":       float64(epsilon),
+		"feature_index": int64(featureAxis),
+	}
+	return stmt.Outputs[0], nil
+}
+
+}
+
+// BatchNormTraining implements batch normalization for training. See details in
+// https://www.tensorflow.org/xla/operation_semantics#batchnormtraining.
+//
+// It returns the normalized tensor, the batch mean and variance.
+//
+// Based on the paper "Batch Normalization: Accelerating Deep Network Training by Reducing
+// Internal Covariate Shift" (Sergey Ioffe, Christian Szegedy), https://arxiv.org/abs/1502.03167.
+func BatchNormTraining(operand, scale, offset *Value, epsilon float32, featureAxis int) (normalized *Value, batchMean *Value, batchVariance *Value, err error) {
+	return
+}
+
+// BatchNormGradient calculates the batch normalization gradients with respect to the input, scale, and offset.
+// https://openxla.org/xla/operation_semantics#batchnormgrad
+//
+// The gradOutput is the adjoint gradient (the "V" in "VJP"), that is, the gradient with respect to the output of the
+// batch normalization.
+//
+// It returns  as a tuple with the 3 elements.
+//
+// Based on paper "Batch Normalization: Accelerating Deep Network Training by Reducing
+// Internal Covariate Shift" (Sergey Ioffe, Christian Szegedy), https://arxiv.org/abs/1502.03167.
+func BatchNormGradient(operand, scale, mean, variance, gradOutput *Value, epsilon float32, axis int) (gradOperand *Value, gradScale *Value, gradOffset *Value, err error) {
+	return
+}

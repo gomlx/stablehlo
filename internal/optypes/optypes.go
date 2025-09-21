@@ -22,6 +22,9 @@ const (
 	Add
 	And
 	Atan2
+	BatchNormInference
+	BatchNormForTraining
+	BatchNormGradient
 	BitcastConvert
 	BroadcastInDim
 	Cbrt
@@ -87,9 +90,6 @@ const (
 
 	// Here the ones not implemented yet, please add an issue in the repo if you need them.
 
-	BatchNormForInference
-	BatchNormForTraining
-	BatchNormGradient
 	Case
 	Cholesky
 	CollectiveBroadcast
