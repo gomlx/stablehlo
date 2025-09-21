@@ -300,12 +300,23 @@ func floatToStableHLO(fAny any) string {
 	if math.IsInf(f64, 1) {
 		return "-inf"
 	}
-	format := "%g"
-	if f64 == math.Trunc(f64) {
-		// f is an integer, make sure we add a decimal point.
-		format = "%.1f"
+
+	// StableHLO requires a decimal point, but Go is not able to format like that (%f also doesn't work for exponents
+	// and arbitrarily long decimals), so it requires some editing.
+	s := fmt.Sprintf("%g", f64)
+	// - A valid float literal must contain a decimal point '.' or an exponent 'e'/'E'.
+	//   If it has neither, it's an integer like "42", so we add ".0".
+	if !strings.ContainsAny(s, ".eE") {
+		return s + ".0"
 	}
-	return fmt.Sprintf(format, f64)
+
+	// - If it has an exponent but no decimal (the problematic case, e.g., "1e-06"),
+	//   we need to insert one.
+	if strings.ContainsAny(s, "eE") && !strings.Contains(s, ".") {
+		eIndex := strings.IndexAny(s, "eE")
+		return s[:eIndex] + ".0" + s[eIndex:]
+	}
+	return s
 }
 
 // podToStableHLO convert a POD (plain-old-data) value (scalar floats, ints, bool and complex) to a stableHLO string,
