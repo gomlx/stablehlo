@@ -761,14 +761,16 @@ func TestPad(t *testing.T) {
 		require.Error(t, err)
 	})
 
-	t.Run("ErrorNegativePadding", func(t *testing.T) {
+	t.Run("NegativePadding", func(t *testing.T) {
 		operand := S(F32, 3)
 		fillValue := S(F32)
 		paddingStart := []int{-1}
-		paddingEnd := []int{1}
+		paddingEnd := []int{-1}
 		paddingInterior := []int{0}
-		_, err := Pad(operand, fillValue, paddingStart, paddingEnd, paddingInterior)
-		require.Error(t, err)
+		expected := S(F32, 1)
+		output, err := Pad(operand, fillValue, paddingStart, paddingEnd, paddingInterior)
+		require.NoError(t, err)
+		require.True(t, expected.Equal(output), "Expected %s, got %s", expected, output)
 	})
 
 	t.Run("ErrorNegativeInterior", func(t *testing.T) {
