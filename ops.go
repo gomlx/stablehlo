@@ -1434,12 +1434,10 @@ func BatchNormInference(operand, scale, offset, mean, variance *Value, epsilon f
 
 	stmt := fn.addOp(op, outputShape, operand, scale, offset, mean, variance)
 	stmt.Attributes = map[string]any{
-		"epsilon":       float64(epsilon),
+		"epsilon":       epsilon,
 		"feature_index": int64(featureAxis),
 	}
 	return stmt.Outputs[0], nil
-}
-
 }
 
 // BatchNormTraining implements batch normalization for training. See details in
@@ -1450,7 +1448,40 @@ func BatchNormInference(operand, scale, offset, mean, variance *Value, epsilon f
 // Based on the paper "Batch Normalization: Accelerating Deep Network Training by Reducing
 // Internal Covariate Shift" (Sergey Ioffe, Christian Szegedy), https://arxiv.org/abs/1502.03167.
 func BatchNormTraining(operand, scale, offset *Value, epsilon float32, featureAxis int) (normalized *Value, batchMean *Value, batchVariance *Value, err error) {
-	return
+	op := optypes.BatchNormTraining
+	fn := operand.fn
+	if fn.Returned {
+		return nil, nil, nil, errors.Errorf("cannot add operation %s after returning, in function %q",
+			op, fn.Name)
+	}
+	if scale.fn != fn || offset.fn != fn {
+		return nil, nil, nil, errors.Errorf("cannot add operation %s to function %q, because operands are from different functions",
+			op, fn.Name)
+	}
+
+	// Adjust negative axis.
+	adjustedAxis, err := shapeinference.AdjustAxisToRank(featureAxis, operand.shape.Rank())
+	if err != nil {
+		return nil, nil, nil, errors.Errorf("invalid feature axis %d for rank(operand)=%d",
+			featureAxis, operand.shape.Rank())
+	}
+	featureAxis = adjustedAxis
+
+	// Output shapes: normalized has the same shape as the operand, mean and variance have the feature dimension only.
+	normalizedShape := operand.shape.Clone()
+	featureDimension := operand.shape.Dimensions[featureAxis]
+	meanShape := shapes.Shape{
+		DType:      operand.shape.DType,
+		Dimensions: []int{featureDimension},
+	}
+	varianceShape := meanShape.Clone()
+
+	stmt := fn.addMultiOp(op, []shapes.Shape{normalizedShape, meanShape, varianceShape}, []*Value{operand, scale, offset})
+	stmt.Attributes = map[string]any{
+		"epsilon":       epsilon,
+		"feature_index": int64(featureAxis),
+	}
+	return stmt.Outputs[0], stmt.Outputs[1], stmt.Outputs[2], nil
 }
 
 // BatchNormGradient calculates the batch normalization gradients with respect to the input, scale, and offset.
@@ -1459,10 +1490,42 @@ func BatchNormTraining(operand, scale, offset *Value, epsilon float32, featureAx
 // The gradOutput is the adjoint gradient (the "V" in "VJP"), that is, the gradient with respect to the output of the
 // batch normalization.
 //
-// It returns  as a tuple with the 3 elements.
-//
-// Based on paper "Batch Normalization: Accelerating Deep Network Training by Reducing
+// Based on the paper "Batch Normalization: Accelerating Deep Network Training by Reducing
 // Internal Covariate Shift" (Sergey Ioffe, Christian Szegedy), https://arxiv.org/abs/1502.03167.
-func BatchNormGradient(operand, scale, mean, variance, gradOutput *Value, epsilon float32, axis int) (gradOperand *Value, gradScale *Value, gradOffset *Value, err error) {
-	return
+func BatchNormGradient(operand, scale, mean, variance, gradOutput *Value, epsilon float32, featureAxis int) (gradOperand *Value, gradScale *Value, gradOffset *Value, err error) {
+	op := optypes.BatchNormGrad
+	fn := operand.fn
+	if fn.Returned {
+		return nil, nil, nil, errors.Errorf("cannot add operation %s after returning, in function %q",
+			op, fn.Name)
+	}
+	if scale.fn != fn || mean.fn != fn || variance.fn != fn || gradOutput.fn != fn {
+		return nil, nil, nil, errors.Errorf("cannot add operation %s to function %q, because operands are from different functions",
+			op, fn.Name)
+	}
+
+	// Adjust negative axis.
+	adjustedAxis, err := shapeinference.AdjustAxisToRank(featureAxis, operand.shape.Rank())
+	if err != nil {
+		return nil, nil, nil, errors.Errorf("invalid feature axis %d for rank(operand)=%d",
+			featureAxis, operand.shape.Rank())
+	}
+	featureAxis = adjustedAxis
+
+	// Output shapes: gradOperand has the same shape as operand, gradScale and gradOffset have the feature dimension only.
+	gradOperandShape := operand.shape.Clone()
+	featureDimension := operand.shape.Dimensions[featureAxis]
+	gradScaleShape := shapes.Shape{
+		DType:      operand.shape.DType,
+		Dimensions: []int{featureDimension},
+	}
+	gradOffsetShape := gradScaleShape.Clone()
+
+	stmt := fn.addMultiOp(op, []shapes.Shape{gradOperandShape, gradScaleShape, gradOffsetShape},
+		[]*Value{operand, scale, mean, variance, gradOutput})
+	stmt.Attributes = map[string]any{
+		"epsilon":       epsilon,
+		"feature_index": int64(featureAxis),
+	}
+	return stmt.Outputs[0], stmt.Outputs[1], stmt.Outputs[2], nil
 }

@@ -724,6 +724,91 @@ func testOps(t *testing.T, client *pjrt.Client) {
 		}, outputs)
 	})
 
+	t.Run("BatchNormInference", func(t *testing.T) {
+		builder := New(t.Name())
+		fn := builder.Main()
+		x := must1(fn.Iota(shapes.Make(dtypes.F32, 7, 3), 0))
+		scale := must1(fn.ConstantFromFlatAndDimensions([]float32{1, 2, 3}, 3))
+		offset := must1(fn.ConstantFromFlatAndDimensions([]float32{10, 100, 1000}, 3))
+		mean := must1(fn.ConstantFromFlatAndDimensions([]float32{0.5, 0.5, 1}, 3))
+		variance := must1(fn.ConstantFromFlatAndDimensions([]float32{1, 1, 10}, 3))
+		must(fn.Return(must1(
+			BatchNormInference(x, scale, offset, mean, variance, 1e-7, -1))))
+		program := must1(builder.Build())
+		fmt.Printf("%s program:\n%s", t.Name(), withLines(program))
+		outputs := compileAndExecute(t, client, program)
+		requireBuffersEqual(t, []FlatAndDims{
+			// Notice that because of the clamp imposed by DynamicSlice, the startIndices are moved to {0, 1}:
+			{[]float32{
+				9.5, 99, 999.05133,
+				10.5, 101, 1000,
+				11.5, 103, 1000.94867,
+				12.5, 105, 1001.8974,
+				13.5, 107, 1002.84607,
+				14.5, 109, 1003.79474,
+				15.5, 111, 1004.7434,
+			}, []int{7, 3}},
+		}, outputs)
+	})
+
+	t.Run("BatchNormTraining", func(t *testing.T) {
+		builder := New(t.Name())
+		fn := builder.Main()
+		x := must1(fn.Iota(shapes.Make(dtypes.F32, 7, 3), 0))
+		scale := must1(fn.ConstantFromFlatAndDimensions([]float32{1, 2, 3}, 3))
+		offset := must1(fn.ConstantFromFlatAndDimensions([]float32{10, 100, 1000}, 3))
+		xNorm, batchMean, batchVariance, err := BatchNormTraining(x, scale, offset, 1e-7, -1)
+		require.NoError(t, err)
+		must(fn.Return(xNorm, batchMean, batchVariance))
+		program := must1(builder.Build())
+		fmt.Printf("%s program:\n%s", t.Name(), withLines(program))
+		outputs := compileAndExecute(t, client, program)
+		requireBuffersEqual(t, []FlatAndDims{
+			// Notice that because of the clamp imposed by DynamicSlice, the startIndices are moved to {0, 1}:
+			{[]float32{
+				8.5, 97, 995.5,
+				9, 98, 997,
+				9.5, 99, 998.5,
+				10, 100, 1000,
+				10.5, 101, 1001.5,
+				11, 102, 1003,
+				11.5, 103, 1004.5,
+			}, []int{7, 3}},
+			{[]float32{3, 3, 3}, []int{3}}, // Mean = (0+1+2+3+4+5+6) / 7 = 3
+			{[]float32{4, 4, 4}, []int{3}}, // ReduceVariance = (9+4+1+0+1+4+9) / 7 = 4
+		}, outputs)
+	})
+
+	t.Run("BatchNormGradient", func(t *testing.T) {
+		builder := New(t.Name())
+		fn := builder.Main()
+		x := must1(fn.Iota(shapes.Make(dtypes.F32, 7, 3), 0))
+		scale := must1(fn.ConstantFromFlatAndDimensions([]float32{1, 2, 3}, 3))
+		mean := must1(fn.ConstantFromFlatAndDimensions([]float32{0.5, 0.5, 1}, 3))
+		variance := must1(fn.ConstantFromFlatAndDimensions([]float32{1, 1, 10}, 3))
+		gradOutput := must1(fn.ConstantFromScalar(float32(1)))
+		gradOutput = must1(BroadcastInDim(gradOutput, shapes.Make(dtypes.F32, 7, 3), nil))
+		gradX, gradScale, gradOffset, err := BatchNormGradient(x, scale, mean, variance, gradOutput, 1e-7, -1)
+		require.NoError(t, err)
+		must(fn.Return(gradX, gradScale, gradOffset))
+		program := must1(builder.Build())
+		fmt.Printf("%s program:\n%s", t.Name(), withLines(program))
+		outputs := compileAndExecute(t, client, program)
+		requireBuffersEqual(t, []FlatAndDims{
+			// Notice that because of the clamp imposed by DynamicSlice, the startIndices are moved to {0, 1}:
+			{[]float32{
+				1.2500, 2.5000, 0.1897,
+				-1.2500, -2.5000, 0,
+				-3.7500, -7.5000, -0.1897,
+				-6.2500, -12.5000, -0.3795,
+				-8.7500, -17.5000, -0.5692,
+				-11.2500, -22.5000, -0.7589,
+				-13.7500, -27.5000, -0.94868326,
+			}, []int{7, 3}},
+			{[]float32{17.5, 17.5, 4.427189}, []int{3}}, // Gradient wrt. scale, affected by the mean.
+			{[]float32{7, 7, 7}, []int{3}},              // The offset impacts each feature equally.
+		}, outputs)
+	})
 }
 
 func TestBinaryOps(t *testing.T) {

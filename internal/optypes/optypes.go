@@ -23,8 +23,8 @@ const (
 	And
 	Atan2
 	BatchNormInference
-	BatchNormForTraining
-	BatchNormGradient
+	BatchNormTraining
+	BatchNormGrad
 	BitcastConvert
 	BroadcastInDim
 	Cbrt
