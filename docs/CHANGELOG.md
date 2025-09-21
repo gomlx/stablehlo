@@ -1,4 +1,9 @@
-## v0.0.1: Same XlaBuilder ops coverage
+# v0.0.2: 2025/09/21 - Small fixes, making sure stablehlo passes all GoMLX graph tests.
+
+- Fixed rendering of odd floats.
+
+
+# v0.0.1: 2025/09/21 - Same XlaBuilder ops coverage
 
 - Initial release.
 - Coverage of all XlaBuilder ops, so it can be used by [GoMLX](https://github.com/gomlx/gomlx) as a drop-in 

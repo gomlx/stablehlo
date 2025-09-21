@@ -151,11 +151,12 @@ func requireBuffersEqual(t *testing.T, expected []FlatAndDims, got []*pjrt.Buffe
 	}
 }
 
-func TestOps(t *testing.T) {
-	iterateClientsAndTest(t, testOps)
+// TestRendering checks for special cases of the StableHLO parser.
+func TestRendering(t *testing.T) {
+	iterateClientsAndTest(t, testRendering)
 }
 
-func testOps(t *testing.T, client *pjrt.Client) {
+func testRendering(t *testing.T, client *pjrt.Client) {
 	t.Run("Return-multi-output", func(t *testing.T) {
 		b := New(t.Name())
 		fn := b.NewFunction("main")
@@ -177,10 +178,32 @@ func testOps(t *testing.T, client *pjrt.Client) {
 		}, output)
 	})
 
+	// Floats checks that different floats are properly rendered -- StableHLO is very particular on how it parses.
+	t.Run("Floats", func(t *testing.T) {
+		builder := New(t.Name())
+		fn := builder.Main()
+		x0 := must1(fn.ConstantFromFlatAndDimensions([]float64{1e6, 1e-6, 0, -1e-8, -1e6, 1.2345678923456e78}, 6))
+		x1 := must1(fn.ConstantFromFlatAndDimensions([]float64{1e6, 1e-6, 0, -1e-8, -1e6}, 5, 1))
+		must(fn.Return(x0, x1))
+		program := must1(builder.Build())
+		fmt.Printf("%s program:\n%s", t.Name(), withLines(program))
+		outputs := compileAndExecute(t, client, program)
+		requireBuffersEqual(t, []FlatAndDims{
+			{[]float64{1e6, 1e-6, 0, -1e-8, -1e6, 1.2345678923456e78}, []int{6}},
+			{[]float64{1e6, 1e-6, 0, -1e-8, -1e6}, []int{5, 1}},
+		}, outputs)
+	})
+}
+
+func TestOps(t *testing.T) {
+	iterateClientsAndTest(t, testOps)
+}
+
+func testOps(t *testing.T, client *pjrt.Client) {
 	t.Run("Complex", func(t *testing.T) {
 		builder := New(t.Name())
-		shape := shapes.Make(dtypes.Float64)
 		fn := builder.Main()
+		shape := shapes.Make(dtypes.Float64)
 		lhsV, rhsV := fn.NamedInput("lhs", shape), fn.NamedInput("rhs", shape)
 		must(fn.Return(must1(Complex(lhsV, rhsV))))
 		program := must1(builder.Build())
