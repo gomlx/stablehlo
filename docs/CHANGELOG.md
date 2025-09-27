@@ -1,3 +1,7 @@
+# v0.0.3: 2025/09/27
+
+- Fixed wrong checking for during shapeinference.Gather 
+
 # v0.0.2: 2025/09/21 - Small fixes, making sure stablehlo passes all GoMLX graph tests.
 
 - Fixed rendering of odd floats.

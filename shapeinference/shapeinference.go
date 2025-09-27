@@ -571,8 +571,8 @@ func Gather(operand, startIndices shapes.Shape, indexVectorAxis int,
 	}
 
 	// Check indexVectorAxis: it is ok if it is equal to startIndices.rank, in which case we assume an implicit extra axis of dimension 1.
-	if indexVectorAxis < 0 || indexVectorAxis > operand.Rank() {
-		return output, errors.Errorf("indexVectorAxis=%d is out of range for operand %s", indexVectorAxis, operand)
+	if indexVectorAxis < 0 || indexVectorAxis > startIndices.Rank() {
+		return output, errors.Errorf("indexVectorAxis=%d is out of range for startIndices %s", indexVectorAxis, startIndices)
 	}
 
 	// Check startIndexMap is set for the dimensions of indexVectorAxis in startIndices.
