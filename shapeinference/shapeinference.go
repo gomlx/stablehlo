@@ -171,13 +171,10 @@ func BinaryOp(opType optypes.OpType, lhsShape, rhsShape shapes.Shape) (output sh
 		return
 	}
 
-	// Disabled numeric checking: some operations (like CompareEQ and CompareNE) can take boolean, and I'm not sure how this
-	// is going to be with quantized. Let PJRT complain later during graph compilation if an operation is not possible.
-	//
-	//if NumberOperations.Has(opType) && !(lhsShape.DType.IsInt() || lhsShape.DType.IsFloat() || lhsShape.DType.IsComplex()) {
-	//	err = errors.Errorf("numeric BinaryOp %s must have a number (Int32, Float32, Complex64, ...) data type as input, got %s", opType, lhsShape)
-	//	return
-	//}
+	if NumberOperations.Has(opType) && !ComparisonOperations.Has(opType) && !(lhsShape.DType.IsInt() || lhsShape.DType.IsFloat() || lhsShape.DType.IsComplex()) {
+		err = errors.Errorf("numeric BinaryOp %s must have a number (Int32, Float32, Complex64, ...) data type as input, got %s", opType, lhsShape)
+		return
+	}
 
 	if FloatOperations.Has(opType) && !lhsShape.DType.IsFloat() {
 		err = errors.Errorf("float BinaryOp %s must have a float (Float32, Float64, ...) data type as input, got %s", opType, lhsShape)
