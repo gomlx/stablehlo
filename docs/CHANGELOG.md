@@ -1,4 +1,4 @@
-# Next
+# v0.0.4: 2025/09/28
 
 - Added support for comparison of bool values, and added corresponding tests.
 
