@@ -1,3 +1,7 @@
+# Next
+
+- Fixed equality comparison of bool values -- added tests for that.
+
 # v0.0.3: 2025/09/27
 
 - Fixed wrong checking for during shapeinference.Gather 

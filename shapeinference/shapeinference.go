@@ -170,10 +170,15 @@ func BinaryOp(opType optypes.OpType, lhsShape, rhsShape shapes.Shape) (output sh
 		err = errors.Errorf("bitwise BinaryOp %s must have an integer (Int8, UInt8, Int32, ...) data type as input, got %s", opType, lhsShape)
 		return
 	}
-	if NumberOperations.Has(opType) && !(lhsShape.DType.IsInt() || lhsShape.DType.IsFloat() || lhsShape.DType.IsComplex()) {
-		err = errors.Errorf("numeric BinaryOp %s must have a number (Int32, Float32, Complex64, ...) data type as input, got %s", opType, lhsShape)
-		return
-	}
+
+	// Disabled numeric checking: some operations (like CompareEQ and CompareNE) can take boolean, and I'm not sure how this
+	// is going to be with quantized. Let PJRT complain later during graph compilation if an operation is not possible.
+	//
+	//if NumberOperations.Has(opType) && !(lhsShape.DType.IsInt() || lhsShape.DType.IsFloat() || lhsShape.DType.IsComplex()) {
+	//	err = errors.Errorf("numeric BinaryOp %s must have a number (Int32, Float32, Complex64, ...) data type as input, got %s", opType, lhsShape)
+	//	return
+	//}
+
 	if FloatOperations.Has(opType) && !lhsShape.DType.IsFloat() {
 		err = errors.Errorf("float BinaryOp %s must have a float (Float32, Float64, ...) data type as input, got %s", opType, lhsShape)
 		return
@@ -229,25 +234,26 @@ func Compare(lhsShape, rhsShape shapes.Shape, direction types.ComparisonDirectio
 		return
 	}
 	dtype := lhsShape.DType
+	isEquality := direction == types.CompareEQ || direction == types.CompareNE
 	switch compareType {
 	case types.CompareFloat:
 		if !dtype.IsFloat() && !dtype.IsComplex() {
-			err = errors.Errorf("data type %s is not a float or complex, cannot process it with Compare(type=FLOAT)", dtype)
+			err = errors.Errorf("data type %s is not a float or complex, cannot process it with Compare(direction=%s, type=FLOAT)", dtype, direction)
 			return
 		}
 	case types.CompareTotalOrder:
 		if !dtype.IsFloat() {
-			err = errors.Errorf("data type %s is not a float, cannot process it with Compare(type=TOTAL_ORDER)", dtype)
+			err = errors.Errorf("data type %s is not a float, cannot process it with Compare(direction=%s, type=TOTAL_ORDER)", dtype, direction)
 			return
 		}
 	case types.CompareSigned:
 		if !dtype.IsInt() || dtype.IsUnsigned() {
-			err = errors.Errorf("data type %s is not a signed integer, cannot process it with Compare(type=SIGNED)", dtype)
+			err = errors.Errorf("data type %s is not a signed integer, cannot process it with Compare(direction=%s, type=SIGNED)", dtype, direction)
 			return
 		}
 	case types.CompareUnsigned:
-		if !dtype.IsInt() || !dtype.IsUnsigned() {
-			err = errors.Errorf("data type %s is not a signed integer, cannot process it with Compare(type=UNSIGNED)", dtype)
+		if !dtype.IsUnsigned() && !(dtype == dtypes.Bool && isEquality) {
+			err = errors.Errorf("data type %s is not an unsigned integer, cannot process it with Compare(direction=%s, type=UNSIGNED)", dtype, direction)
 			return
 		}
 	default:

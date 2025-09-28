@@ -939,17 +939,21 @@ func testCompare(t *testing.T, client *pjrt.Client) {
 		direction types.ComparisonDirection, compareType types.ComparisonType,
 		dtype dtypes.DType, lhs, rhs any, expected any) {
 		builder := New(t.Name())
-		shape := shapes.Make(dtype)
+		var dims []int
+		if reflect.ValueOf(lhs).Len() > 1 {
+			dims = []int{reflect.ValueOf(lhs).Len()}
+		}
+		shape := shapes.Make(dtype, dims...)
 		fn := builder.Main()
 		lhsV, rhsV := fn.NamedInput("lhs", shape), fn.NamedInput("rhs", shape)
 		result := must1(Compare(lhsV, rhsV, direction, compareType))
 		must(fn.Return(result))
 		program := must1(builder.Build())
 		fmt.Printf("%s program:\n%s", t.Name(), withLines(program))
-		a := must1(client.BufferFromHost().FromFlatDataWithDimensions(lhs, []int{}).Done())
-		b := must1(client.BufferFromHost().FromFlatDataWithDimensions(rhs, []int{}).Done())
+		a := must1(client.BufferFromHost().FromFlatDataWithDimensions(lhs, dims).Done())
+		b := must1(client.BufferFromHost().FromFlatDataWithDimensions(rhs, dims).Done())
 		output := compileAndExecute(t, client, program, a, b)
-		requireBuffersEqual(t, []FlatAndDims{{expected, nil}}, output)
+		requireBuffersEqual(t, []FlatAndDims{{expected, dims}}, output)
 	}
 
 	t.Run("Float_EQ", func(t *testing.T) {
@@ -981,6 +985,23 @@ func testCompare(t *testing.T, client *pjrt.Client) {
 		runTest(t, "Compare", types.CompareLE, types.CompareSigned,
 			dtypes.Int32, []int32{3}, []int32{7}, []bool{true})
 	})
+
+	t.Run("Bool_EQ", func(t *testing.T) {
+		runTest(t, "Compare", types.CompareEQ, types.CompareUnsigned,
+			dtypes.Bool,
+			[]bool{true, true, false, false},
+			[]bool{true, false, true, false},
+			[]bool{true, false, false, true})
+	})
+
+	t.Run("Bool_NE", func(t *testing.T) {
+		runTest(t, "Compare", types.CompareNE, types.CompareUnsigned,
+			dtypes.Bool,
+			[]bool{true, true, false, false},
+			[]bool{true, false, true, false},
+			[]bool{false, true, true, false})
+	})
+
 }
 
 const pi32 = float32(math.Pi)
