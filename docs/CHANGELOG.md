@@ -1,6 +1,6 @@
 # Next
 
-- Fixed equality comparison of bool values -- added tests for that.
+- Added support for comparison of bool values, and added corresponding tests.
 
 # v0.0.3: 2025/09/27
 

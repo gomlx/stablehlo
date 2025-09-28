@@ -231,7 +231,6 @@ func Compare(lhsShape, rhsShape shapes.Shape, direction types.ComparisonDirectio
 		return
 	}
 	dtype := lhsShape.DType
-	isEquality := direction == types.CompareEQ || direction == types.CompareNE
 	switch compareType {
 	case types.CompareFloat:
 		if !dtype.IsFloat() && !dtype.IsComplex() {
@@ -249,7 +248,7 @@ func Compare(lhsShape, rhsShape shapes.Shape, direction types.ComparisonDirectio
 			return
 		}
 	case types.CompareUnsigned:
-		if !dtype.IsUnsigned() && !(dtype == dtypes.Bool && isEquality) {
+		if !dtype.IsUnsigned() && dtype != dtypes.Bool {
 			err = errors.Errorf("data type %s is not an unsigned integer, cannot process it with Compare(direction=%s, type=UNSIGNED)", dtype, direction)
 			return
 		}
@@ -1558,6 +1557,7 @@ func FFT(x shapes.Shape, fftType types.FFTType, fftLength []int) (output shapes.
 			output.DType = dtypes.Complex128
 		}
 
+		//goland:noinspection GoDfaConstantCondition
 	case types.FFTInverseReal:
 		// Input must be complex with the last axis dimension being fftLength/2+1
 		if len(fftLength) == 0 {

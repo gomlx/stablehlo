@@ -1002,6 +1002,14 @@ func testCompare(t *testing.T, client *pjrt.Client) {
 			[]bool{false, true, true, false})
 	})
 
+	t.Run("Bool_GT", func(t *testing.T) {
+		runTest(t, "Compare", types.CompareGT, types.CompareUnsigned,
+			dtypes.Bool,
+			[]bool{true, true, false, false},
+			[]bool{true, false, true, false},
+			[]bool{false, true, false, false})
+	})
+
 }
 
 const pi32 = float32(math.Pi)
