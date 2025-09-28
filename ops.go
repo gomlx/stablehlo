@@ -80,7 +80,7 @@ func (fn *Function) unaryOp(op optypes.OpType, operand *Value) (*Value, error) {
 
 // Compare implements the corresponding standard binary operation.
 //
-// For types.CompareEQ (== operator) and types.CompareNE (!= operator) of booleans, use the types.CompareUnsigned type.
+// For boolean data types (dtypes.Bool) use the types.CompareUnsigned type.
 func Compare(lhs, rhs *Value, direction types.ComparisonDirection, compareType types.ComparisonType) (*Value, error) {
 	op := optypes.Compare
 	fn := lhs.fn
