@@ -1,3 +1,7 @@
+# v0.0.5: 2025/09/29
+
+- Updated dependency to new Gopjrt v0.8.2 -- issues with the CUDA PJRT backward compatibility (lack of).
+
 # v0.0.4: 2025/09/28
 
 - Added support for comparison of bool values, and added corresponding tests.
