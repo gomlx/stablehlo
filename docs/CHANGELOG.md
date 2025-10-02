@@ -1,3 +1,7 @@
+# v0.0.6: 2025/10/02
+
+- Fixed Abs() of complex numbers: it returns the corresponding floating-point numbers.
+
 # v0.0.5: 2025/09/29
 
 - Updated dependency to new Gopjrt v0.8.2 -- issues with the CUDA PJRT backward compatibility (lack of).

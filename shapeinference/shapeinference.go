@@ -308,6 +308,16 @@ func UnaryOp(opType optypes.OpType, operand shapes.Shape) (output shapes.Shape, 
 		err = errors.Errorf("complex UnaryOp %s must have a complex (Complex64, Complex128) data type as input, got %s", opType, operand)
 		return
 	}
+
+	// Special cases:
+	if opType == optypes.Abs && operand.DType.IsComplex() {
+		// Abs(complex) -> real.
+		output = operand.Clone()
+		output.DType = operand.DType.RealDType()
+		return
+	}
+
+	// Default: output shape is the same as the operand.
 	output = operand
 	return
 }

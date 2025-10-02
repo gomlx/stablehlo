@@ -1124,6 +1124,10 @@ func testUnaryOps(t *testing.T, client *pjrt.Client) {
 		testUnaryOp(t, "Abs", Abs, dtypes.Float32, []float32{-3.0}, []float32{3.0})
 	})
 
+	t.Run("Abs_Complex64", func(t *testing.T) {
+		testUnaryOp(t, "Abs", Abs, dtypes.Complex64, []complex64{complex64(-3.0 + 4i)}, []float32{5.0})
+	})
+
 	t.Run("Negate_Float32", func(t *testing.T) {
 		testUnaryOp(t, "Negate", Negate, dtypes.Float32, []float32{3.0}, []float32{-3.0})
 	})
