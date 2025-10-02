@@ -30,7 +30,8 @@ See:
 
 ## Examples
 
-The tests in `tests/gopjrt/gopjrt_test.go` should serve as simple examples of each operation.
+The tests in [`tests/gopjrt/gopjrt_test.go`](https://github.com/gomlx/stablehlo/blob/main/tests/gopjrt/gopjrt_test.go) 
+should serve as simple examples of each operation.
 
 Notice that `stablehlo` is a low-level API, usually used to build higher-level frameworks (an ML framework like GoMLX, 
 maybe an image manipulation library that uses accelerators like GPUs, some scientific library, etc.), so it's deliberately 
