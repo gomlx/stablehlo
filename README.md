@@ -25,7 +25,7 @@ See:
 * [StableHLO specification](https://openxla.org/stablehlo/spec)
 * [GoMLX](https://github.com/gomlx/gomlx): a Go ML framework that supports an XLA (StableHLO+PJRT) backend to
   efficiently run (or train) ML programs.
-* [Goprjt](https://github.com/gomlx/gopjrt): a Go wrapper for PJRT C API, capable of executing StableHLO programs,
+* [GoPJRT](https://github.com/gomlx/gopjrt): a Go wrapper for PJRT C API, capable of executing StableHLO programs,
   for a lower level API.
 
 ## Examples
@@ -69,7 +69,7 @@ Other types of dynamism:
 * _Data-dependent dynamism_: for data-dependent dynamic ops. For instance, if a function returns the indices of all 
   non-zero elements. **There is little support for this, so we are not support it yet.**
 
-## StableHLO replaces [Gopjrt's XlaBuilder](https://github.com/gomlx/gopjrt/tree/main/xlabuilder)
+## StableHLO replaces [GoPJRT's XlaBuilder](https://github.com/gomlx/gopjrt/tree/main/xlabuilder)
 
 With the following advantages:
 
@@ -90,8 +90,10 @@ The disadvantages:
 
 * XlaBuilder provided "shape inference." So if I say `Add(a, b)` the XlaBuilder would tell how to broadcast
   a and b, and the resulting shape. When we build the StableHLO we have to re-implement this shape inference,
-  not only for the `Gopjrt` users, but also because the *StableHLO* language requires the inputs and outputs shapes
+  not only for the `GoPJRT` users, but also because the *StableHLO* language requires the inputs and outputs shapes
   to be specified in every statement.
+  * This is not a disadvantage for the user of this library, since `stablehlo` does that for you, but it's more
+    work for the library maintainers.
 * This means more maintenance: any updates in the language specification or new ops need to have their shape inference
   updated accordingly.
 
@@ -102,6 +104,4 @@ The same code is also used by [**GoMLX**](https://github.com/gomlx/gomlx) `Simpl
 users of **Gopjrt** may not be interested in **GoMLX**, and users of **GoMLX** that don't use the XLA backend
 wouldn't want a dependency to **Gopjrt**. 
 
-So the package `github.com/gomlx/stablehlo/shapeinference` is a copy of 
-`github.com/gomlx/gomlx/backends/shapeinference`, with the later being the source of truth. We'll keep both in sync,
-but if you need to change, please send a PR for that in [**GoMLX**](https://github.com/gomlx/gomlx).
+Also, some operations have slightly different nuances.
