@@ -28,6 +28,22 @@ See:
 * [Goprjt](https://github.com/gomlx/gopjrt): a Go wrapper for PJRT C API, capable of executing StableHLO programs,
   for a lower level API.
 
+## Examples
+
+The tests in `tests/gopjrt/gopjrt_test.go` should serve as simple examples of each operation.
+
+Notice that `stablehlo` is a low-level API, usually used to build higher-level frameworks (an ML framework like GoMLX, 
+maybe an image manipulation library that uses accelerators like GPUs, some scientific library, etc.), so it's deliberately 
+verbose and requires boilerplate (error handling) everywhere. 
+It sacrifices ergonomics for performance, consistency and stability. 
+
+See another example of `stablehlo` and GoPJRT (to execute the generate StableHLO program) in [Mandelbrot mandelbrot.ipynb notebook](https://github.com/gomlx/gopjrt/blob/main/examples/mandelbrot.ipynb).
+It includes some sample StableHLO code, if you are curious.
+
+<a href="https://github.com/gomlx/gopjrt/blob/main/examples/mandelbrot.ipynb">
+<img src="https://github.com/gomlx/gopjrt/assets/7460115/d7100980-e731-438d-961e-711f04d4425e" style="width:400px; height:240px"/>
+</a>
+
 ## Status of Operations
 
 Most operations are already implemented. See the [list of supported operations](https://github.com/gomlx/stablehlo/blob/main/internal/optypes/optypes.go#L91)
