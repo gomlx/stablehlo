@@ -1593,3 +1593,53 @@ func FFT(x shapes.Shape, fftType types.FFTType, fftLength []int) (output shapes.
 	}
 	return
 }
+
+// CollectiveBroadcast returns the output shape for a collective_broadcast operation.
+// The output shape is identical to the operand shape.
+func CollectiveBroadcast(operand shapes.Shape, replicaGroups [][]int) (output shapes.Shape, err error) {
+	if !operand.Ok() {
+		return shapes.Invalid(), errors.Errorf("CollectiveBroadcast: invalid operand shape %s", operand)
+	}
+	if len(replicaGroups) == 0 {
+		return shapes.Invalid(), errors.New("CollectiveBroadcast: replica_groups cannot be empty")
+	}
+	// TODO: Add more validation for replicaGroups if needed.
+	return operand.Clone(), nil
+}
+
+// CollectiveAllReduce returns the output shape for a collective_all_reduce operation.
+// The output shape is identical to the operand shape.
+// It also validates the computation function shapes.
+func CollectiveAllReduce(operand shapes.Shape, reductionInputs, reductionOutputs []shapes.Shape, replicaGroups [][]int) (output shapes.Shape, err error) {
+	if !operand.Ok() {
+		return shapes.Invalid(), errors.Errorf("CollectiveAllReduce: invalid operand shape %s", operand)
+	}
+	if len(replicaGroups) == 0 {
+		return shapes.Invalid(), errors.New("CollectiveAllReduce: replica_groups cannot be empty")
+	}
+
+	// Check the computation function signature.
+	if len(reductionInputs) != 2 {
+		return shapes.Invalid(), errors.Errorf("CollectiveAllReduce: computation function must have 2 inputs, but got %d", len(reductionInputs))
+	}
+	if len(reductionOutputs) != 1 {
+		return shapes.Invalid(), errors.Errorf("CollectiveAllReduce: computation function must have 1 output, but got %d", len(reductionOutputs))
+	}
+
+	scalarOperand := shapes.Make(operand.DType) // Computation operates on scalars of the operand's dtype.
+	if !reductionInputs[0].Equal(scalarOperand) {
+		return shapes.Invalid(), errors.Errorf("CollectiveAllReduce: computation input 0 shape (%s) does not match scalar operand shape (%s)",
+			reductionInputs[0], scalarOperand)
+	}
+	if !reductionInputs[1].Equal(scalarOperand) {
+		return shapes.Invalid(), errors.Errorf("CollectiveAllReduce: computation input 1 shape (%s) does not match scalar operand shape (%s)",
+			reductionInputs[1], scalarOperand)
+	}
+	if !reductionOutputs[0].Equal(scalarOperand) {
+		return shapes.Invalid(), errors.Errorf("CollectiveAllReduce: computation output shape (%s) does not match scalar operand shape (%s)",
+			reductionOutputs[0], scalarOperand)
+	}
+
+	// TODO: Add more validation for replicaGroups if needed.
+	return operand.Clone(), nil
+}

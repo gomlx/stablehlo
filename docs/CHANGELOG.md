@@ -1,3 +1,7 @@
+# Next: Multi-Device support
+
+- Added `Builder.WithNumReplicas` and `Builder.WithNumPartitions` methods.
+
 # v0.0.6: 2025/10/02
 
 - Fixed Abs() of complex numbers: it returns the corresponding floating-point numbers.

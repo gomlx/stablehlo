@@ -30,6 +30,8 @@ const (
 	Cbrt
 	Ceil
 	Clamp
+	CollectiveBroadcast // Added
+	CollectiveAllReduce // Added	Compare
 	Compare
 	Complex
 	Concatenate
@@ -92,7 +94,6 @@ const (
 
 	Case
 	Cholesky
-	CollectiveBroadcast
 	CollectivePermute
 	Composite
 	CustomCall
@@ -127,9 +128,9 @@ var (
 	// stableHLOMappings maps OpType to the corresponding StableHLO name, when the default
 	// "snake case" doesn't work.
 	stableHLOMappings = map[OpType]string{
-		FuncReturn: "stablehlo.return",
-		Erf:        "chlo.erf",
-	}
+		FuncReturn:          "stablehlo.return",
+		Erf:                 "chlo.erf",
+		CollectiveAllReduce: "stablehlo.all_reduce"}
 )
 
 // ToStableHLO returns the ToStableHLO name of the operation.
