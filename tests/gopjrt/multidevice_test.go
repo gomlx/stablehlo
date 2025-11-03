@@ -1,6 +1,7 @@
 package gopjrt
 
 import (
+	"flag"
 	"fmt"
 	"testing"
 
@@ -10,6 +11,8 @@ import (
 	"github.com/gomlx/stablehlo/types/shapes"
 	"github.com/stretchr/testify/require"
 )
+
+var flagCollectiveBroadcast = flag.Bool("collective-broadcast", false, "Run collective broadcast test: it is not implemented in PJRT CPU, so it is skipped by default.")
 
 func TestCollectiveOps(t *testing.T) {
 	iterateClientsAndTest(t, testCollectiveOps)
@@ -24,22 +27,22 @@ func testCollectiveOps(t *testing.T, client *pjrt.Client) {
 	// We will test it with 2 devices.
 	const numReplicas = 2
 	replicaGroups := [][]int{{0, 1}}
-	devices := client.AddressableDevices()
 
 	t.Run("CollectiveBroadcast", func(t *testing.T) {
+		if !*flagCollectiveBroadcast {
+			t.Skip("Skipping CollectiveBroadcast test: it is not implemented in PJRT CPU. " +
+				"If testing on a different PJRT, re-enable with -collective-broadcast=true.")
+			return
+		}
 		b := New(t.Name()).WithNumReplicas(numReplicas)
-		fn := b.Main()
-
 		// SPMD program: takes one argument per replica.
-		arg0 := fn.NamedInput("arg0", shapes.Make(dtypes.F32, 2))
-		_ = fn.NamedInput("arg1", shapes.Make(dtypes.F32, 2)) // arg1 is for replica 1
-
-		// Broadcast %arg0 (from replica 0) to all replicas.
-		// The input to this op on replica 1 (%arg1) will be ignored.
-		broadcasted := must1(CollectiveBroadcast(arg0, replicaGroups))
+		fn := b.Main()
+		x := fn.NamedInput("arg0", shapes.Make(dtypes.F32, 2))
+		// Broadcast %x (from replica 0) to all replicas.
+		broadcasted := must1(CollectiveBroadcast(x, replicaGroups))
 		must(fn.Return(broadcasted))
 		program := must1(b.Build())
-		fmt.Printf("%s program:\n%s", t.Name(), withLines(program))
+		fmt.Printf("%s program:\n%s\n", t.Name(), withLines(program))
 
 		// Prepare inputs: one buffer for each replica.
 		// Replica 0 has the data to be broadcasted.
@@ -51,7 +54,7 @@ func testCollectiveOps(t *testing.T, client *pjrt.Client) {
 
 		// Execute expects a flat list of inputs, one for each argument of main(),
 		// mapped to devices in order.
-		e, err := client.Compile().WithStableHLO(program).Done()
+		e, err := client.Compile().WithStableHLO(program).WithSPMD(numReplicas).Done()
 		require.NoErrorf(t, err, "failed to compile program: \n%s", program)
 		outputBuffers, err := e.Execute(input0, input1).DonateAll().Done()
 		require.NoErrorf(t, err, "failed to execute program: \n%s", program)
@@ -67,28 +70,17 @@ func testCollectiveOps(t *testing.T, client *pjrt.Client) {
 	t.Run("CollectiveAllReduce", func(t *testing.T) {
 		b := New(t.Name()).WithNumReplicas(numReplicas)
 
-		// Define SUM computation
-		sumComputation := b.NewFunction("sum")
-		sumComputation.Parent = b.Main() // Mark as closure
+		// Define main SPMD program
+		fn := b.Main()
+		sumComputation := fn.Closure()
 		{
 			lhs := sumComputation.NamedInput("lhs", shapes.Make(dtypes.F32))
 			rhs := sumComputation.NamedInput("rhs", shapes.Make(dtypes.F32))
 			sum := must1(Add(lhs, rhs))
 			must(sumComputation.Return(sum))
 		}
-
-		// Define main SPMD program
-		fn := b.Main()
-		arg0 := fn.NamedInput("arg0", shapes.Make(dtypes.F32, 2)) // Input for replica 0
-		arg1 := fn.NamedInput("arg1", shapes.Make(dtypes.F32, 2)) // Input for replica 1
-
-		// AllReduce %arg0 and %arg1.
-		// In SPMD, the HLO is the same, but %arg0 is mapped to the local operand.
-		// The stablehlo.Builder API is a bit abstract. We pass %arg0, and the
-		// compiler will map it to %arg0 for replica 0 and %arg1 for replica 1.
-		// Note: A more "pure" SPMD HLO would just have one %arg0, but this
-		// builder structure implies one input per replica.
-		reduced := must1(CollectiveAllReduce(arg0, replicaGroups, sumComputation))
+		x := fn.NamedInput("x", shapes.Make(dtypes.F32, 2)) // Input for replica 0
+		reduced := must1(CollectiveAllReduce(x, replicaGroups, sumComputation))
 		must(fn.Return(reduced))
 		program := must1(b.Build())
 		fmt.Printf("%s program:\n%s", t.Name(), withLines(program))
@@ -101,7 +93,7 @@ func testCollectiveOps(t *testing.T, client *pjrt.Client) {
 
 		// Execute expects a flat list of inputs, one for each argument of main(),
 		// mapped to devices in order.
-		e, err := client.Compile().WithStableHLO(program).Done()
+		e, err := client.Compile().WithStableHLO(program).WithSPMD(numReplicas).Done()
 		require.NoErrorf(t, err, "failed to compile program: \n%s", program)
 		outputBuffers, err := e.Execute(input0, input1).DonateAll().Done()
 		require.NoErrorf(t, err, "failed to execute program: \n%s", program)
