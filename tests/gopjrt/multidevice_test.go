@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var flagCollectiveBroadcast = flag.Bool("collective-broadcast", false, "Run collective broadcast test: it is not implemented in PJRT CPU, so it is skipped by default.")
+var flagCollectiveBroadcast = flag.Bool("collective_broadcast", false, "Run collective broadcast test: it is not implemented in PJRT CPU, so it is skipped by default.")
 
 func TestCollectiveOps(t *testing.T) {
 	iterateClientsAndTest(t, testCollectiveOps)
@@ -31,7 +31,7 @@ func testCollectiveOps(t *testing.T, client *pjrt.Client) {
 	t.Run("CollectiveBroadcast", func(t *testing.T) {
 		if !*flagCollectiveBroadcast {
 			t.Skip("Skipping CollectiveBroadcast test: it is not implemented in PJRT CPU. " +
-				"If testing on a different PJRT, re-enable with -collective-broadcast=true.")
+				"If testing on a different PJRT, re-enable with -collective_broadcast=true.")
 			return
 		}
 		b := New(t.Name()).WithNumReplicas(numReplicas)
@@ -70,7 +70,7 @@ func testCollectiveOps(t *testing.T, client *pjrt.Client) {
 	t.Run("CollectiveAllReduce", func(t *testing.T) {
 		b := New(t.Name()).WithNumReplicas(numReplicas)
 
-		// Define main SPMD program
+		// Define the main SPMD program.
 		fn := b.Main()
 		sumComputation := fn.Closure()
 		{
