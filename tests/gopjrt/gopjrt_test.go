@@ -77,7 +77,6 @@ func pjrtClientsIterator(t *testing.T) iter.Seq2[string, *pjrt.Client] {
 		for _, pluginName := range getPluginNames() {
 			plugin, err := pjrt.GetPlugin(pluginName)
 			require.NoError(t, err, "failed to load plugin %q", pluginName)
-			versionMajor, versionMinor := plugin.Version()
 			klog.Infof("Plugin: %s", plugin)
 			client, err := plugin.NewClient(nil)
 			require.NoError(t, err, "failed to create client for plugin %q", pluginName)

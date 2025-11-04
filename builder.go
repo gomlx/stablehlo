@@ -6,6 +6,7 @@ import (
 	"io"
 	"slices"
 
+	"github.com/gomlx/stablehlo/types"
 	"github.com/pkg/errors"
 )
 
@@ -25,6 +26,10 @@ type Builder struct {
 	NumReplicas int
 	// NumPartitions is the number of partitions for model parallelism.
 	NumPartitions int
+
+	// nextChannelID is the next ID to be assigned in channel handles.
+	// It is just a Unique ID.
+	nextChannelID int
 }
 
 // NormalizeIdentifier converts the name of an identifier (function name or function input parameter
@@ -215,4 +220,31 @@ func (b *Builder) Build() ([]byte, error) {
 		return nil, err
 	}
 	return buf.Bytes(), nil
+}
+
+// getChannelHandle generates the channel_handle attribute string.
+// It uses the config if provided (for MPMD), or the builder's internal
+// counter if not (for SPMD).
+func (b *Builder) getChannelHandle(config *types.CollectiveConfig) literalStr {
+	var id int
+	var typ int64
+
+	if config != nil {
+		typ = int64(config.ChannelType) // Use specified type
+		if config.ChannelID != nil {
+			// Manual ID provided (MPMD case)
+			id = *config.ChannelID
+		} else {
+			// Automatic ID (SPMD case)
+			id = b.nextChannelID
+			b.nextChannelID++
+		}
+	} else {
+		// Defaults for the simple SPMD case.
+		typ = int64(types.CrossReplica)
+		id = b.nextChannelID
+		b.nextChannelID++
+	}
+
+	return literalStrF("#stablehlo.channel_handle<handle = %d, type = %d>", id, typ)
 }

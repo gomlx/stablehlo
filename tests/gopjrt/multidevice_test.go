@@ -3,6 +3,7 @@ package gopjrt
 import (
 	"flag"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/gomlx/gopjrt/dtypes"
@@ -19,19 +20,21 @@ func TestCollectiveOps(t *testing.T) {
 }
 
 func testCollectiveOps(t *testing.T, client *pjrt.Client) {
-	if client.NumDevices() < 2 {
-		t.Skipf("Skipping collective ops test: requires at least 2 devices, but client %q only has %d",
-			client.Plugin().Name(), client.NumDevices())
-	}
-
 	// We will test it with 2 devices.
 	const numReplicas = 2
-	replicaGroups := [][]int{{0, 1}}
+	numDevices := client.NumDevices()
+	if numDevices < numReplicas {
+		t.Skipf("Skipping test: not enough devices: %d < %d", numDevices, numReplicas)
+		return
+	}
+	replicaGroups := [][]int{make([]int, numReplicas)}
+	for i := 0; i < numReplicas; i++ {
+		replicaGroups[0][i] = i
+	}
 
 	t.Run("CollectiveBroadcast", func(t *testing.T) {
-		if !*flagCollectiveBroadcast {
-			t.Skip("Skipping CollectiveBroadcast test: it is not implemented in PJRT CPU. " +
-				"If testing on a different PJRT, re-enable with -collective_broadcast=true.")
+		if strings.ToUpper(client.Plugin().Name()) == "CPU" {
+			t.Skip("Skipping CollectiveBroadcast test: it is not implemented in PJRT CPU. ")
 			return
 		}
 		b := New(t.Name()).WithNumReplicas(numReplicas)
@@ -47,10 +50,10 @@ func testCollectiveOps(t *testing.T, client *pjrt.Client) {
 		// Prepare inputs: one buffer for each replica.
 		// Replica 0 has the data to be broadcasted.
 		input0 := must1(client.BufferFromHost().FromFlatDataWithDimensions(
-			[]float32{1.0, 2.0}, []int{2}).ToDeviceNum(0).Done())
+			[]float32{1.0, 2.0}, []int{2}).ToDeviceNum(replicaGroups[0][0]).Done())
 		// Replica 1 has different data, which will be overwritten.
 		input1 := must1(client.BufferFromHost().FromFlatDataWithDimensions(
-			[]float32{7.0, 13.0}, []int{2}).ToDeviceNum(1).Done())
+			[]float32{7.0, 13.0}, []int{2}).ToDeviceNum(replicaGroups[0][1]).Done())
 
 		// Execute expects a flat list of inputs, one for each argument of main(),
 		// mapped to devices in order.
@@ -67,7 +70,7 @@ func testCollectiveOps(t *testing.T, client *pjrt.Client) {
 		requireBuffersEqual(t, want, outputBuffers)
 	})
 
-	t.Run("CollectiveAllReduce", func(t *testing.T) {
+	t.Run("AllReduce", func(t *testing.T) {
 		b := New(t.Name()).WithNumReplicas(numReplicas)
 
 		// Define the main SPMD program.
@@ -80,16 +83,16 @@ func testCollectiveOps(t *testing.T, client *pjrt.Client) {
 			must(sumComputation.Return(sum))
 		}
 		x := fn.NamedInput("x", shapes.Make(dtypes.F32, 2)) // Input for replica 0
-		reduced := must1(CollectiveAllReduce(x, replicaGroups, sumComputation))
+		reduced := must1(AllReduce(x, replicaGroups, sumComputation))
 		must(fn.Return(reduced))
 		program := must1(b.Build())
 		fmt.Printf("%s program:\n%s", t.Name(), withLines(program))
 
 		// Prepare inputs: one buffer for each replica.
 		input0 := must1(client.BufferFromHost().FromFlatDataWithDimensions(
-			[]float32{1.0, 10.0}, []int{2}).ToDeviceNum(0).Done())
+			[]float32{1.0, 10.0}, []int{2}).ToDeviceNum(replicaGroups[0][0]).Done())
 		input1 := must1(client.BufferFromHost().FromFlatDataWithDimensions(
-			[]float32{2.0, 20.0}, []int{2}).ToDeviceNum(1).Done())
+			[]float32{2.0, 20.0}, []int{2}).ToDeviceNum(replicaGroups[0][1]).Done())
 
 		// Execute expects a flat list of inputs, one for each argument of main(),
 		// mapped to devices in order.

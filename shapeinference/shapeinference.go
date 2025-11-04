@@ -1607,36 +1607,36 @@ func CollectiveBroadcast(operand shapes.Shape, replicaGroups [][]int) (output sh
 	return operand.Clone(), nil
 }
 
-// CollectiveAllReduce returns the output shape for a collective_all_reduce operation.
+// AllReduce returns the output shape for a collective_all_reduce operation.
 // The output shape is identical to the operand shape.
 // It also validates the computation function shapes.
-func CollectiveAllReduce(operand shapes.Shape, reductionInputs, reductionOutputs []shapes.Shape, replicaGroups [][]int) (output shapes.Shape, err error) {
+func AllReduce(operand shapes.Shape, reductionInputs, reductionOutputs []shapes.Shape, replicaGroups [][]int) (output shapes.Shape, err error) {
 	if !operand.Ok() {
-		return shapes.Invalid(), errors.Errorf("CollectiveAllReduce: invalid operand shape %s", operand)
+		return shapes.Invalid(), errors.Errorf("AllReduce: invalid operand shape %s", operand)
 	}
 	if len(replicaGroups) == 0 {
-		return shapes.Invalid(), errors.New("CollectiveAllReduce: replica_groups cannot be empty")
+		return shapes.Invalid(), errors.New("AllReduce: replica_groups cannot be empty")
 	}
 
 	// Check the computation function signature.
 	if len(reductionInputs) != 2 {
-		return shapes.Invalid(), errors.Errorf("CollectiveAllReduce: computation function must have 2 inputs, but got %d", len(reductionInputs))
+		return shapes.Invalid(), errors.Errorf("AllReduce: computation function must have 2 inputs, but got %d", len(reductionInputs))
 	}
 	if len(reductionOutputs) != 1 {
-		return shapes.Invalid(), errors.Errorf("CollectiveAllReduce: computation function must have 1 output, but got %d", len(reductionOutputs))
+		return shapes.Invalid(), errors.Errorf("AllReduce: computation function must have 1 output, but got %d", len(reductionOutputs))
 	}
 
 	scalarOperand := shapes.Make(operand.DType) // Computation operates on scalars of the operand's dtype.
 	if !reductionInputs[0].Equal(scalarOperand) {
-		return shapes.Invalid(), errors.Errorf("CollectiveAllReduce: computation input 0 shape (%s) does not match scalar operand shape (%s)",
+		return shapes.Invalid(), errors.Errorf("AllReduce: computation input 0 shape (%s) does not match scalar operand shape (%s)",
 			reductionInputs[0], scalarOperand)
 	}
 	if !reductionInputs[1].Equal(scalarOperand) {
-		return shapes.Invalid(), errors.Errorf("CollectiveAllReduce: computation input 1 shape (%s) does not match scalar operand shape (%s)",
+		return shapes.Invalid(), errors.Errorf("AllReduce: computation input 1 shape (%s) does not match scalar operand shape (%s)",
 			reductionInputs[1], scalarOperand)
 	}
 	if !reductionOutputs[0].Equal(scalarOperand) {
-		return shapes.Invalid(), errors.Errorf("CollectiveAllReduce: computation output shape (%s) does not match scalar operand shape (%s)",
+		return shapes.Invalid(), errors.Errorf("AllReduce: computation output shape (%s) does not match scalar operand shape (%s)",
 			reductionOutputs[0], scalarOperand)
 	}
 

@@ -43,7 +43,7 @@ func (c ComparisonType) ToStableHLO() string {
 // ComparisonDirection enum defined for the Compare op.
 type ComparisonDirection int
 
-//go:generate go tool enumer -type=ComparisonDirection -trimprefix=Compare ops.go
+//go:generate go tool enumer -type=ComparisonDirection -trimprefix=Compare -output=gen_comparisondirection_enumer.go ops.go
 
 const (
 	CompareEQ ComparisonDirection = iota
