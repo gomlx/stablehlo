@@ -6,11 +6,12 @@ import (
 	"io"
 	"slices"
 
+	"github.com/gomlx/stablehlo/types"
 	"github.com/pkg/errors"
 )
 
-// Builder is used to construct a ToStableHLO program.
-// See New.
+// Builder is used to construct a StableHLO program.
+// See details in New.
 type Builder struct {
 	name   string
 	parent *Builder
@@ -20,6 +21,15 @@ type Builder struct {
 
 	// inlineUniqueID is a counter used to generate unique names for inlined functions values.
 	inlineUniqueID int
+
+	// NumReplicas is the number of replicas for data parallelism.
+	NumReplicas int
+	// NumPartitions is the number of partitions for model parallelism.
+	NumPartitions int
+
+	// nextChannelID is the next ID to be assigned in channel handles.
+	// It is just a Unique ID.
+	nextChannelID int
 }
 
 // NormalizeIdentifier converts the name of an identifier (function name or function input parameter
@@ -60,6 +70,20 @@ func New(name string) *Builder {
 	return &Builder{
 		name: name,
 	}
+}
+
+// WithNumReplicas sets the number of replicas (for data parallelism).
+// This is added as an attribute to the StableHLO module.
+func (b *Builder) WithNumReplicas(n int) *Builder {
+	b.NumReplicas = n
+	return b
+}
+
+// WithNumPartitions sets the number of partitions (for model parallelism).
+// This is added as an attribute to the StableHLO module.
+func (b *Builder) WithNumPartitions(n int) *Builder {
+	b.NumPartitions = n
+	return b
 }
 
 // elementWriter represents elements of ToStableHLO that know how to write themselves.
@@ -107,6 +131,18 @@ func (b *Builder) Main(inputs ...*Value) *Function {
 
 const IndentationStep = "  "
 
+// getModuleAttributes returns the attributes for the StableHLO module (StableHLO code) generated.
+func (b *Builder) getModuleAttributes() []string {
+	var attributes []string
+	if b.NumReplicas > 0 {
+		attributes = append(attributes, fmt.Sprintf("stablehlo.num_replicas = %d", b.NumReplicas))
+	}
+	if b.NumPartitions > 0 {
+		attributes = append(attributes, fmt.Sprintf(" stablehlo.num_partitions = %d", b.NumPartitions))
+	}
+	return attributes
+}
+
 // Write the StableHLO program (a readable string) to the given writer.
 //
 // It will write incomplete programs (without a main function or empty statements) without an error
@@ -114,7 +150,6 @@ const IndentationStep = "  "
 //
 // See Builder.Build to check and output the program.
 func (b *Builder) Write(writer io.Writer) error {
-	indentation := ""
 	var err error
 	w := func(format string, args ...any) {
 		if err != nil {
@@ -131,6 +166,21 @@ func (b *Builder) Write(writer io.Writer) error {
 		err = e.Write(writer, indentation)
 	}
 
+	// Write module header
+	w("module @%s", NormalizeIdentifier(b.name))
+	attrs := b.getModuleAttributes()
+	if len(attrs) > 0 {
+		w(" attributes {")
+		for i, attr := range attrs {
+			if i > 0 {
+				w(", ")
+			}
+			w("%s", attr)
+		}
+		w(" }")
+	}
+	w(" {\n")
+
 	// Write non-inline functions:
 	var count int
 	for _, fn := range b.functions {
@@ -140,10 +190,10 @@ func (b *Builder) Write(writer io.Writer) error {
 		if count > 0 {
 			w("\n\n")
 		}
-		we(fn, indentation)
+		we(fn, IndentationStep) // Indent functions inside module
 		count++
 	}
-	w("\n")
+	w("\n}\n") // Close module block
 	return err
 }
 
@@ -170,4 +220,31 @@ func (b *Builder) Build() ([]byte, error) {
 		return nil, err
 	}
 	return buf.Bytes(), nil
+}
+
+// getChannelHandle generates the channel_handle attribute string.
+// It uses the config if provided (for MPMD), or the builder's internal
+// counter if not (for SPMD).
+func (b *Builder) getChannelHandle(config *types.CollectiveConfig) literalStr {
+	var id int
+	var typ int64
+
+	if config != nil {
+		typ = int64(config.ChannelType) // Use specified type
+		if config.ChannelID != nil {
+			// Manual ID provided (MPMD case)
+			id = *config.ChannelID
+		} else {
+			// Automatic ID (SPMD case)
+			id = b.nextChannelID
+			b.nextChannelID++
+		}
+	} else {
+		// Defaults for the simple SPMD case.
+		typ = int64(types.CrossReplica)
+		id = b.nextChannelID
+		b.nextChannelID++
+	}
+
+	return literalStrF("#stablehlo.channel_handle<handle = %d, type = %d>", id, typ)
 }

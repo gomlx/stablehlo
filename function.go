@@ -297,7 +297,7 @@ func (fn *Function) Write(writer io.Writer, indentation string) error {
 	}
 
 	if normalFunction {
-		w("}")
+		w("%s}", indentation)
 	}
 	return err
 }

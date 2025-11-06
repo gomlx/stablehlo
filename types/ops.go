@@ -12,7 +12,7 @@ import (
 // ComparisonType enum defined for the Compare op.
 type ComparisonType int
 
-//go:generate go tool enumer -type=ComparisonType ops.go
+//go:generate go tool enumer -type=ComparisonType -output=gen_comparisontype_enumer.go ops.go
 
 const (
 	// CompareFloat are used for floating point comparisons.
@@ -43,7 +43,7 @@ func (c ComparisonType) ToStableHLO() string {
 // ComparisonDirection enum defined for the Compare op.
 type ComparisonDirection int
 
-//go:generate go tool enumer -type=ComparisonDirection -trimprefix=Compare ops.go
+//go:generate go tool enumer -type=ComparisonDirection -trimprefix=Compare -output=gen_comparisondirection_enumer.go ops.go
 
 const (
 	CompareEQ ComparisonDirection = iota
@@ -105,7 +105,7 @@ func (c ConvolveAxesConfig) Clone() ConvolveAxesConfig {
 // but they are planning to address this in #755 -- https://github.com/openxla/stablehlo/issues/755):
 type DotGeneralPrecisionType int
 
-//go:generate go tool enumer -type=DotGeneralPrecisionType -trimprefix=DotGeneralPrecision ops.go
+//go:generate go tool enumer -type=DotGeneralPrecisionType -trimprefix=DotGeneralPrecision -output=gen_dotgeneralprecisiontype_enumer.go ops.go
 
 const (
 	// DotGeneralPrecisionDefault is the fastest calculation, but the least accurate approximation to the original number.
@@ -167,7 +167,7 @@ const (
 	RngThreeFry
 )
 
-//go:generate go tool enumer -type=RngBitGeneratorAlgorithm -trimprefix=Rng -transform=snake ops.go
+//go:generate go tool enumer -type=RngBitGeneratorAlgorithm -trimprefix=Rng -output=gen_rngbitgeneratoralgorithm_enumer.go -transform=snake ops.go
 
 // FFTType defines the type of the FFT operation, see FFT.
 type FFTType int
@@ -186,7 +186,7 @@ const (
 	FFTInverseReal
 )
 
-//go:generate go tool enumer -type FFTType -trimprefix=FFT ops.go
+//go:generate go tool enumer -type FFTType -trimprefix=FFT -output=gen_ffttype_enumer.go ops.go
 
 // ToStableHLO returns the StableHLO representation of the FFT type.
 func (t FFTType) ToStableHLO() string {
@@ -202,4 +202,38 @@ func (t FFTType) ToStableHLO() string {
 	default:
 		return "FFT_UNKNOWN_TYPE"
 	}
+}
+
+// ChannelType defines the communication dimension for a collective op.
+// It is int64 to match the i64 type in the StableHLO spec.
+type ChannelType int
+
+//go:generate go tool enumer -type=ChannelType -output=gen_channeltype_enumer.go -transform=snake ops.go
+
+const (
+	// CrossReplica communicates across replicas (data parallelism).
+	// This is the default.
+	CrossReplica ChannelType = 0
+
+	// CrossPartition communicates across partitions (model parallelism).
+	CrossPartition ChannelType = 1
+)
+
+// CollectiveConfig provides advanced, optional configuration for collective operations.
+// Pass this as the last (optional) argument to collective ops.
+type CollectiveConfig struct {
+	// ChannelID, if non-nil, forces a specific channel ID (the 'handle').
+	// If nil, a unique ID will be automatically generated.
+	// This is **required** for MPMD (multi-program, multi-data) to manually link ops across programs.
+	ChannelID *int
+
+	// ChannelType specifies the communication dimension.
+	// Defaults to CrossReplica (0).
+	ChannelType ChannelType
+
+	// UseGlobalDeviceIDs changes the interpretation of replica_groups
+	// from replica IDs to global device IDs.
+	// This only applies to AllReduce, not CollectiveBroadcast.
+	// Defaults to false.
+	UseGlobalDeviceIDs bool
 }

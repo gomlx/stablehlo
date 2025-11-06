@@ -1593,3 +1593,109 @@ func FFT(x shapes.Shape, fftType types.FFTType, fftLength []int) (output shapes.
 	}
 	return
 }
+
+// CollectiveBroadcast returns the output shape for a collective_broadcast operation.
+// The output shape is identical to the operand shape.
+func CollectiveBroadcast(operand shapes.Shape, replicaGroups [][]int) (output shapes.Shape, err error) {
+	if !operand.Ok() {
+		return shapes.Invalid(), errors.Errorf("CollectiveBroadcast: invalid operand shape %s", operand)
+	}
+	if len(replicaGroups) == 0 {
+		return shapes.Invalid(), errors.New("CollectiveBroadcast: replica_groups cannot be empty")
+	}
+	// TODO: Add more validation for replicaGroups if needed.
+	return operand.Clone(), nil
+}
+
+// AllGather returns the output shape for an all_gather operation.
+func AllGather(operand shapes.Shape, replicaGroups [][]int, allGatherDim int) (output shapes.Shape, err error) {
+	if !operand.Ok() {
+		return shapes.Invalid(), errors.Errorf("AllGather: invalid operand shape %s", operand)
+	}
+	if len(replicaGroups) == 0 {
+		return shapes.Invalid(), errors.New("AllGather: replica_groups cannot be empty")
+	}
+	if allGatherDim < 0 || allGatherDim >= operand.Rank() {
+		return shapes.Invalid(), errors.Errorf("AllGather: all_gather_dim %d is out of bounds for operand rank %d", allGatherDim, operand.Rank())
+	}
+
+	output = operand.Clone()
+	replicaGroupSize := len(replicaGroups[0])
+	output.Dimensions[allGatherDim] *= replicaGroupSize
+	return output, nil
+}
+
+// AllToAll returns the output shape for an all_to_all operation.
+func AllToAll(operand shapes.Shape, replicaGroups [][]int, splitDimension, concatDimension, splitCount int) (output shapes.Shape, err error) {
+	if !operand.Ok() {
+		return shapes.Invalid(), errors.Errorf("AllToAll: invalid operand shape %s", operand)
+	}
+	if len(replicaGroups) == 0 {
+		return shapes.Invalid(), errors.New("AllToAll: replica_groups cannot be empty")
+	}
+	if splitDimension < 0 || splitDimension >= operand.Rank() {
+		return shapes.Invalid(), errors.Errorf("AllToAll: split_dimension %d is out of bounds for operand rank %d", splitDimension, operand.Rank())
+	}
+	if concatDimension < 0 || concatDimension >= operand.Rank() {
+		return shapes.Invalid(), errors.Errorf("AllToAll: concat_dimension %d is out of bounds for operand rank %d", concatDimension, operand.Rank())
+	}
+	if splitCount <= 0 {
+		return shapes.Invalid(), errors.Errorf("AllToAll: split_count %d must be positive", splitCount)
+	}
+	if operand.Dimensions[splitDimension]%splitCount != 0 {
+		return shapes.Invalid(), errors.Errorf("AllToAll: split_dimension size %d is not divisible by split_count %d", operand.Dimensions[splitDimension], splitCount)
+	}
+
+	output = operand.Clone()
+	output.Dimensions[splitDimension] /= splitCount
+	output.Dimensions[concatDimension] *= splitCount
+	return output, nil
+}
+
+// CollectivePermute returns the output shape for a collective_permute operation.
+func CollectivePermute(operand shapes.Shape, sourceTargetPairs [][2]int) (output shapes.Shape, err error) {
+	if !operand.Ok() {
+		return shapes.Invalid(), errors.Errorf("CollectivePermute: invalid operand shape %s", operand)
+	}
+	if len(sourceTargetPairs) == 0 {
+		return shapes.Invalid(), errors.New("CollectivePermute: source_target_pairs cannot be empty")
+	}
+	return operand.Clone(), nil
+}
+
+// AllReduce returns the output shape for a collective_all_reduce operation.
+// The output shape is identical to the operand shape.
+// It also validates the computation function shapes.
+func AllReduce(operand shapes.Shape, reductionInputs, reductionOutputs []shapes.Shape, replicaGroups [][]int) (output shapes.Shape, err error) {
+	if !operand.Ok() {
+		return shapes.Invalid(), errors.Errorf("AllReduce: invalid operand shape %s", operand)
+	}
+	if len(replicaGroups) == 0 {
+		return shapes.Invalid(), errors.New("AllReduce: replica_groups cannot be empty")
+	}
+
+	// Check the computation function signature.
+	if len(reductionInputs) != 2 {
+		return shapes.Invalid(), errors.Errorf("AllReduce: computation function must have 2 inputs, but got %d", len(reductionInputs))
+	}
+	if len(reductionOutputs) != 1 {
+		return shapes.Invalid(), errors.Errorf("AllReduce: computation function must have 1 output, but got %d", len(reductionOutputs))
+	}
+
+	scalarOperand := shapes.Make(operand.DType) // Computation operates on scalars of the operand's dtype.
+	if !reductionInputs[0].Equal(scalarOperand) {
+		return shapes.Invalid(), errors.Errorf("AllReduce: computation input 0 shape (%s) does not match scalar operand shape (%s)",
+			reductionInputs[0], scalarOperand)
+	}
+	if !reductionInputs[1].Equal(scalarOperand) {
+		return shapes.Invalid(), errors.Errorf("AllReduce: computation input 1 shape (%s) does not match scalar operand shape (%s)",
+			reductionInputs[1], scalarOperand)
+	}
+	if !reductionOutputs[0].Equal(scalarOperand) {
+		return shapes.Invalid(), errors.Errorf("AllReduce: computation output shape (%s) does not match scalar operand shape (%s)",
+			reductionOutputs[0], scalarOperand)
+	}
+
+	// TODO: Add more validation for replicaGroups if needed.
+	return operand.Clone(), nil
+}

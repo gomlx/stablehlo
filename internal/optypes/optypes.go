@@ -10,7 +10,7 @@ import (
 // OpType is an enum of all generic operations that ToStableHLO can support -- not all are implemented yet.
 type OpType int
 
-//go:generate go tool enumer -type=OpType optypes.go
+//go:generate go tool enumer -type=OpType -output=gen_optype_enumer.go optypes.go
 
 const (
 	Invalid OpType = iota
@@ -20,6 +20,7 @@ const (
 
 	Abs
 	Add
+	AllReduce
 	And
 	Atan2
 	BatchNormInference
@@ -30,6 +31,7 @@ const (
 	Cbrt
 	Ceil
 	Clamp
+	CollectiveBroadcast
 	Compare
 	Complex
 	Concatenate
@@ -90,9 +92,10 @@ const (
 
 	// Here the ones not implemented yet, please add an issue in the repo if you need them.
 
+	AllGather
+	AllToAll
 	Case
 	Cholesky
-	CollectiveBroadcast
 	CollectivePermute
 	Composite
 	CustomCall
@@ -129,7 +132,7 @@ var (
 	stableHLOMappings = map[OpType]string{
 		FuncReturn: "stablehlo.return",
 		Erf:        "chlo.erf",
-	}
+		AllReduce:  "stablehlo.all_reduce"}
 )
 
 // ToStableHLO returns the ToStableHLO name of the operation.
