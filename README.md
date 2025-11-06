@@ -1,7 +1,11 @@
 # [XLA](https://openxla.org/)'s [StableHLO](https://openxla.org/stablehlo) Builder API for Go
 
-[![TestStatus](https://github.com/gomlx/gomlx/actions/workflows/go.yaml/badge.svg)](https://github.com/gomlx/gomlx/actions/workflows/go.yaml)
+[![GoDev](https://img.shields.io/badge/go.dev-reference-007d9c?logo=go&logoColor=white)](https://pkg.go.dev/github.com/gomlx/stablehlo?tab=doc)
+[![GitHub](https://img.shields.io/github/license/gomlx/stablehlo)](https://github.com/gomlx/stablehlo/blob/main/LICENSE)
+[![Go Report Card](https://goreportcard.com/badge/github.com/gomlx/stablehlo)](https://goreportcard.com/report/github.com/gomlx/stablehlo)
+[![TestStatus](https://github.com/gomlx/stablehlo/actions/workflows/tests.yaml/badge.svg)](https://github.com/gomlx/gomlx/actions/workflows/tests.yaml)
 [![Slack](https://img.shields.io/badge/Slack-GoMLX-purple.svg?logo=slack)](https://app.slack.com/client/T029RQSE6/C08TX33BX6U)
+[![Sponsor gomlx](https://img.shields.io/badge/Sponsor-gomlx-white?logo=github&style=flat-square)](https://github.com/sponsors/gomlx)
 
 > [!Note]
 > Discussion in the [Slack channel #gomlx](https://app.slack.com/client/T029RQSE6/C08TX33BX6U)
