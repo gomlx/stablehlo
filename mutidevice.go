@@ -132,3 +132,134 @@ func AllReduce(operand *Value, replicaGroups [][]int, computation *Function, con
 	stmt.AddFunctionParameter("computation", computation)
 	return stmt.Outputs[0], nil
 }
+
+// AllGather concatenates the operand from each replica along a specified dimension.
+//
+//   - operand: The tensor from the *local* replica to be gathered.
+//   - replicaGroups: A 2D array defining the communicating device groups.
+//   - allGatherDim: The dimension along which to concatenate the operands.
+//   - config: Optional configuration of the channels to be used.
+func AllGather(operand *Value, replicaGroups [][]int, allGatherDim int, config ...*types.CollectiveConfig) (*Value, error) {
+	op := optypes.AllGather
+	fn := operand.fn
+	if fn.Returned {
+		return nil, errors.Errorf("cannot add operation %s after returning, in function %q", op, fn.Name)
+	}
+
+	outputShape, err := shapeinference.AllGather(operand.shape, replicaGroups, allGatherDim)
+	if err != nil {
+		return nil, err
+	}
+
+	var cfg *types.CollectiveConfig
+	if len(config) > 1 {
+		return nil, errors.Errorf("only one config can be provided, got %d", len(config))
+	} else if len(config) == 1 {
+		cfg = config[0]
+	}
+
+	stmt := fn.addOp(op, outputShape, operand)
+	stmt.Attributes = map[string]any{
+		"replica_groups":      formatReplicaGroups(replicaGroups),
+		"all_gather_dim":      int64(allGatherDim),
+		"channel_handle":      fn.Builder.getChannelHandle(cfg),
+	}
+	if cfg != nil && cfg.UseGlobalDeviceIDs {
+		stmt.Attributes["use_global_device_ids"] = true
+	}
+	return stmt.Outputs[0], nil
+}
+
+// AllToAll splits the operand along a specified dimension and scatters the chunks to all replicas,
+// where they are concatenated back together.
+//
+//   - operand: The tensor from the *local* replica.
+//   - replicaGroups: A 2D array defining the communicating device groups.
+//   - splitDimension: The dimension along which to split the operand.
+//   - concatDimension: The dimension along which to concatenate the received chunks.
+//   - splitCount: The number of chunks to split the operand into. This must match the size of the replica groups.
+//   - config: Optional configuration of the channels to be used.
+func AllToAll(operand *Value, replicaGroups [][]int, splitDimension, concatDimension, splitCount int, config ...*types.CollectiveConfig) (*Value, error) {
+	op := optypes.AllToAll
+	fn := operand.fn
+	if fn.Returned {
+		return nil, errors.Errorf("cannot add operation %s after returning, in function %q", op, fn.Name)
+	}
+
+	outputShape, err := shapeinference.AllToAll(operand.shape, replicaGroups, splitDimension, concatDimension, splitCount)
+	if err != nil {
+		return nil, err
+	}
+
+	var cfg *types.CollectiveConfig
+	if len(config) > 1 {
+		return nil, errors.Errorf("only one config can be provided, got %d", len(config))
+	} else if len(config) == 1 {
+		cfg = config[0]
+	}
+
+	stmt := fn.addOp(op, outputShape, operand)
+	stmt.Attributes = map[string]any{
+		"replica_groups":      formatReplicaGroups(replicaGroups),
+		"split_dimension":     int64(splitDimension),
+		"concat_dimension":    int64(concatDimension),
+		"split_count":         int64(splitCount),
+		"channel_handle":      fn.Builder.getChannelHandle(cfg),
+	}
+	if cfg != nil && cfg.UseGlobalDeviceIDs {
+		stmt.Attributes["use_global_device_ids"] = true
+	}
+	return stmt.Outputs[0], nil
+}
+
+// formatSourceTargetPairs converts a 2D Go slice into the StableHLO dense tensor literal format.
+// Example: [[0, 1], [2, 3]] -> "dense<[[0, 1], [2, 3]]> : tensor<2x2xi64>"
+func formatSourceTargetPairs(pairs [][2]int) literalStr {
+	if len(pairs) == 0 {
+		return "dense<[]> : tensor<0x2xi64>"
+	}
+
+	var sb strings.Builder
+	sb.WriteString("dense<[")
+	for i, pair := range pairs {
+		if i > 0 {
+			sb.WriteString(", ")
+		}
+		sb.WriteString(fmt.Sprintf("[%d, %d]", pair[0], pair[1]))
+	}
+	sb.WriteString("]>")
+	sb.WriteString(fmt.Sprintf(" : tensor<%dx2xi64>", len(pairs)))
+	return literalStr(sb.String())
+}
+
+// CollectivePermute sends the operand from a source replica to a target replica.
+//
+//   - operand: The tensor from the *local* replica.
+//   - sourceTargetPairs: A 2D array where each inner array is a `[source, target]` pair of replica IDs.
+//   - config: Optional configuration of the channels to be used.
+func CollectivePermute(operand *Value, sourceTargetPairs [][2]int, config ...*types.CollectiveConfig) (*Value, error) {
+	op := optypes.CollectivePermute
+	fn := operand.fn
+	if fn.Returned {
+		return nil, errors.Errorf("cannot add operation %s after returning, in function %q", op, fn.Name)
+	}
+
+	outputShape, err := shapeinference.CollectivePermute(operand.shape, sourceTargetPairs)
+	if err != nil {
+		return nil, err
+	}
+
+	var cfg *types.CollectiveConfig
+	if len(config) > 1 {
+		return nil, errors.Errorf("only one config can be provided, got %d", len(config))
+	} else if len(config) == 1 {
+		cfg = config[0]
+	}
+
+	stmt := fn.addOp(op, outputShape, operand)
+	stmt.Attributes = map[string]any{
+		"source_target_pairs": formatSourceTargetPairs(sourceTargetPairs),
+		"channel_handle":      fn.Builder.getChannelHandle(cfg),
+	}
+	return stmt.Outputs[0], nil
+}

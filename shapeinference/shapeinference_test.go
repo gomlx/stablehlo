@@ -783,3 +783,34 @@ func TestPad(t *testing.T) {
 		require.Error(t, err)
 	})
 }
+
+func TestCollectiveOps(t *testing.T) {
+	operand := S(F32, 2, 4)
+	replicaGroups := [][]int{{0, 1}, {2, 3}}
+
+	t.Run("AllGather", func(t *testing.T) {
+		output, err := AllGather(operand, replicaGroups, 1)
+		require.NoError(t, err)
+		expected := S(F32, 2, 8)
+		require.True(t, expected.Equal(output), "Expected %s, got %s", expected, output)
+
+		_, err = AllGather(operand, replicaGroups, 2)
+		require.Error(t, err)
+	})
+
+	t.Run("AllToAll", func(t *testing.T) {
+		output, err := AllToAll(operand, replicaGroups, 1, 0, 2)
+		require.NoError(t, err)
+		expected := S(F32, 4, 2)
+		require.True(t, expected.Equal(output), "Expected %s, got %s", expected, output)
+
+		_, err = AllToAll(operand, replicaGroups, 2, 0, 2)
+		require.Error(t, err)
+	})
+
+	t.Run("CollectivePermute", func(t *testing.T) {
+		output, err := CollectivePermute(operand, [][2]int{{0, 1}})
+		require.NoError(t, err)
+		require.True(t, operand.Equal(output), "Expected %s, got %s", operand, output)
+	})
+}

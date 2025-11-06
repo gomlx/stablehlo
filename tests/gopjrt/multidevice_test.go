@@ -108,4 +108,86 @@ func testCollectiveOps(t *testing.T, client *pjrt.Client) {
 		}
 		requireBuffersEqual(t, want, outputBuffers)
 	})
+
+	t.Run("AllGather", func(t *testing.T) {
+		b := New(t.Name()).WithNumReplicas(numReplicas)
+		fn := b.Main()
+		x := fn.NamedInput("x", shapes.Make(dtypes.F32, 2))
+		gathered := must1(AllGather(x, replicaGroups, 0))
+		must(fn.Return(gathered))
+		program := must1(b.Build())
+		fmt.Printf("%s program:\n%s", t.Name(), withLines(program))
+
+		input0 := must1(client.BufferFromHost().FromFlatDataWithDimensions(
+			[]float32{1.0, 10.0}, []int{2}).ToDeviceNum(replicaGroups[0][0]).Done())
+		input1 := must1(client.BufferFromHost().FromFlatDataWithDimensions(
+			[]float32{2.0, 20.0}, []int{2}).ToDeviceNum(replicaGroups[0][1]).Done())
+
+		e, err := client.Compile().WithStableHLO(program).WithSPMD(numReplicas).Done()
+		require.NoErrorf(t, err, "failed to compile program: \n%s", program)
+		outputBuffers, err := e.Execute(input0, input1).DonateAll().Done()
+		require.NoErrorf(t, err, "failed to execute program: \n%s", program)
+
+		want := []FlatAndDims{
+			{[]float32{1.0, 10.0, 2.0, 20.0}, []int{4}},
+			{[]float32{1.0, 10.0, 2.0, 20.0}, []int{4}},
+		}
+		requireBuffersEqual(t, want, outputBuffers)
+	})
+
+	t.Run("AllToAll", func(t *testing.T) {
+		b := New(t.Name()).WithNumReplicas(numReplicas)
+		fn := b.Main()
+		x := fn.NamedInput("x", shapes.Make(dtypes.F32, 4))
+		result := must1(AllToAll(x, replicaGroups, 0, 0, numReplicas))
+		must(fn.Return(result))
+		program := must1(b.Build())
+		fmt.Printf("%s program:\n%s", t.Name(), withLines(program))
+
+		input0 := must1(client.BufferFromHost().FromFlatDataWithDimensions(
+			[]float32{1.0, 2.0, 3.0, 4.0}, []int{4}).ToDeviceNum(replicaGroups[0][0]).Done())
+		input1 := must1(client.BufferFromHost().FromFlatDataWithDimensions(
+			[]float32{10.0, 20.0, 30.0, 40.0}, []int{4}).ToDeviceNum(replicaGroups[0][1]).Done())
+
+		e, err := client.Compile().WithStableHLO(program).WithSPMD(numReplicas).Done()
+		require.NoErrorf(t, err, "failed to compile program: \n%s", program)
+		outputBuffers, err := e.Execute(input0, input1).DonateAll().Done()
+		require.NoErrorf(t, err, "failed to execute program: \n%s", program)
+
+		want := []FlatAndDims{
+			{[]float32{1.0, 2.0, 10.0, 20.0}, []int{4}},
+			{[]float32{3.0, 4.0, 30.0, 40.0}, []int{4}},
+		}
+		requireBuffersEqual(t, want, outputBuffers)
+	})
+
+	t.Run("CollectivePermute", func(t *testing.T) {
+		if strings.ToUpper(client.Plugin().Name()) == "CPU" {
+			t.Skip("Skipping CollectivePermute test: it is not implemented in PJRT CPU. ")
+			return
+		}
+		b := New(t.Name()).WithNumReplicas(numReplicas)
+		fn := b.Main()
+		x := fn.NamedInput("x", shapes.Make(dtypes.F32, 2))
+		permuted := must1(CollectivePermute(x, [][2]int{{0, 1}, {1, 0}}))
+		must(fn.Return(permuted))
+		program := must1(b.Build())
+		fmt.Printf("%s program:\n%s", t.Name(), withLines(program))
+
+		input0 := must1(client.BufferFromHost().FromFlatDataWithDimensions(
+			[]float32{1.0, 10.0}, []int{2}).ToDeviceNum(replicaGroups[0][0]).Done())
+		input1 := must1(client.BufferFromHost().FromFlatDataWithDimensions(
+			[]float32{2.0, 20.0}, []int{2}).ToDeviceNum(replicaGroups[0][1]).Done())
+
+		e, err := client.Compile().WithStableHLO(program).WithSPMD(numReplicas).Done()
+		require.NoErrorf(t, err, "failed to compile program: \n%s", program)
+		outputBuffers, err := e.Execute(input0, input1).DonateAll().Done()
+		require.NoErrorf(t, err, "failed to execute program: \n%s", program)
+
+		want := []FlatAndDims{
+			{[]float32{2.0, 20.0}, []int{2}},
+			{[]float32{1.0, 10.0}, []int{2}},
+		}
+		requireBuffersEqual(t, want, outputBuffers)
+	})
 }
