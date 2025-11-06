@@ -1,6 +1,8 @@
-# Next: Multi-Device support
+# v0.1.0: 2025/11/06 Multi-Device support
 
-- Added `Builder.WithNumReplicas` and `Builder.WithNumPartitions` methods.
+- Multi-device support:
+  - Added `Builder.WithNumReplicas` and `Builder.WithNumPartitions` methods.
+  - Added `AllReduce`, `AllGather`, `AllToAll`, `CollectiveBroadcast` and `CollectivePermute` operations. 
 
 # v0.0.6: 2025/10/02
 
@@ -8,11 +10,11 @@
 
 # v0.0.5: 2025/09/29
 
-- Updated dependency to new Gopjrt v0.8.2 -- issues with the CUDA PJRT backward compatibility (lack of).
+- Updated dependency to new Gopjrt v0.8.2 – issues with the CUDA PJRT backward compatibility (lack of).
 
 # v0.0.4: 2025/09/28
 
-- Added support for comparison of bool values, and added corresponding tests.
+- Added support for comparison of bool values and corresponding tests.
 
 # v0.0.3: 2025/09/27
 
