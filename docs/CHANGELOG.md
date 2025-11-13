@@ -1,3 +1,8 @@
+# v0.2.0: ...
+
+- `Function.Input` and `Function.NamedInput`: (change in API) they now may return an error, if the name is duplicate.
+- `AllReduce` now supports arbitrary number of inputs, to be reduced at once.
+
 # v0.1.0: 2025/11/06 Multi-Device support
 
 - Multi-device support:

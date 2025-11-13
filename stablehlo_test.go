@@ -47,8 +47,8 @@ func TestBuilder(t *testing.T) {
 		shape := shapes.Make(dtypes.Float64)
 		// lhs is provided during the Main function creation, and rhs is added later.
 		fn := builder.Main()
-		lhs := fn.NamedInput("lhs", shape)
-		rhs := fn.NamedInput("rhs", shape)
+		lhs := must(fn.NamedInput("lhs", shape))
+		rhs := must(fn.NamedInput("rhs", shape))
 		sum := must(Add(lhs, rhs))
 		require.NoError(t, fn.Return(sum))
 		program := string(must(builder.Build()))
