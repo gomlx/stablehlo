@@ -83,30 +83,42 @@ func CollectiveBroadcast(operand *Value, replicaGroups [][]int, config ...*types
 // AllReduce performs a distributed reduce operation across replicas.
 // It is a distributed version of Reduce.
 //
-//   - operand: The tensor from the *local* replica to be reduced.
+//   - operands: The tensors from the *local* replica to be reduced.
 //   - replicaGroups: A 2D array defining the communicating device groups, e.g., `[[0, 1, 2, 3]]`.
 //   - computation: A closure function that defines the reduction operation (e.g., SUM). It must
-//     take two scalar inputs of the operand's dtype and return one scalar output of the same dtype.
+//     take two scalar inputs for each operand's dtype and return one scalar output of the same dtype.
 //   - replicaGroups: A 2D array defining the communicating device groups. For standard data
 //     parallelism, this is typically a single group with all the replica numbers --
 //     notice it's not the device numbers by the replica numbers (there is an indirection).
 //     Except if the config sets UseGlobalDeviceIDs, in which case they are interpreted as device
 //     numbers. E.g., `[[0, 1, 2, 3]]`.
 //   - config: Optional configuration of the channels to be used. This is not needed for SPMD programs.
-func AllReduce(operand *Value, replicaGroups [][]int, computation *Function, config ...*types.CollectiveConfig) (*Value, error) {
+func AllReduce(operands []*Value, replicaGroups [][]int, computation *Function, config ...*types.CollectiveConfig) (
+	[]*Value, error) {
 	op := optypes.AllReduce
-	fn := operand.fn
+	if len(operands) == 0 {
+		return nil, errors.Errorf("AllReduce requires at least one operand")
+	}
+	fn := operands[0].fn
 	if fn.Returned {
 		return nil, errors.Errorf("cannot add operation %s after returning, in function %q",
 			op, fn.Name)
 	}
 	if computation.Parent != fn {
-		return nil, errors.Errorf("cannot add operation %s because computation is not a StableHLO closure of %s",
+		return nil, errors.Errorf(
+			"cannot add operation %s because computation is not a StableHLO closure of %s",
 			op, fn.Name)
 	}
+	for i, operand := range operands {
+		if operand.fn != fn {
+			return nil, errors.Errorf(
+				"cannot add operation %s (#%d) because operand is not from the same function %s",
+				op, i, fn.Name)
+		}
+	}
 
-	outputShape, err := shapeinference.AllReduce(
-		operand.shape,
+	outputShapes, err := shapeinference.AllReduce(
+		valuesToShapes(operands),
 		valuesToShapes(computation.Inputs),
 		computation.Outputs,
 		replicaGroups)
@@ -121,7 +133,7 @@ func AllReduce(operand *Value, replicaGroups [][]int, computation *Function, con
 		cfg = config[0]
 	}
 
-	stmt := fn.addOp(op, outputShape, operand)
+	stmt := fn.addMultiOp(op, outputShapes, operands)
 	stmt.Attributes = map[string]any{
 		"replica_groups": formatReplicaGroups(replicaGroups),
 		"channel_handle": fn.Builder.getChannelHandle(cfg),
@@ -130,7 +142,7 @@ func AllReduce(operand *Value, replicaGroups [][]int, computation *Function, con
 		stmt.Attributes["use_global_device_ids"] = true
 	}
 	stmt.AddFunctionParameter("computation", computation)
-	return stmt.Outputs[0], nil
+	return stmt.Outputs, nil
 }
 
 // AllGather concatenates the operand from each replica along a specified dimension.
@@ -160,9 +172,9 @@ func AllGather(operand *Value, replicaGroups [][]int, allGatherDim int, config .
 
 	stmt := fn.addOp(op, outputShape, operand)
 	stmt.Attributes = map[string]any{
-		"replica_groups":      formatReplicaGroups(replicaGroups),
-		"all_gather_dim":      int64(allGatherDim),
-		"channel_handle":      fn.Builder.getChannelHandle(cfg),
+		"replica_groups": formatReplicaGroups(replicaGroups),
+		"all_gather_dim": int64(allGatherDim),
+		"channel_handle": fn.Builder.getChannelHandle(cfg),
 	}
 	if cfg != nil && cfg.UseGlobalDeviceIDs {
 		stmt.Attributes["use_global_device_ids"] = true
@@ -200,11 +212,11 @@ func AllToAll(operand *Value, replicaGroups [][]int, splitDimension, concatDimen
 
 	stmt := fn.addOp(op, outputShape, operand)
 	stmt.Attributes = map[string]any{
-		"replica_groups":      formatReplicaGroups(replicaGroups),
-		"split_dimension":     int64(splitDimension),
-		"concat_dimension":    int64(concatDimension),
-		"split_count":         int64(splitCount),
-		"channel_handle":      fn.Builder.getChannelHandle(cfg),
+		"replica_groups":   formatReplicaGroups(replicaGroups),
+		"split_dimension":  int64(splitDimension),
+		"concat_dimension": int64(concatDimension),
+		"split_count":      int64(splitCount),
+		"channel_handle":   fn.Builder.getChannelHandle(cfg),
 	}
 	if cfg != nil && cfg.UseGlobalDeviceIDs {
 		stmt.Attributes["use_global_device_ids"] = true

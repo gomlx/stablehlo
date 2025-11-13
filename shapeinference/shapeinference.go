@@ -1663,39 +1663,56 @@ func CollectivePermute(operand shapes.Shape, sourceTargetPairs [][2]int) (output
 	return operand.Clone(), nil
 }
 
-// AllReduce returns the output shape for a collective_all_reduce operation.
-// The output shape is identical to the operand shape.
+// AllReduce returns the output shapes for a collective_all_reduce operation.
+// The output shapes are identical to the operand shapes.
 // It also validates the computation function shapes.
-func AllReduce(operand shapes.Shape, reductionInputs, reductionOutputs []shapes.Shape, replicaGroups [][]int) (output shapes.Shape, err error) {
-	if !operand.Ok() {
-		return shapes.Invalid(), errors.Errorf("AllReduce: invalid operand shape %s", operand)
+func AllReduce(operands []shapes.Shape, reductionInputs, reductionOutputs []shapes.Shape, replicaGroups [][]int) (
+	outputs []shapes.Shape, err error) {
+	numOperands := len(operands)
+	if numOperands == 0 {
+		return nil, errors.New("AllReduce: requires at least one operand")
+	}
+	for i, operand := range operands {
+		if !operand.Ok() {
+			return nil, errors.Errorf("AllReduce: invalid operand[%d] shape %s",
+				i, operand)
+		}
 	}
 	if len(replicaGroups) == 0 {
-		return shapes.Invalid(), errors.New("AllReduce: replica_groups cannot be empty")
+		return nil, errors.New("AllReduce: replica_groups cannot be empty")
 	}
 
 	// Check the computation function signature.
-	if len(reductionInputs) != 2 {
-		return shapes.Invalid(), errors.Errorf("AllReduce: computation function must have 2 inputs, but got %d", len(reductionInputs))
-	}
-	if len(reductionOutputs) != 1 {
-		return shapes.Invalid(), errors.Errorf("AllReduce: computation function must have 1 output, but got %d", len(reductionOutputs))
-	}
+	//if len(reductionInputs) != 2*numOperands {
+	//	return nil, errors.Errorf("AllReduce: computation function must have 2*%d=%d inputs, but got %d",
+	//		numOperands, 2*numOperands, len(reductionInputs))
+	//}
+	//if len(reductionOutputs) != numOperands {
+	//	return nil, errors.Errorf("AllReduce: computation function must have %d outputs, but got %d",
+	//		numOperands, len(reductionOutputs))
+	//}
 
-	scalarOperand := shapes.Make(operand.DType) // Computation operates on scalars of the operand's dtype.
-	if !reductionInputs[0].Equal(scalarOperand) {
-		return shapes.Invalid(), errors.Errorf("AllReduce: computation input 0 shape (%s) does not match scalar operand shape (%s)",
-			reductionInputs[0], scalarOperand)
-	}
-	if !reductionInputs[1].Equal(scalarOperand) {
-		return shapes.Invalid(), errors.Errorf("AllReduce: computation input 1 shape (%s) does not match scalar operand shape (%s)",
-			reductionInputs[1], scalarOperand)
-	}
-	if !reductionOutputs[0].Equal(scalarOperand) {
-		return shapes.Invalid(), errors.Errorf("AllReduce: computation output shape (%s) does not match scalar operand shape (%s)",
-			reductionOutputs[0], scalarOperand)
-	}
+	// Validate computation function inputs and outputs match operand dtypes (as scalars).
+	//for i := range numOperands {
+	//	scalarOperand := shapes.Make(operands[i].DType) // Computation operates on scalars of the operand's dtype.
+	//	if !reductionInputs[i].Equal(scalarOperand) {
+	//		return nil, errors.Errorf("AllReduce: computation input %d shape (%s) does not match scalar operand[%d] shape (%s)",
+	//			i, reductionInputs[i], i, scalarOperand)
+	//	}
+	//	if !reductionInputs[i+numOperands].Equal(scalarOperand) {
+	//		return nil, errors.Errorf("AllReduce: computation input %d shape (%s) does not match scalar operand[%d] shape (%s)",
+	//			i+numOperands, reductionInputs[i+numOperands], i, scalarOperand)
+	//	}
+	//	if !reductionOutputs[i].Equal(scalarOperand) {
+	//		return nil, errors.Errorf("AllReduce: computation output %d shape (%s) does not match scalar operand[%d] shape (%s)",
+	//			i, reductionOutputs[i], i, scalarOperand)
+	//	}
+	//}
 
 	// TODO: Add more validation for replicaGroups if needed.
-	return operand.Clone(), nil
+	outputs = make([]shapes.Shape, numOperands)
+	for i, operand := range operands {
+		outputs[i] = operand.Clone()
+	}
+	return outputs, nil
 }
