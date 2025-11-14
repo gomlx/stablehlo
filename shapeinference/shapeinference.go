@@ -1670,46 +1670,42 @@ func AllReduce(operands []shapes.Shape, reductionInputs, reductionOutputs []shap
 	outputs []shapes.Shape, err error) {
 	numOperands := len(operands)
 	if numOperands == 0 {
-		return nil, errors.New("AllReduce: requires at least one operand")
+		return nil, errors.New("requires at least one operand")
 	}
+	dtype := operands[0].DType
 	for i, operand := range operands {
 		if !operand.Ok() {
-			return nil, errors.Errorf("AllReduce: invalid operand[%d] shape %s",
+			return nil, errors.Errorf("invalid operand[%d] shape %s",
 				i, operand)
+		}
+		if operand.DType != dtype {
+			return nil, errors.Errorf(
+				"operand[%d] dtype %s does not match dtype %s for all operands",
+				i, operand.DType, dtype)
 		}
 	}
 	if len(replicaGroups) == 0 {
-		return nil, errors.New("AllReduce: replica_groups cannot be empty")
+		return nil, errors.New("replica_groups cannot be empty")
 	}
 
 	// Check the computation function signature.
-	//if len(reductionInputs) != 2*numOperands {
-	//	return nil, errors.Errorf("AllReduce: computation function must have 2*%d=%d inputs, but got %d",
-	//		numOperands, 2*numOperands, len(reductionInputs))
-	//}
-	//if len(reductionOutputs) != numOperands {
-	//	return nil, errors.Errorf("AllReduce: computation function must have %d outputs, but got %d",
-	//		numOperands, len(reductionOutputs))
-	//}
+	if len(reductionInputs) != 2 {
+		return nil, errors.Errorf("computation function must have 2 inputs, but got %d",
+			len(reductionInputs))
+	}
+	if len(reductionOutputs) != 1 {
+		return nil, errors.Errorf("computation function must have 1 output, but got %d",
+			len(reductionOutputs))
+	}
+	for _, s := range []shapes.Shape{reductionInputs[0], reductionInputs[1], reductionOutputs[0]} {
+		if !s.IsScalar() || s.DType != dtype {
+			return nil, errors.Errorf(
+				"computation function inputs and output must be scalar with the same dtype as operands, "+
+					"got (%s, %s) -> %s -- operands dtypes is %s",
+				reductionInputs[0], reductionInputs[1], reductionOutputs[0], dtype)
+		}
+	}
 
-	// Validate computation function inputs and outputs match operand dtypes (as scalars).
-	//for i := range numOperands {
-	//	scalarOperand := shapes.Make(operands[i].DType) // Computation operates on scalars of the operand's dtype.
-	//	if !reductionInputs[i].Equal(scalarOperand) {
-	//		return nil, errors.Errorf("AllReduce: computation input %d shape (%s) does not match scalar operand[%d] shape (%s)",
-	//			i, reductionInputs[i], i, scalarOperand)
-	//	}
-	//	if !reductionInputs[i+numOperands].Equal(scalarOperand) {
-	//		return nil, errors.Errorf("AllReduce: computation input %d shape (%s) does not match scalar operand[%d] shape (%s)",
-	//			i+numOperands, reductionInputs[i+numOperands], i, scalarOperand)
-	//	}
-	//	if !reductionOutputs[i].Equal(scalarOperand) {
-	//		return nil, errors.Errorf("AllReduce: computation output %d shape (%s) does not match scalar operand[%d] shape (%s)",
-	//			i, reductionOutputs[i], i, scalarOperand)
-	//	}
-	//}
-
-	// TODO: Add more validation for replicaGroups if needed.
 	outputs = make([]shapes.Shape, numOperands)
 	for i, operand := range operands {
 		outputs[i] = operand.Clone()
