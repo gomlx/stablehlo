@@ -81,11 +81,11 @@ func (fn *Function) newValue(shape shapes.Shape) (v *Value) {
 //
 // It picks a default unique name for the input parameter, you can also
 // provide a name with NamedInput.
-func (fn *Function) Input(shape shapes.Shape) *Value {
+func (fn *Function) Input(shape shapes.Shape) (*Value, error) {
 	rootFn := fn.findRootFn()
-	value := fn.NamedInput(fmt.Sprintf("arg%d", rootFn.nextArgID), shape)
+	value, err := fn.NamedInput(fmt.Sprintf("arg%d", rootFn.nextArgID), shape)
 	rootFn.nextArgID++
-	return value
+	return value, err
 }
 
 // NamedInput creates a new input parameter for a function with the given name -- it
@@ -97,14 +97,19 @@ func (fn *Function) Input(shape shapes.Shape) *Value {
 //
 // Names are used in the StableHLO code and may be helpful for debugging, but
 // otherwise have no impact.
-func (fn *Function) NamedInput(name string, shape shapes.Shape) *Value {
+func (fn *Function) NamedInput(name string, shape shapes.Shape) (*Value, error) {
 	value := &Value{
 		fn:    fn,
 		name:  ConvertToValidName(name),
 		shape: shape,
 	}
+	for i, input := range fn.Inputs {
+		if input.name == value.name {
+			return nil, errors.Errorf("duplicate input name %q with input #%d", value.name, i)
+		}
+	}
 	fn.Inputs = append(fn.Inputs, value)
-	return value
+	return value, nil
 }
 
 // ConstantFromScalar creates a new constant statement and returns the resulting value.

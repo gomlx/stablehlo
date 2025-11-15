@@ -40,7 +40,7 @@ func testCollectiveOps(t *testing.T, client *pjrt.Client) {
 		b := New(t.Name()).WithNumReplicas(numReplicas)
 		// SPMD program: takes one argument per replica.
 		fn := b.Main()
-		x := fn.NamedInput("arg0", shapes.Make(dtypes.F32, 2))
+		x := must1(fn.NamedInput("arg0", shapes.Make(dtypes.F32, 2)))
 		// Broadcast %x (from replica 0) to all replicas.
 		broadcasted := must1(CollectiveBroadcast(x, replicaGroups))
 		must(fn.Return(broadcasted))
@@ -70,41 +70,87 @@ func testCollectiveOps(t *testing.T, client *pjrt.Client) {
 		requireBuffersEqual(t, want, outputBuffers)
 	})
 
-	t.Run("AllReduce", func(t *testing.T) {
+	t.Run("AllReduce1", func(t *testing.T) {
 		b := New(t.Name()).WithNumReplicas(numReplicas)
 
 		// Define the main SPMD program.
 		fn := b.Main()
 		sumComputation := fn.Closure()
 		{
-			lhs := sumComputation.NamedInput("lhs", shapes.Make(dtypes.F32))
-			rhs := sumComputation.NamedInput("rhs", shapes.Make(dtypes.F32))
+			lhs := must1(sumComputation.NamedInput("lhs", shapes.Make(dtypes.F32)))
+			rhs := must1(sumComputation.NamedInput("rhs", shapes.Make(dtypes.F32)))
 			sum := must1(Add(lhs, rhs))
 			must(sumComputation.Return(sum))
 		}
-		x := fn.NamedInput("x", shapes.Make(dtypes.F32, 2)) // Input for replica 0
-		reduced := must1(AllReduce(x, replicaGroups, sumComputation))
-		must(fn.Return(reduced))
+		x0 := must1(fn.NamedInput("x", shapes.Make(dtypes.F32, 2))) // Input for replica 0
+		reduced := must1(AllReduce([]*Value{x0}, replicaGroups, sumComputation))
+		must(fn.Return(reduced[0]))
 		program := must1(b.Build())
 		fmt.Printf("%s program:\n%s", t.Name(), withLines(program))
 
 		// Prepare inputs: one buffer for each replica.
-		input0 := must1(client.BufferFromHost().FromFlatDataWithDimensions(
+		inputX0 := must1(client.BufferFromHost().FromFlatDataWithDimensions(
 			[]float32{1.0, 10.0}, []int{2}).ToDeviceNum(replicaGroups[0][0]).Done())
-		input1 := must1(client.BufferFromHost().FromFlatDataWithDimensions(
+		inputX1 := must1(client.BufferFromHost().FromFlatDataWithDimensions(
 			[]float32{2.0, 20.0}, []int{2}).ToDeviceNum(replicaGroups[0][1]).Done())
 
 		// Execute expects a flat list of inputs, one for each argument of main(),
 		// mapped to devices in order.
 		e, err := client.Compile().WithStableHLO(program).WithSPMD(numReplicas).Done()
 		require.NoErrorf(t, err, "failed to compile program: \n%s", program)
-		outputBuffers, err := e.Execute(input0, input1).DonateAll().Done()
+		outputBuffers, err := e.Execute(inputX0, inputX1).DonateAll().Done()
 		require.NoErrorf(t, err, "failed to execute program: \n%s", program)
 
 		// Check outputs: all replicas should have the sum.
 		want := []FlatAndDims{
-			{[]float32{3.0, 30.0}, []int{2}}, // Output on replica 0
+			{[]float32{3.0, 30.0}, []int{2}}, // Output X on replica 0
 			{[]float32{3.0, 30.0}, []int{2}}, // Output on replica 1
+		}
+		requireBuffersEqual(t, want, outputBuffers)
+	})
+
+	t.Run("AllReduce2", func(t *testing.T) {
+		b := New(t.Name()).WithNumReplicas(numReplicas)
+
+		// Define the main SPMD program.
+		fn := b.Main()
+		sumComputation := fn.Closure()
+		{
+			lhs := must1(sumComputation.NamedInput("lhs", shapes.Make(dtypes.F32)))
+			rhs := must1(sumComputation.NamedInput("rhs", shapes.Make(dtypes.F32)))
+			sum := must1(Add(lhs, rhs))
+			must(sumComputation.Return(sum))
+		}
+		x := must1(fn.NamedInput("x", shapes.Make(dtypes.F32, 2))) // Input for replica 0
+		y := must1(fn.NamedInput("y", shapes.Make(dtypes.F32, 3))) // Input for replica 0
+		reduced := must1(AllReduce([]*Value{x, y}, replicaGroups, sumComputation))
+		must(fn.Return(reduced[0], reduced[1]))
+		program := must1(b.Build())
+		fmt.Printf("%s program:\n%s", t.Name(), withLines(program))
+
+		// Prepare inputs: one buffer for each replica.
+		inputX0 := must1(client.BufferFromHost().FromFlatDataWithDimensions(
+			[]float32{1.0, 10.0}, []int{2}).ToDeviceNum(replicaGroups[0][0]).Done())
+		inputY0 := must1(client.BufferFromHost().FromFlatDataWithDimensions(
+			[]float32{0.01, 0.1, 0.2}, []int{3}).ToDeviceNum(replicaGroups[0][0]).Done())
+		inputX1 := must1(client.BufferFromHost().FromFlatDataWithDimensions(
+			[]float32{2.0, 20.0}, []int{2}).ToDeviceNum(replicaGroups[0][1]).Done())
+		inputY1 := must1(client.BufferFromHost().FromFlatDataWithDimensions(
+			[]float32{0.05, 0.6, 0.7}, []int{3}).ToDeviceNum(replicaGroups[0][1]).Done())
+
+		// Execute expects a flat list of inputs, one for each argument of main(),
+		// mapped to devices in order.
+		e, err := client.Compile().WithStableHLO(program).WithSPMD(numReplicas).Done()
+		require.NoErrorf(t, err, "failed to compile program: \n%s", program)
+		outputBuffers, err := e.Execute(inputX0, inputY0, inputX1, inputY1).DonateAll().Done()
+		require.NoErrorf(t, err, "failed to execute program: \n%s", program)
+
+		// Check outputs: all replicas should have the sum.
+		want := []FlatAndDims{
+			{[]float32{3.0, 30.0}, []int{2}},      // Output X on replica 0
+			{[]float32{0.06, 0.7, 0.9}, []int{3}}, // Output Y on replica 0
+			{[]float32{3.0, 30.0}, []int{2}},      // Output on replica 1
+			{[]float32{0.06, 0.7, 0.9}, []int{3}}, // Output Y on replica 0
 		}
 		requireBuffersEqual(t, want, outputBuffers)
 	})
@@ -112,7 +158,7 @@ func testCollectiveOps(t *testing.T, client *pjrt.Client) {
 	t.Run("AllGather", func(t *testing.T) {
 		b := New(t.Name()).WithNumReplicas(numReplicas)
 		fn := b.Main()
-		x := fn.NamedInput("x", shapes.Make(dtypes.F32, 2))
+		x := must1(fn.NamedInput("x", shapes.Make(dtypes.F32, 2)))
 		gathered := must1(AllGather(x, replicaGroups, 0))
 		must(fn.Return(gathered))
 		program := must1(b.Build())
@@ -138,7 +184,7 @@ func testCollectiveOps(t *testing.T, client *pjrt.Client) {
 	t.Run("AllToAll", func(t *testing.T) {
 		b := New(t.Name()).WithNumReplicas(numReplicas)
 		fn := b.Main()
-		x := fn.NamedInput("x", shapes.Make(dtypes.F32, 4))
+		x := must1(fn.NamedInput("x", shapes.Make(dtypes.F32, 4)))
 		result := must1(AllToAll(x, replicaGroups, 0, 0, numReplicas))
 		must(fn.Return(result))
 		program := must1(b.Build())
@@ -168,7 +214,7 @@ func testCollectiveOps(t *testing.T, client *pjrt.Client) {
 		}
 		b := New(t.Name()).WithNumReplicas(numReplicas)
 		fn := b.Main()
-		x := fn.NamedInput("x", shapes.Make(dtypes.F32, 2))
+		x := must1(fn.NamedInput("x", shapes.Make(dtypes.F32, 2)))
 		permuted := must1(CollectivePermute(x, [][2]int{{0, 1}, {1, 0}}))
 		must(fn.Return(permuted))
 		program := must1(b.Build())

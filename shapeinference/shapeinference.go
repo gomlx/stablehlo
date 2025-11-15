@@ -1663,39 +1663,52 @@ func CollectivePermute(operand shapes.Shape, sourceTargetPairs [][2]int) (output
 	return operand.Clone(), nil
 }
 
-// AllReduce returns the output shape for a collective_all_reduce operation.
-// The output shape is identical to the operand shape.
+// AllReduce returns the output shapes for a collective_all_reduce operation.
+// The output shapes are identical to the operand shapes.
 // It also validates the computation function shapes.
-func AllReduce(operand shapes.Shape, reductionInputs, reductionOutputs []shapes.Shape, replicaGroups [][]int) (output shapes.Shape, err error) {
-	if !operand.Ok() {
-		return shapes.Invalid(), errors.Errorf("AllReduce: invalid operand shape %s", operand)
+func AllReduce(operands []shapes.Shape, reductionInputs, reductionOutputs []shapes.Shape, replicaGroups [][]int) (
+	outputs []shapes.Shape, err error) {
+	numOperands := len(operands)
+	if numOperands == 0 {
+		return nil, errors.New("requires at least one operand")
+	}
+	dtype := operands[0].DType
+	for i, operand := range operands {
+		if !operand.Ok() {
+			return nil, errors.Errorf("invalid operand[%d] shape %s",
+				i, operand)
+		}
+		if operand.DType != dtype {
+			return nil, errors.Errorf(
+				"operand[%d] dtype %s does not match dtype %s for all operands",
+				i, operand.DType, dtype)
+		}
 	}
 	if len(replicaGroups) == 0 {
-		return shapes.Invalid(), errors.New("AllReduce: replica_groups cannot be empty")
+		return nil, errors.New("replica_groups cannot be empty")
 	}
 
 	// Check the computation function signature.
 	if len(reductionInputs) != 2 {
-		return shapes.Invalid(), errors.Errorf("AllReduce: computation function must have 2 inputs, but got %d", len(reductionInputs))
+		return nil, errors.Errorf("computation function must have 2 inputs, but got %d",
+			len(reductionInputs))
 	}
 	if len(reductionOutputs) != 1 {
-		return shapes.Invalid(), errors.Errorf("AllReduce: computation function must have 1 output, but got %d", len(reductionOutputs))
+		return nil, errors.Errorf("computation function must have 1 output, but got %d",
+			len(reductionOutputs))
+	}
+	for _, s := range []shapes.Shape{reductionInputs[0], reductionInputs[1], reductionOutputs[0]} {
+		if !s.IsScalar() || s.DType != dtype {
+			return nil, errors.Errorf(
+				"computation function inputs and output must be scalar with the same dtype as operands, "+
+					"got (%s, %s) -> %s -- operands dtypes is %s",
+				reductionInputs[0], reductionInputs[1], reductionOutputs[0], dtype)
+		}
 	}
 
-	scalarOperand := shapes.Make(operand.DType) // Computation operates on scalars of the operand's dtype.
-	if !reductionInputs[0].Equal(scalarOperand) {
-		return shapes.Invalid(), errors.Errorf("AllReduce: computation input 0 shape (%s) does not match scalar operand shape (%s)",
-			reductionInputs[0], scalarOperand)
+	outputs = make([]shapes.Shape, numOperands)
+	for i, operand := range operands {
+		outputs[i] = operand.Clone()
 	}
-	if !reductionInputs[1].Equal(scalarOperand) {
-		return shapes.Invalid(), errors.Errorf("AllReduce: computation input 1 shape (%s) does not match scalar operand shape (%s)",
-			reductionInputs[1], scalarOperand)
-	}
-	if !reductionOutputs[0].Equal(scalarOperand) {
-		return shapes.Invalid(), errors.Errorf("AllReduce: computation output shape (%s) does not match scalar operand shape (%s)",
-			reductionOutputs[0], scalarOperand)
-	}
-
-	// TODO: Add more validation for replicaGroups if needed.
-	return operand.Clone(), nil
+	return outputs, nil
 }
