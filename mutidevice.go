@@ -37,10 +37,12 @@ func formatReplicaGroups(groups [][]int) literalStr {
 	return literalStr(sb.String())
 }
 
-// CollectiveBroadcast broadcasts the operand from a source replica to all other replicas.
+// CollectiveBroadcast broadcasts the value from the first replica (in each group) to all others.
+// The returned shape is the same as the source.
+// Devices not included in any replica group will return zeros as their output (with the same shape as the input).
 //
 //   - operand: The tensor to be broadcasted. In an SPMD setup, this op will be called on all
-//     replicas, but only the operand from the source device (typically the first device in
+//     replicas, but only the operand from the source device (the first device in
 //     the replica_group) will be used.
 //   - replicaGroups: A 2D array defining the communicating device groups. For standard data
 //     parallelism, this is typically a single group with all the replica numbers --
