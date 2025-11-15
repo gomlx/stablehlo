@@ -207,7 +207,7 @@ func testOps(t *testing.T, client *pjrt.Client) {
 		builder := New(t.Name())
 		fn := builder.Main()
 		shape := shapes.Make(dtypes.Float64)
-		lhsV, rhsV := fn.NamedInput("lhs", shape), fn.NamedInput("rhs", shape)
+		lhsV, rhsV := must1(fn.NamedInput("lhs", shape)), must1(fn.NamedInput("rhs", shape))
 		must(fn.Return(must1(Complex(lhsV, rhsV))))
 		program := must1(builder.Build())
 		fmt.Printf("%s program:\n%s", t.Name(), withLines(program))
@@ -220,9 +220,9 @@ func testOps(t *testing.T, client *pjrt.Client) {
 	t.Run("Clamp", func(t *testing.T) {
 		builder := New(t.Name())
 		fn := builder.Main()
-		minV := fn.NamedInput("min", shapes.Make(dtypes.Float32))
-		xV := fn.NamedInput("x", shapes.Make(dtypes.Float32, 3))
-		maxV := fn.NamedInput("max", shapes.Make(dtypes.Float32))
+		minV := must1(fn.NamedInput("min", shapes.Make(dtypes.Float32)))
+		xV := must1(fn.NamedInput("x", shapes.Make(dtypes.Float32, 3)))
+		maxV := must1(fn.NamedInput("max", shapes.Make(dtypes.Float32)))
 		must(fn.Return(must1(Clamp(minV, xV, maxV))))
 		program := must1(builder.Build())
 		fmt.Printf("%s program:\n%s", t.Name(), withLines(program))
@@ -254,7 +254,7 @@ func testOps(t *testing.T, client *pjrt.Client) {
 	t.Run("IsFinite", func(t *testing.T) {
 		builder := New(t.Name())
 		fn := builder.Main()
-		input := fn.NamedInput("x", shapes.Make(dtypes.F64, 6))
+		input := must1(fn.NamedInput("x", shapes.Make(dtypes.F64, 6)))
 		must(fn.Return(must1(IsFinite(input))))
 		program := must1(builder.Build())
 		fmt.Printf("%s program:\n%s", t.Name(), withLines(program))
@@ -371,8 +371,8 @@ func testOps(t *testing.T, client *pjrt.Client) {
 		x = must1(Reshape(x, shapes.Make(dtypes.F32, 2, 3)))
 		zero := must1(fn.ConstantFromScalar(float32(0)))
 		reductionFn := fn.Closure()
-		lhs := reductionFn.NamedInput("lhs", shapes.Make(dtypes.F32))
-		rhs := reductionFn.NamedInput("rhs", shapes.Make(dtypes.F32))
+		lhs := must1(reductionFn.NamedInput("lhs", shapes.Make(dtypes.F32)))
+		rhs := must1(reductionFn.NamedInput("rhs", shapes.Make(dtypes.F32)))
 		must(reductionFn.Return(must1(Add(lhs, rhs))))
 		r0 := must1(Reduce(x, zero, reductionFn, 1))
 		r1 := must1(Reduce(x, zero, reductionFn, 0))
@@ -396,10 +396,10 @@ func testOps(t *testing.T, client *pjrt.Client) {
 		zeroF32 := must1(fn.ConstantFromScalar(float32(0)))
 		zeroI32 := must1(fn.ConstantFromScalar(int32(0)))
 		reductionFn := fn.Closure()
-		lhs0 := reductionFn.NamedInput("lhs0", shapes.Make(dtypes.F32))
-		lhs1 := reductionFn.NamedInput("lhs1", shapes.Make(dtypes.Int32))
-		rhs0 := reductionFn.NamedInput("rhs0", shapes.Make(dtypes.F32))
-		rhs1 := reductionFn.NamedInput("rhs1", shapes.Make(dtypes.Int32))
+		lhs0 := must1(reductionFn.NamedInput("lhs0", shapes.Make(dtypes.F32)))
+		lhs1 := must1(reductionFn.NamedInput("lhs1", shapes.Make(dtypes.Int32)))
+		rhs0 := must1(reductionFn.NamedInput("rhs0", shapes.Make(dtypes.F32)))
+		rhs1 := must1(reductionFn.NamedInput("rhs1", shapes.Make(dtypes.Int32)))
 		must(reductionFn.Return(
 			must1(Add(lhs0, rhs0)),
 			must1(Add(lhs1, rhs1))))
@@ -528,10 +528,10 @@ func testOps(t *testing.T, client *pjrt.Client) {
 		indexedInputAxes := []int{2, 3}
 		indexVectorAxis := 2
 		updateFn := fn.Closure()
-		lhsF32 := updateFn.NamedInput("lhsF32", shapes.Make(dtypes.F32))
-		lhsI32 := updateFn.NamedInput("lhsI32", shapes.Make(dtypes.Int32))
-		rhsF32 := updateFn.NamedInput("rhsF32", shapes.Make(dtypes.F32))
-		rhsI32 := updateFn.NamedInput("rhsI32", shapes.Make(dtypes.Int32))
+		lhsF32 := must1(updateFn.NamedInput("lhsF32", shapes.Make(dtypes.F32)))
+		lhsI32 := must1(updateFn.NamedInput("lhsI32", shapes.Make(dtypes.Int32)))
+		rhsF32 := must1(updateFn.NamedInput("rhsF32", shapes.Make(dtypes.F32)))
+		rhsI32 := must1(updateFn.NamedInput("rhsI32", shapes.Make(dtypes.Int32)))
 		must(updateFn.Return(
 			must1(Add(lhsF32, rhsF32)),
 			must1(Add(lhsI32, rhsI32)),
@@ -646,8 +646,8 @@ func testOps(t *testing.T, client *pjrt.Client) {
 		x = must1(Reshape(x, shapes.Make(dtypes.F32, 2, 3)))
 		zero := must1(fn.ConstantFromScalar(float32(0)))
 		reductionFn := fn.Closure()
-		lhs := reductionFn.NamedInput("lhs", shapes.Make(dtypes.F32))
-		rhs := reductionFn.NamedInput("rhs", shapes.Make(dtypes.F32))
+		lhs := must1(reductionFn.NamedInput("lhs", shapes.Make(dtypes.F32)))
+		rhs := must1(reductionFn.NamedInput("rhs", shapes.Make(dtypes.F32)))
 		must(reductionFn.Return(must1(Add(lhs, rhs))))
 		r0 := must1(ReduceWindow(x, zero, reductionFn,
 			[]int{2, 2}, []int{1, 1}, nil, nil, nil))
@@ -677,14 +677,14 @@ func testOps(t *testing.T, client *pjrt.Client) {
 
 		selectFn := fn.Closure() // return lhs >= rhs  --> it will select the max of the window.
 		{
-			lhs := selectFn.NamedInput("lhs", shapes.Make(dtypes.F32))
-			rhs := selectFn.NamedInput("rhs", shapes.Make(dtypes.F32))
+			lhs := must1(selectFn.NamedInput("lhs", shapes.Make(dtypes.F32)))
+			rhs := must1(selectFn.NamedInput("rhs", shapes.Make(dtypes.F32)))
 			must(selectFn.Return(must1(Compare(lhs, rhs, types.CompareGE, types.CompareFloat))))
 		}
 		scatterFn := fn.Closure() // return lhs+rhs  --> it will sum all contributions to the location.
 		{
-			lhs := scatterFn.NamedInput("lhs", shapes.Make(dtypes.F32))
-			rhs := scatterFn.NamedInput("rhs", shapes.Make(dtypes.F32))
+			lhs := must1(scatterFn.NamedInput("lhs", shapes.Make(dtypes.F32)))
+			rhs := must1(scatterFn.NamedInput("rhs", shapes.Make(dtypes.F32)))
 			must(scatterFn.Return(must1(Add(lhs, rhs))))
 		}
 
@@ -848,7 +848,7 @@ func testBinaryOps(t *testing.T, client *pjrt.Client) {
 		builder := New(t.Name())
 		shape := shapes.Make(dtype)
 		fn := builder.Main()
-		lhsV, rhsV := fn.NamedInput("lhs", shape), fn.NamedInput("rhs", shape)
+		lhsV, rhsV := must1(fn.NamedInput("lhs", shape)), must1(fn.NamedInput("rhs", shape))
 		result := must1(op(lhsV, rhsV))
 		must(fn.Return(result))
 		program := must1(builder.Build())
@@ -948,7 +948,7 @@ func testCompare(t *testing.T, client *pjrt.Client) {
 		}
 		shape := shapes.Make(dtype, dims...)
 		fn := builder.Main()
-		lhsV, rhsV := fn.NamedInput("lhs", shape), fn.NamedInput("rhs", shape)
+		lhsV, rhsV := must1(fn.NamedInput("lhs", shape)), must1(fn.NamedInput("rhs", shape))
 		result := must1(Compare(lhsV, rhsV, direction, compareType))
 		must(fn.Return(result))
 		program := must1(builder.Build())
@@ -1028,7 +1028,8 @@ func testUnaryOps(t *testing.T, client *pjrt.Client) {
 		builder := New(t.Name())
 		shape := shapes.Make(dtype)
 		fn := builder.Main()
-		arg := fn.Input(shape)
+		arg, err := fn.Input(shape)
+		require.NoError(t, err)
 		result := must1(op(arg))
 		must(fn.Return(result))
 		program := must1(builder.Build())
