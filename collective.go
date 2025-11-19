@@ -50,6 +50,9 @@ func formatReplicaGroups(groups [][]int) literalStr {
 //     Except if the config sets UseGlobalDeviceIDs, in which case they are interpreted as device
 //     numbers. E.g., `[[0, 1, 2, 3]]`.
 //   - config: Optional configuration of the channels to be used. This is not needed for SPMD programs.
+//
+// Consider using Builder.WithShardy for distributed computation instead: other forms of distributed
+// (collective) computation across devices are not tested and may not work.
 func CollectiveBroadcast(operand *Value, replicaGroups [][]int, config ...*types.CollectiveConfig) (*Value, error) {
 	op := optypes.CollectiveBroadcast
 	fn := operand.fn
@@ -95,6 +98,9 @@ func CollectiveBroadcast(operand *Value, replicaGroups [][]int, config ...*types
 //     Except if the config sets UseGlobalDeviceIDs, in which case they are interpreted as device
 //     numbers. E.g., `[[0, 1, 2, 3]]`.
 //   - config: Optional configuration of the channels to be used. This is not needed for SPMD programs.
+//
+// Consider using Builder.WithShardy for distributed computation instead: other forms of distributed
+// (collective) computation across devices are not tested and may not work.
 func AllReduce(operands []*Value, replicaGroups [][]int, computation *Function, config ...*types.CollectiveConfig) (
 	[]*Value, error) {
 	op := optypes.AllReduce
@@ -153,6 +159,9 @@ func AllReduce(operands []*Value, replicaGroups [][]int, computation *Function, 
 //   - replicaGroups: A 2D array defining the communicating device groups.
 //   - allGatherDim: The dimension along which to concatenate the operands.
 //   - config: Optional configuration of the channels to be used.
+//
+// Consider using Builder.WithShardy for distributed computation instead: other forms of distributed
+// (collective) computation across devices are not tested and may not work.
 func AllGather(operand *Value, replicaGroups [][]int, allGatherDim int, config ...*types.CollectiveConfig) (*Value, error) {
 	op := optypes.AllGather
 	fn := operand.fn
@@ -193,6 +202,9 @@ func AllGather(operand *Value, replicaGroups [][]int, allGatherDim int, config .
 //   - concatDimension: The dimension along which to concatenate the received chunks.
 //   - splitCount: The number of chunks to split the operand into. This must match the size of the replica groups.
 //   - config: Optional configuration of the channels to be used.
+//
+// Consider using Builder.WithShardy for distributed computation instead: other forms of distributed
+// (collective) computation across devices are not tested and may not work.
 func AllToAll(operand *Value, replicaGroups [][]int, splitDimension, concatDimension, splitCount int, config ...*types.CollectiveConfig) (*Value, error) {
 	op := optypes.AllToAll
 	fn := operand.fn
@@ -251,6 +263,9 @@ func formatSourceTargetPairs(pairs [][2]int) literalStr {
 //   - operand: The tensor from the *local* replica.
 //   - sourceTargetPairs: A 2D array where each inner array is a `[source, target]` pair of replica IDs.
 //   - config: Optional configuration of the channels to be used.
+//
+// Consider using Builder.WithShardy for distributed computation instead: other forms of distributed
+// (collective) computation across devices are not tested and may not work.
 func CollectivePermute(operand *Value, sourceTargetPairs [][2]int, config ...*types.CollectiveConfig) (*Value, error) {
 	op := optypes.CollectivePermute
 	fn := operand.fn
