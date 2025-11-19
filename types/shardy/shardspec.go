@@ -1,6 +1,10 @@
 package shardy
 
 import (
+	"fmt"
+	"sort"
+	"strings"
+
 	"github.com/pkg/errors"
 )
 
@@ -102,16 +106,69 @@ func (s *ShardSpec) IsReplicated() bool {
 // Validate checks that the ShardSpec is valid for the given mesh.
 func (s *ShardSpec) Validate() error {
 	for i, axisSpec := range s.Axes {
-		for _, meshAxisSpec := range axisSpec.MeshAxes {
+		for j, meshAxisSpec := range axisSpec.MeshAxes {
 			axisName := meshAxisSpec.AxisName
 			if axisName == "" {
-				return errors.Errorf("ShardSpec axis %d refers to empty mesh axis name", i)
+				return errors.Errorf("ShardSpec tensor axis %d, mesh axis #%d refers to empty mesh axis name", i, j)
 			}
-			if _, ok := s.Mesh.nameToAxis[axisName]; !ok {
-				return errors.Errorf("ShardSpec axis #%d refers to unknown mesh axis %q",
-					i, axisName)
+			axisIdx, ok := s.Mesh.nameToAxis[axisName]
+			if !ok {
+				return errors.Errorf("ShardSpec tensor axis %d, mesh axis #%d refers to unknown mesh axis %q",
+					i, j, axisName)
+			}
+			meshAxisSize := s.Mesh.shape[axisIdx]
+
+			// Check sub-axis specification.
+			if meshAxisSpec.Size > 0 {
+				if meshAxisSpec.PreSize <= 0 {
+					return errors.Errorf("ShardSpec tensor axis %d, mesh axis #%d %q has invalid PreSize %d",
+						i, j, axisName, meshAxisSpec.PreSize)
+				}
+				if meshAxisSize%(meshAxisSpec.PreSize*meshAxisSpec.Size) != 0 {
+					return errors.Errorf("ShardSpec tensor axis %d, mesh axis #%d %q with PreSize %d and Size %d is not compatible with mesh axis of size %d",
+						i, j, axisName, meshAxisSpec.PreSize, meshAxisSpec.Size, meshAxisSize)
+				}
 			}
 		}
 	}
 	return nil
+}
+
+// ToStableHLO converts the ShardSpec to its StableHLO string representation.
+// See details in:
+// https://github.com/openxla/shardy/blob/main/docs/sharding_representation.md
+func (s *ShardSpec) ToStableHLO() string {
+	var dimShardings []string
+	replicatedAxes := make(map[string]bool)
+	for _, axisName := range s.Mesh.axesNames {
+		replicatedAxes[axisName] = true
+	}
+
+	for _, axisSpec := range s.Axes {
+		var hloAxes []string
+		for _, meshAxisSpec := range axisSpec.MeshAxes {
+			delete(replicatedAxes, meshAxisSpec.AxisName)
+			if meshAxisSpec.Size > 0 {
+				hloAxes = append(hloAxes, fmt.Sprintf("%s:(%d)%d", meshAxisSpec.AxisName, meshAxisSpec.PreSize, meshAxisSpec.Size))
+			} else {
+				hloAxes = append(hloAxes, meshAxisSpec.AxisName)
+			}
+		}
+		if axisSpec.Opened {
+			hloAxes = append(hloAxes, "?")
+		}
+		dimShardings = append(dimShardings, fmt.Sprintf("{%s}", strings.Join(hloAxes, ", ")))
+	}
+
+	var replicatedStrs []string
+	for axisName := range replicatedAxes {
+		replicatedStrs = append(replicatedStrs, axisName)
+	}
+	sort.Strings(replicatedStrs)
+
+	replicatedPart := ""
+	if len(replicatedStrs) > 0 {
+		replicatedPart = fmt.Sprintf(", replicated={%s}", strings.Join(replicatedStrs, ", "))
+	}
+	return fmt.Sprintf("sharding<@%s, [%s]%s>", s.Mesh.Name(), strings.Join(dimShardings, ", "), replicatedPart)
 }
