@@ -160,7 +160,7 @@ func (fn *Function) NamedInputWithShardingAndAttributes(name string, shape shape
 		if value.Attributes == nil {
 			value.Attributes = make(map[string]any)
 		}
-		value.Attributes["sdy.sharding"] = shardingSpec
+		value.Attributes["sdy.sharding"] = literalStr(shardingSpec.ToValueAttribute(value.shape))
 		if shardingSpec.Mesh != fn.Builder.mesh {
 			return nil, errors.Errorf("sharding spec mesh %s doesn't match the stablehlo.Builder mesh %s",
 				shardingSpec.Mesh, fn.Builder.mesh)
@@ -249,15 +249,29 @@ func (fn *Function) Return(values ...*Value) error {
 	return fn.ReturnWithAttributes(values, attributes)
 }
 
-// ReturnWithSharding is a convenience function to call ReturnWithAttributes with the given sharding specifications.
-func (fn *Function) ReturnWithSharding(values []*Value, shardingSpecs []*shardy.ShardingSpec) error {
+// ReturnWithShardingAndAttributes is a convenience function to call ReturnWithAttributes with the given sharding
+// specifications.
+//
+// The shardingSpecs slice of ShardingSpecs must have the same length as the values slice.
+// Each ShardingSpec can be nil, in which case the default sharding is replicated across all devices.
+//
+// The attributes slice of maps can be set to nil, if there are no attributes.
+func (fn *Function) ReturnWithShardingAndAttributes(values []*Value, shardingSpecs []*shardy.ShardingSpec,
+	attributes []map[string]any) error {
 	if len(values) != len(shardingSpecs) {
-		return errors.Errorf("Function.ReturnWithSharding requires the same number of values and sharding specs, got %d and %d", len(values), len(shardingSpecs))
+		return errors.Errorf("Function.ReturnWithShardingAndAttributes requires the same number of values and sharding specs, got %d and %d", len(values), len(shardingSpecs))
 	}
-	attributes := make([]map[string]any, len(values))
+	if len(attributes) == 0 {
+		attributes = make([]map[string]any, len(values))
+	}
 	for i, shardingSpec := range shardingSpecs {
 		if shardingSpec != nil {
-			attributes[i] = map[string]any{"sdy.sharding": shardingSpec}
+			specLiteral := literalStr(shardingSpec.ToValueAttribute(values[i].shape))
+			if attributes[i] == nil {
+				attributes[i] = map[string]any{"sdy.sharding": specLiteral}
+			} else {
+				attributes[i]["sdy.sharding"] = specLiteral
+			}
 		}
 	}
 	return fn.ReturnWithAttributes(values, attributes)

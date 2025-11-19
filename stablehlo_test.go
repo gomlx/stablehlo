@@ -45,7 +45,7 @@ func TestBuilder(t *testing.T) {
 
 	t.Run("Sharding", func(t *testing.T) {
 		b := New(t.Name())
-		mesh, err := shardy.NewDeviceMesh("mesh", []int{1, 1}, []string{"data", "model"})
+		mesh, err := shardy.NewDeviceMesh("mesh", []int{4, 2}, []string{"data", "model"})
 		require.NoError(t, err)
 		b.WithShardy(mesh)
 		fn := b.Main()
@@ -53,26 +53,35 @@ func TestBuilder(t *testing.T) {
 		arg0 := must(fn.NamedInputWithShardingAndAttributes(
 			"arg0",
 			shapes.Make(dtypes.F32, 16, 128),
-			shardy.NewShardingSpec(mesh).AddShardedAxis("data"),
+			b.NewShardingSpec().AddShardedAxis("data"),
 			nil,
 		))
 		arg1 := must(fn.NamedInputWithSharding(
 			"arg1",
 			shapes.Make(dtypes.F32, 128, 256),
-			shardy.NewShardingSpec(mesh).AddShardedAxis("model"),
+			b.NewShardingSpec().AddShardedAxis("model"),
 		))
 
 		tanh := must(Tanh(arg0))
 		dot := must(Dot(tanh, arg1))
-		require.NoError(t, fn.ReturnWithAttributes(
+		err = fn.ReturnWithShardingAndAttributes(
 			[]*Value{dot},
-			[]map[string]any{{"jax.result_info": "result"}}))
+			[]*shardy.ShardingSpec{
+				b.NewShardingSpec().AddShardedAxis("data"),
+			},
+			[]map[string]any{
+				{"jax.result_info": "result"},
+			})
+		require.NoError(t, err)
 
 		program := string(must(b.Build()))
 		fmt.Printf("%s program:\n%s", t.Name(), program)
-		want := `module @TestBuilder_Sharding attributes {stablehlo.num_replicas = 1,  stablehlo.num_partitions = 1} {
-  sdy.mesh @mesh = <["data"=1, "model"=1]>
-  func.func @main(%arg0: tensor<16x128xf32> { sdy.sharding = #sdy.sharding<@mesh, [{data}], replicated={model}> }, %arg1: tensor<128x256xf32> { sdy.sharding = #sdy.sharding<@mesh, [{model}], replicated={data}> }) -> tensor<16x256xf32> { jax.result_info = "result" } {
+		want := `module @TestBuilder_Sharding attributes {stablehlo.num_replicas = 1,  stablehlo.num_partitions = 8} {
+  sdy.mesh @mesh = <["data"=4, "model"=2]>
+  func.func @main(%arg0: tensor<16x128xf32> { sdy.sharding = #sdy.sharding<@mesh, [{"data"}, {}]> }, %arg1: tensor<128x256xf32> { sdy.sharding = #sdy.sharding<@mesh, [{"model"}, {}]> }) -> tensor<16x256xf32> {
+    jax.result_info = "result",
+    sdy.sharding = #sdy.sharding<@mesh, [{"data"}, {}]>
+  } {
     %0 = "stablehlo.tanh"(%arg0) : (tensor<16x128xf32>) -> tensor<16x128xf32>
     %1 = "stablehlo.dot_general"(%0, %arg1) {
       dot_dimension_numbers = #stablehlo.dot<
@@ -87,10 +96,7 @@ func TestBuilder(t *testing.T) {
   }
 }
 `
-		if program != want {
-			fmt.Printf("  Failed. Wanted the following program:\n%s", want)
-			t.Fatal("programs don't match")
-		}
+		require.Equal(t, want, program)
 	})
 
 	t.Run("with inputs", func(t *testing.T) {

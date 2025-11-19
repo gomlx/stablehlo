@@ -188,3 +188,52 @@ func (s *ShardingSpec) ToStableHLO() string {
 	}
 	return fmt.Sprintf("#sdy.sharding<@%s, [%s]%s>", s.Mesh.Name(), strings.Join(dimShardings, ", "), replicatedPart)
 }
+
+// ToValueAttribute converts the ShardingSpec to a StableHLO attribute of value with the given shape.
+//
+// Notice the rank of the ShardingSpec may be smaller than the rank of shape, in which case the extra axes are
+// assumed to be replicated (empty).
+//
+// E.g.: "#sdy.sharding<@mesh, [{\"data\"}, {}]>"
+func (s *ShardingSpec) ToValueAttribute(shape shapes.Shape) string {
+	var buf strings.Builder
+	w := func(format string, args ...any) {
+		buf.WriteString(fmt.Sprintf(format, args...))
+	}
+	w("#sdy.sharding<@%s, [", s.Mesh.Name())
+	for axisIdx := range shape.Rank() {
+		if axisIdx > 0 {
+			w(", ")
+		}
+		if axisIdx >= len(s.Axes) {
+			w("{}")
+			continue
+		}
+		tensorAxisSpec := s.Axes[axisIdx]
+		if len(tensorAxisSpec.MeshAxes) == 0 {
+			if tensorAxisSpec.Opened {
+				w("{?}")
+			} else {
+				w("{}")
+			}
+			continue
+		}
+		w("{")
+		for meshAxisIdx, meshAxisSpec := range tensorAxisSpec.MeshAxes {
+			if meshAxisIdx > 0 {
+				w(", ")
+			}
+			if meshAxisSpec.Size > 0 {
+				w("\"%s\":(%d)%d", meshAxisSpec.AxisName, meshAxisSpec.PreSize, meshAxisSpec.Size)
+			} else {
+				w("\"%s\"", meshAxisSpec.AxisName)
+			}
+		}
+		if tensorAxisSpec.Opened {
+			w(", ?")
+		}
+		w("}")
+	}
+	w("]>")
+	return buf.String()
+}

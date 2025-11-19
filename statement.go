@@ -3,6 +3,7 @@ package stablehlo
 import (
 	"fmt"
 	"io"
+	"maps"
 	"math"
 	"reflect"
 	"slices"
@@ -156,13 +157,13 @@ func writeAttributes(writer io.Writer, indentation string, attributes map[string
 	} else {
 		// One attribute per line:
 		w(" {")
-		first := true
-		for key, value := range attributes {
-			if !first {
+		keys := slices.Collect(maps.Keys(attributes))
+		slices.Sort(keys)
+		for i, key := range keys {
+			if i > 0 {
 				w(",")
 			}
-			first = false
-			w("\n%s%s = %s", nextIndentation, key, literalToStableHLO(value))
+			w("\n%s%s = %s", nextIndentation, key, literalToStableHLO(attributes[key]))
 		}
 		w("\n%s}", indentation)
 	}
