@@ -89,6 +89,16 @@ func (b *Builder) WithShardy(mesh *shardy.DeviceMesh) *Builder {
 	return b
 }
 
+// Mesh returns the mesh configured with WithShardy.
+func (b *Builder) Mesh() *shardy.DeviceMesh {
+	return b.mesh
+}
+
+// NewShardingSpec creates a new ShardingSpec using the mesh configured with WithShardy.
+func (b *Builder) NewShardingSpec() *shardy.ShardingSpec {
+	return shardy.NewShardingSpec(b.mesh)
+}
+
 // elementWriter represents elements of ToStableHLO that know how to write themselves.
 type elementWriter interface {
 	Write(w io.Writer, indentation string) error

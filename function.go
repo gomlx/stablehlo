@@ -10,6 +10,7 @@ import (
 	"github.com/gomlx/stablehlo/internal/optypes"
 	"github.com/gomlx/stablehlo/shapeinference"
 	"github.com/gomlx/stablehlo/types/shapes"
+	"github.com/gomlx/stablehlo/types/shardy"
 	"github.com/pkg/errors"
 )
 
@@ -23,8 +24,14 @@ type Function struct {
 	// Inputs to the function.
 	Inputs []*Value
 
+	// InputsShardingSpecs are the sharding specs for the inputs. Optional.
+	InputsShardingSpecs []*shardy.ShardingSpec
+
 	// Outputs types of the function.
 	Outputs []shapes.Shape
+
+	// OutputsShardingSpecs are the sharding specs for the inputs. Optional.
+	OutputsShardingSpecs []*shardy.ShardingSpec
 
 	// Statements in the function body.
 	Statements []*Statement
@@ -82,10 +89,17 @@ func (fn *Function) newValue(shape shapes.Shape) (v *Value) {
 // It picks a default unique name for the input parameter, you can also
 // provide a name with NamedInput.
 func (fn *Function) Input(shape shapes.Shape) (*Value, error) {
+	return fn.InputWithSharding(shape, nil)
+}
+
+func (fn *Function) InputWithSharding(shape shapes.Shape, shardingSpec *shardy.ShardingSpec) (*Value, error) {
 	rootFn := fn.findRootFn()
-	value, err := fn.NamedInput(fmt.Sprintf("arg%d", rootFn.nextArgID), shape)
+	value, err := fn.NamedInputWithSharding(fmt.Sprintf("arg%d", rootFn.nextArgID), shape, shardingSpec)
+	if err != nil {
+		return nil, err
+	}
 	rootFn.nextArgID++
-	return value, err
+	return value, nil
 }
 
 // NamedInput creates a new input parameter for a function with the given name -- it
@@ -98,6 +112,21 @@ func (fn *Function) Input(shape shapes.Shape) (*Value, error) {
 // Names are used in the StableHLO code and may be helpful for debugging, but
 // otherwise have no impact.
 func (fn *Function) NamedInput(name string, shape shapes.Shape) (*Value, error) {
+	return fn.NamedInputWithSharding(name, shape, nil)
+}
+
+// NamedInputWithSharding creates a new input parameter for a function with the given name -- it
+// must be a unique input name -- and sharding specification for distributed computation.
+//
+// The shardingSpec can be nil: the default is a replicated input across all devices.
+//
+// The name is passed through ConvertToValidName, which converts any non-digit or ASCII letter to an underscore.
+//
+// Names with the format "%d" and "arg%d" are reserved for the default input parameters.
+//
+// Names are used in the StableHLO code and may be helpful for debugging, but otherwise have no impact.
+func (fn *Function) NamedInputWithSharding(name string, shape shapes.Shape,
+	shardingSpec *shardy.ShardingSpec) (*Value, error) {
 	value := &Value{
 		fn:    fn,
 		name:  ConvertToValidName(name),
@@ -108,7 +137,17 @@ func (fn *Function) NamedInput(name string, shape shapes.Shape) (*Value, error) 
 			return nil, errors.Errorf("duplicate input name %q with input #%d", value.name, i)
 		}
 	}
+	if shardingSpec != nil {
+		if shardingSpec.Mesh != fn.Builder.mesh {
+			return nil, errors.Errorf("sharding spec mesh %s doesn't match the stablehlo.Builder mesh %s",
+				shardingSpec.Mesh, fn.Builder.mesh)
+		}
+		if err := shardingSpec.ValidateShape(shape); err != nil {
+			return nil, err
+		}
+	}
 	fn.Inputs = append(fn.Inputs, value)
+	fn.InputsShardingSpecs = append(fn.InputsShardingSpecs, shardingSpec)
 	return value, nil
 }
 
@@ -180,30 +219,71 @@ func (fn *Function) ConstantFromFlatAndDimensions(flat any, dimensions ...int) (
 //
 // There can be only one return statement from a Function, and it must be the last
 // operation of a function.
-func (fn *Function) Return(firstValue *Value, otherValues ...*Value) error {
+//
+// If you are doing distributed computation, you can use WithReturnShardingSpecs to specify
+// the sharding requirements for each of the return values.
+func (fn *Function) Return(values ...*Value) error {
 	if fn.Returned {
 		return errors.Errorf("Function.Return already called for %q", fn.Name)
 	}
+	if len(values) == 0 {
+		return errors.New("Function.Return requires at least one return value")
+	}
 	fn.Returned = true
-	allValues := make([]*Value, 1, len(otherValues)+1)
-	allValues[0] = firstValue
-	allValues = append(allValues, otherValues...)
-	outputShapes := make([]shapes.Shape, len(allValues))
-	for i, value := range allValues {
+	outputShapes := make([]shapes.Shape, len(values))
+	for i, value := range values {
 		if value.fn != fn {
 			return errors.New("Function.Return given values that are not owned by the function")
 		}
 		outputShapes[i] = value.shape
 	}
 	fn.Outputs = outputShapes
+	fn.OutputsShardingSpecs = make([]*shardy.ShardingSpec, len(values)) // All default to nil.
 
 	stmt := &Statement{
 		Builder:  fn.Builder,
 		Function: fn,
 		OpType:   optypes.FuncReturn,
-		Inputs:   allValues,
+		Inputs:   values,
 	}
 	fn.Statements = append(fn.Statements, stmt)
+	return nil
+}
+
+// WithReturnShardingSpecs specify the sharding requirements of the return values.
+// It should be used after Return is called.
+//
+// You have to provide one spec per output used in Return. But nil spec values are valid,
+// the default being a replicated input across all devices.
+//
+// The specs must use the same mesh as the stablehlo.Builder. Mixing meshes will cause an error.
+// See Builder.NewShardingSpec.
+func (fn *Function) WithReturnShardingSpecs(specs ...*shardy.ShardingSpec) error {
+	if !fn.Returned {
+		return errors.Errorf(
+			"Function.WithReturnShardingSpecs called for %q, but no Return hasn't been called yet", fn.Name)
+	}
+	if len(specs) != len(fn.Outputs) {
+		return errors.Errorf(
+			"Function.WithReturnShardingSpecs called for %q, but the number of sharding specs (%d) doesn't match "+
+				"the number of return values (%d)", fn.Name, len(specs), len(fn.Outputs))
+	}
+	for i, spec := range specs {
+		if spec == nil {
+			continue
+		}
+		if spec.Mesh != fn.Builder.mesh {
+			return errors.Errorf(
+				"Function.WithReturnShardingSpecs called for %q, but the sharding spec #%d uses a different mesh "+
+					"(%s) than the function's builder (%s)",
+				fn.Name, i, spec.Mesh, fn.Builder.mesh)
+		}
+		err := spec.ValidateShape(fn.Outputs[i])
+		if err != nil {
+			return errors.Wrapf(err, "Function.WithReturnShardingSpecs called for %q, but the sharding spec #%d is invalid", fn.Name, i)
+		}
+	}
+	fn.OutputsShardingSpecs = specs
 	return nil
 }
 
