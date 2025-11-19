@@ -2,6 +2,11 @@
 
 - `Function.Input` and `Function.NamedInput`: (change in API) they now may return an error, if the name is duplicate.
 - `AllReduce` now supports arbitrary number of inputs, to be reduced at once.
+- Added XLA Shardy support:
+  - Added `shardy.DeviceMesh` and `shardy.ShardingSpec` types.
+  - Added `Builder.WithShardy(mesh)` 
+  - Added `Function.NamedInputWithShardingAndAttributes()`
+  - Added `Function.ReturnWithShardingAndAttributes()`
 
 # v0.1.0: 2025/11/06 Multi-Device support
 
