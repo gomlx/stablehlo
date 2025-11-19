@@ -38,13 +38,15 @@ type DeviceMesh struct {
 
 // NewDeviceMesh creates a new logical topology of a set of devices.
 //
-// - shape: defines the number of devices along each mesh axis, one value per axis.
-// - axesNames: the names of the mesh axes. One value per axis.
+//   - name: the name of the mesh, it must be a valid StableHLO identifier (see stablehlo.NormalizeIdentifier).
+//   - shape: defines the number of devices along each mesh axis, one value per axis.
+//   - axesNames: the names of the mesh axes. One value per axis. They must also be valid StableHLO identifiers
+//     (see stablehlo.NormalizeName).
 //
 // The default mapping of concrete devices numbers to the mesh is sequential, starting from 0, but it can be
 // changed with the DeviceMesh.SetDeviceAssignment() method.
 //
-// For non-symmetric devices, where connection speed among the devices matter, a custom mapping can be provided
+// For non-symmetric devices, where the connection speed among the devices matters, a custom mapping can be provided
 // with the DeviceMesh.WithDeviceMapping() method.
 func NewDeviceMesh(name string, shape []int, axisNames []string) (*DeviceMesh, error) {
 	if len(shape) != len(axisNames) {
@@ -53,6 +55,21 @@ func NewDeviceMesh(name string, shape []int, axisNames []string) (*DeviceMesh, e
 	}
 	if len(shape) == 0 {
 		return nil, errors.New("DeviceMesh shape cannot be empty")
+	}
+
+	// Normalize names:
+	if name != utils.NormalizeIdentifier(name) {
+		return nil, errors.Errorf(
+			"DeviceMesh name %q is not a valid StableHLO identifier, suggestion %q -- or use "+
+				"stablehlo.NormalizeIdentifier()", name, utils.NormalizeIdentifier(name))
+	}
+	axisNames = slices.Clone(axisNames)
+	for i, axisName := range axisNames {
+		if axisNames[i] != utils.NormalizeIdentifier(axisName) {
+			return nil, errors.Errorf(
+				"DeviceMesh axis name %q at index %d is not a valid StableHLO identifier, suggestion %q -- or use "+
+					"stablehlo.NormalizeIdentifier()", axisName, i, utils.NormalizeIdentifier(axisName))
+		}
 	}
 
 	numDevices := 1
@@ -268,4 +285,22 @@ func (m *DeviceMesh) ComputeReplicaGroups(axes []string) ([][]int, error) {
 	}
 
 	return groups, nil
+}
+
+// ToStableHLO returns the StableHLO representation of the mesh, as it should be used in the module body.
+// E.g.: sdy.mesh @mesh = <["data"=4, "model"=2]>
+func (m *DeviceMesh) ToStableHLO() string {
+	var buf strings.Builder
+	w := func(format string, args ...any) {
+		buf.WriteString(fmt.Sprintf(format, args...))
+	}
+	w("sdy.mesh @%s = <[", m.name)
+	for i, axisName := range m.axesNames {
+		if i > 0 {
+			w(", ")
+		}
+		w("%q=%d", axisName, m.shape[i])
+	}
+	w("]>")
+	return buf.String()
 }
