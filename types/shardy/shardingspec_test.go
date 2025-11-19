@@ -11,27 +11,27 @@ func TestShardSpec_ToStableHLO(t *testing.T) {
 	require.NoError(t, err)
 	testCases := []struct {
 		name     string
-		spec     *ShardSpec
+		spec     *ShardingSpec
 		expected string
 	}{
 		{
 			name:     "Replicated",
-			spec:     NewShardSpec(mesh).AddReplicated(),
+			spec:     NewShardingSpec(mesh).AddReplicated(),
 			expected: "sharding<@test_mesh, [{}], replicated={a, z}>",
 		},
 		{
 			name:     "Sharded",
-			spec:     NewShardSpec(mesh).AddShardedAxis("z"),
+			spec:     NewShardingSpec(mesh).AddShardedAxis("z"),
 			expected: "sharding<@test_mesh, [{z}], replicated={a}>",
 		},
 		{
 			name:     "Sharded with multiple axes",
-			spec:     NewShardSpec(mesh).AddShardedAxis("z", "a"),
+			spec:     NewShardingSpec(mesh).AddShardedAxis("z", "a"),
 			expected: "sharding<@test_mesh, [{z, a}]>",
 		},
 		{
 			name: "Sharded with sub-axis",
-			spec: &ShardSpec{
+			spec: &ShardingSpec{
 				Mesh: mesh,
 				Axes: []TensorAxisSpec{
 					{MeshAxes: []MeshAxisSpec{{AxisName: "a", PreSize: 1, Size: 2}}},
@@ -41,7 +41,7 @@ func TestShardSpec_ToStableHLO(t *testing.T) {
 		},
 		{
 			name:     "Opened",
-			spec:     &ShardSpec{Mesh: mesh, Axes: []TensorAxisSpec{{Opened: true}}},
+			spec:     &ShardingSpec{Mesh: mesh, Axes: []TensorAxisSpec{{Opened: true}}},
 			expected: "sharding<@test_mesh, [{?}], replicated={a, z}>",
 		},
 	}
@@ -58,22 +58,22 @@ func TestShardSpec_Validate(t *testing.T) {
 	require.NoError(t, err)
 	testCases := []struct {
 		name        string
-		spec        *ShardSpec
+		spec        *ShardingSpec
 		expectError bool
 	}{
 		{
 			name:        "Valid sharding",
-			spec:        NewShardSpec(mesh).AddShardedAxis("z"),
+			spec:        NewShardingSpec(mesh).AddShardedAxis("z"),
 			expectError: false,
 		},
 		{
 			name:        "Unknown mesh axis",
-			spec:        NewShardSpec(mesh).AddShardedAxis("x"),
+			spec:        NewShardingSpec(mesh).AddShardedAxis("x"),
 			expectError: true,
 		},
 		{
 			name: "Valid sub-axis",
-			spec: &ShardSpec{
+			spec: &ShardingSpec{
 				Mesh: mesh,
 				Axes: []TensorAxisSpec{
 					{MeshAxes: []MeshAxisSpec{{AxisName: "a", PreSize: 2, Size: 4}}},
@@ -83,7 +83,7 @@ func TestShardSpec_Validate(t *testing.T) {
 		},
 		{
 			name: "Invalid sub-axis (PreSize)",
-			spec: &ShardSpec{
+			spec: &ShardingSpec{
 				Mesh: mesh,
 				Axes: []TensorAxisSpec{
 					{MeshAxes: []MeshAxisSpec{{AxisName: "a", PreSize: 0, Size: 4}}},
@@ -93,7 +93,7 @@ func TestShardSpec_Validate(t *testing.T) {
 		},
 		{
 			name: "Invalid sub-axis (Size)",
-			spec: &ShardSpec{
+			spec: &ShardingSpec{
 				Mesh: mesh,
 				Axes: []TensorAxisSpec{
 					{MeshAxes: []MeshAxisSpec{{AxisName: "a", PreSize: 2, Size: 5}}},

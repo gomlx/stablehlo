@@ -5,10 +5,11 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/gomlx/stablehlo/types/shapes"
 	"github.com/pkg/errors"
 )
 
-// ShardSpec (also known as PartitionSpec in JAX) defines how a logical tensor is to be sharded (partitioned) across
+// ShardingSpec (also known as PartitionSpec in JAX) defines how a logical tensor is to be sharded (partitioned) across
 // a DeviceMesh. This is used by Shardy, and is based on its documentation in [1].
 //
 // The definition is per axis of the logical tensor -- and not per axis of the Mesh, common confusion.
@@ -34,19 +35,19 @@ import (
 // any issues):
 //
 //  1. The tensor can also be sharded across mesh "sub-axes" -- seed detailed documentation in [1]
-//  2. If using ShardSpec for hints, instead of mesh axes one can give an "open" (in StableHLO marked as "?")
+//  2. If using ShardingSpec for hints, instead of mesh axes one can give an "open" (in StableHLO marked as "?")
 //     axis, with the semantics that XLA Shardy can choose any mesh axis (or axes) to shard the tensor. See [1].
 //
 // [1] https://github.com/openxla/shardy/blob/main/docs/sharding_representation.md
-type ShardSpec struct {
+type ShardingSpec struct {
 	Mesh *DeviceMesh
 	Axes []TensorAxisSpec
 }
 
 // TensorAxisSpec specifies how a tensor axis is to be sharded (or replicated).
-// See details in ShardSpec.
+// See details in ShardingSpec.
 //
-// Usually, one would create this using ShardSpec.AddAxis or ShardSpec.AddReplicated
+// Usually, one would create this using ShardingSpec.AddAxis or ShardingSpec.AddReplicated
 type TensorAxisSpec struct {
 	MeshAxes []MeshAxisSpec
 	Opened   bool // If opened to further sharding.
@@ -59,15 +60,15 @@ type MeshAxisSpec struct {
 	PreSize, Size int
 }
 
-// NewShardSpec creates a new ShardSpec.
-func NewShardSpec(mesh *DeviceMesh) *ShardSpec {
-	return &ShardSpec{mesh, make([]TensorAxisSpec, 0)}
+// NewShardingSpec creates a new ShardingSpec.
+func NewShardingSpec(mesh *DeviceMesh) *ShardingSpec {
+	return &ShardingSpec{mesh, make([]TensorAxisSpec, 0)}
 }
 
-// AddShardedAxis adds a new sharded axis to the ShardSpec using one or more mesh axes.
+// AddShardedAxis adds a new sharded axis to the ShardingSpec using one or more mesh axes.
 //
 // It returns itself, so calls can be chained.
-func (s *ShardSpec) AddShardedAxis(meshAxisName string, moreMeshAxesNames ...string) *ShardSpec {
+func (s *ShardingSpec) AddShardedAxis(meshAxisName string, moreMeshAxesNames ...string) *ShardingSpec {
 	axisSpec := TensorAxisSpec{MeshAxes: []MeshAxisSpec{{AxisName: meshAxisName}}}
 	for _, meshAxisName := range moreMeshAxesNames {
 		axisSpec.MeshAxes = append(axisSpec.MeshAxes, MeshAxisSpec{AxisName: meshAxisName})
@@ -76,25 +77,25 @@ func (s *ShardSpec) AddShardedAxis(meshAxisName string, moreMeshAxesNames ...str
 	return s
 }
 
-// AddReplicated adds a new replicated axis to the ShardSpec.
+// AddReplicated adds a new replicated axis to the ShardingSpec.
 //
 // It returns itself, so calls can be chained.
-func (s *ShardSpec) AddReplicated() *ShardSpec {
+func (s *ShardingSpec) AddReplicated() *ShardingSpec {
 	s.Axes = append(s.Axes, TensorAxisSpec{})
 	return s
 }
 
-// Rank returns the number of axes this ShardSpec describes.
+// Rank returns the number of axes this ShardingSpec describes.
 //
-// Notice this may be smaller than the rank of the tensor using it: if a tensor axis is not defined in ShardSpec,
+// Notice this may be smaller than the rank of the tensor using it: if a tensor axis is not defined in ShardingSpec,
 // it is assumed to be replicated.
-func (s *ShardSpec) Rank() int {
+func (s *ShardingSpec) Rank() int {
 	return len(s.Axes)
 }
 
 // IsReplicated returns true if the tensor is fully replicated
 // (i.e., not sharded along any axis and not marked as "open").
-func (s *ShardSpec) IsReplicated() bool {
+func (s *ShardingSpec) IsReplicated() bool {
 	for _, axisSpec := range s.Axes {
 		if axisSpec.MeshAxes != nil || axisSpec.Opened {
 			return false
@@ -103,17 +104,17 @@ func (s *ShardSpec) IsReplicated() bool {
 	return true
 }
 
-// Validate checks that the ShardSpec is valid for the given mesh.
-func (s *ShardSpec) Validate() error {
+// Validate checks that the ShardingSpec is valid for the given mesh.
+func (s *ShardingSpec) Validate() error {
 	for i, axisSpec := range s.Axes {
 		for j, meshAxisSpec := range axisSpec.MeshAxes {
 			axisName := meshAxisSpec.AxisName
 			if axisName == "" {
-				return errors.Errorf("ShardSpec tensor axis %d, mesh axis #%d refers to empty mesh axis name", i, j)
+				return errors.Errorf("ShardingSpec tensor axis %d, mesh axis #%d refers to empty mesh axis name", i, j)
 			}
 			axisIdx, ok := s.Mesh.nameToAxis[axisName]
 			if !ok {
-				return errors.Errorf("ShardSpec tensor axis %d, mesh axis #%d refers to unknown mesh axis %q",
+				return errors.Errorf("ShardingSpec tensor axis %d, mesh axis #%d refers to unknown mesh axis %q",
 					i, j, axisName)
 			}
 			meshAxisSize := s.Mesh.shape[axisIdx]
@@ -121,11 +122,11 @@ func (s *ShardSpec) Validate() error {
 			// Check sub-axis specification.
 			if meshAxisSpec.Size > 0 {
 				if meshAxisSpec.PreSize <= 0 {
-					return errors.Errorf("ShardSpec tensor axis %d, mesh axis #%d %q has invalid PreSize %d",
+					return errors.Errorf("ShardingSpec tensor axis %d, mesh axis #%d %q has invalid PreSize %d",
 						i, j, axisName, meshAxisSpec.PreSize)
 				}
 				if meshAxisSize%(meshAxisSpec.PreSize*meshAxisSpec.Size) != 0 {
-					return errors.Errorf("ShardSpec tensor axis %d, mesh axis #%d %q with PreSize %d and Size %d is not compatible with mesh axis of size %d",
+					return errors.Errorf("ShardingSpec tensor axis %d, mesh axis #%d %q with PreSize %d and Size %d is not compatible with mesh axis of size %d",
 						i, j, axisName, meshAxisSpec.PreSize, meshAxisSpec.Size, meshAxisSize)
 				}
 			}
@@ -134,10 +135,25 @@ func (s *ShardSpec) Validate() error {
 	return nil
 }
 
-// ToStableHLO converts the ShardSpec to its StableHLO string representation.
+func (s *ShardingSpec) ValidateShape(shape shapes.Shape) error {
+	if s == nil {
+		// No sharding spec (nil) means fully replicated, and it's always valid for any shape.
+		return nil
+	}
+	err := s.Validate()
+	if err != nil {
+		return err
+	}
+	if s.Rank() > shape.Rank() {
+		return errors.Errorf("ShardingSpec shape rank %d is largers than tensor rank %d", s.Rank(), shape.Rank())
+	}
+	return nil
+}
+
+// ToStableHLO converts the ShardingSpec to its StableHLO string representation.
 // See details in:
 // https://github.com/openxla/shardy/blob/main/docs/sharding_representation.md
-func (s *ShardSpec) ToStableHLO() string {
+func (s *ShardingSpec) ToStableHLO() string {
 	var dimShardings []string
 	replicatedAxes := make(map[string]bool)
 	for _, axisName := range s.Mesh.axesNames {
@@ -170,5 +186,5 @@ func (s *ShardSpec) ToStableHLO() string {
 	if len(replicatedStrs) > 0 {
 		replicatedPart = fmt.Sprintf(", replicated={%s}", strings.Join(replicatedStrs, ", "))
 	}
-	return fmt.Sprintf("sharding<@%s, [%s]%s>", s.Mesh.Name(), strings.Join(dimShardings, ", "), replicatedPart)
+	return fmt.Sprintf("#sdy.sharding<@%s, [%s]%s>", s.Mesh.Name(), strings.Join(dimShardings, ", "), replicatedPart)
 }
