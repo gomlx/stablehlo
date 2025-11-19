@@ -6,6 +6,7 @@ import (
 
 	"github.com/gomlx/gopjrt/dtypes"
 	"github.com/gomlx/stablehlo/types/shapes"
+	"github.com/gomlx/stablehlo/types/shardy"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -33,6 +34,56 @@ func TestBuilder(t *testing.T) {
     %1 = "stablehlo.constant"() { value = dense<2.0> : tensor<f64> } : () -> tensor<f64>
     %2 = "stablehlo.add"(%0, %1) : (tensor<f64>, tensor<f64>) -> tensor<f64>
     "stablehlo.return"(%2) : (tensor<f64>) -> ()
+  }
+}
+`
+		if program != want {
+			fmt.Printf("  Failed. Wanted the following program:\n%s", want)
+			t.Fatal("programs don't match")
+		}
+	})
+
+	t.Run("Sharding", func(t *testing.T) {
+		b := New(t.Name())
+		mesh, err := shardy.NewDeviceMesh("mesh", []int{1, 1}, []string{"data", "model"})
+		require.NoError(t, err)
+		b.WithShardy(mesh)
+		fn := b.Main()
+
+		arg0 := must(fn.NamedInputWithShardingAndAttributes(
+			"arg0",
+			shapes.Make(dtypes.F32, 16, 128),
+			shardy.NewShardingSpec(mesh).AddShardedAxis("data"),
+			nil,
+		))
+		arg1 := must(fn.NamedInputWithSharding(
+			"arg1",
+			shapes.Make(dtypes.F32, 128, 256),
+			shardy.NewShardingSpec(mesh).AddShardedAxis("model"),
+		))
+
+		tanh := must(Tanh(arg0))
+		dot := must(Dot(tanh, arg1))
+		require.NoError(t, fn.ReturnWithAttributes(
+			[]*Value{dot},
+			[]map[string]any{{"jax.result_info": "result"}}))
+
+		program := string(must(b.Build()))
+		fmt.Printf("%s program:\n%s", t.Name(), program)
+		want := `module @TestBuilder_Sharding attributes {stablehlo.num_replicas = 1,  stablehlo.num_partitions = 1} {
+  sdy.mesh @mesh = <["data"=1, "model"=1]>
+  func.func @main(%arg0: tensor<16x128xf32> { sdy.sharding = #sdy.sharding<@mesh, [{data}], replicated={model}> }, %arg1: tensor<128x256xf32> { sdy.sharding = #sdy.sharding<@mesh, [{model}], replicated={data}> }) -> tensor<16x256xf32> { jax.result_info = "result" } {
+    %0 = "stablehlo.tanh"(%arg0) : (tensor<16x128xf32>) -> tensor<16x128xf32>
+    %1 = "stablehlo.dot_general"(%0, %arg1) {
+      dot_dimension_numbers = #stablehlo.dot<
+  lhs_batching_dimensions = [],
+  rhs_batching_dimensions = [],
+  lhs_contracting_dimensions = [1],
+  rhs_contracting_dimensions = [0]
+>,
+      precision_config = [#stablehlo<precision DEFAULT>, #stablehlo<precision DEFAULT>]
+    } : (tensor<16x128xf32>, tensor<128x256xf32>) -> tensor<16x256xf32>
+    "stablehlo.return"(%1) : (tensor<16x256xf32>) -> ()
   }
 }
 `

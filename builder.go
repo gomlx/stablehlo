@@ -83,9 +83,9 @@ func (b *Builder) WithNumPartitions(n int) *Builder {
 //
 // [1] https://github.com/openxla/shardy
 func (b *Builder) WithShardy(mesh *shardy.DeviceMesh) *Builder {
+	b.mesh = mesh
 	b.WithNumReplicas(1)
 	b.WithNumPartitions(mesh.NumDevices())
-
 	return b
 }
 

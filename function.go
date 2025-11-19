@@ -24,14 +24,8 @@ type Function struct {
 	// Inputs to the function.
 	Inputs []*Value
 
-	// InputsShardingSpecs are the sharding specs for the inputs. Optional.
-	InputsShardingSpecs []*shardy.ShardingSpec
-
-	// Outputs types of the function.
-	Outputs []shapes.Shape
-
-	// OutputsShardingSpecs are the sharding specs for the inputs. Optional.
-	OutputsShardingSpecs []*shardy.ShardingSpec
+	// Outputs of the function.
+	Outputs []*Value
 
 	// Statements in the function body.
 	Statements []*Statement
@@ -89,12 +83,23 @@ func (fn *Function) newValue(shape shapes.Shape) (v *Value) {
 // It picks a default unique name for the input parameter, you can also
 // provide a name with NamedInput.
 func (fn *Function) Input(shape shapes.Shape) (*Value, error) {
-	return fn.InputWithSharding(shape, nil)
+	return fn.InputWithShardingAndAttributes(shape, nil, nil)
 }
 
+// InputWithSharding creates a new input with the given sharding specification.
 func (fn *Function) InputWithSharding(shape shapes.Shape, shardingSpec *shardy.ShardingSpec) (*Value, error) {
+	return fn.InputWithShardingAndAttributes(shape, shardingSpec, nil)
+}
+
+// InputWithAttributes creates a new input with the given attributes.
+func (fn *Function) InputWithAttributes(shape shapes.Shape, attributes map[string]any) (*Value, error) {
+	return fn.InputWithShardingAndAttributes(shape, nil, attributes)
+}
+
+// InputWithShardingAndAttributes creates a new input with the given sharding specification and attributes.
+func (fn *Function) InputWithShardingAndAttributes(shape shapes.Shape, shardingSpec *shardy.ShardingSpec, attributes map[string]any) (*Value, error) {
 	rootFn := fn.findRootFn()
-	value, err := fn.NamedInputWithSharding(fmt.Sprintf("arg%d", rootFn.nextArgID), shape, shardingSpec)
+	value, err := fn.NamedInputWithShardingAndAttributes(fmt.Sprintf("arg%d", rootFn.nextArgID), shape, shardingSpec, attributes)
 	if err != nil {
 		return nil, err
 	}
@@ -112,10 +117,23 @@ func (fn *Function) InputWithSharding(shape shapes.Shape, shardingSpec *shardy.S
 // Names are used in the StableHLO code and may be helpful for debugging, but
 // otherwise have no impact.
 func (fn *Function) NamedInput(name string, shape shapes.Shape) (*Value, error) {
-	return fn.NamedInputWithSharding(name, shape, nil)
+	return fn.NamedInputWithShardingAndAttributes(name, shape, nil, nil)
 }
 
 // NamedInputWithSharding creates a new input parameter for a function with the given name -- it
+// must be a unique input name -- and sharding specification for distributed computation.
+func (fn *Function) NamedInputWithSharding(name string, shape shapes.Shape,
+	shardingSpec *shardy.ShardingSpec) (*Value, error) {
+	return fn.NamedInputWithShardingAndAttributes(name, shape, shardingSpec, nil)
+}
+
+// NamedInputWithAttributes creates a new input parameter for a function with the given name and attributes.
+func (fn *Function) NamedInputWithAttributes(name string, shape shapes.Shape,
+	attributes map[string]any) (*Value, error) {
+	return fn.NamedInputWithShardingAndAttributes(name, shape, nil, attributes)
+}
+
+// NamedInputWithShardingAndAttributes creates a new input parameter for a function with the given name -- it
 // must be a unique input name -- and sharding specification for distributed computation.
 //
 // The shardingSpec can be nil: the default is a replicated input across all devices.
@@ -125,12 +143,13 @@ func (fn *Function) NamedInput(name string, shape shapes.Shape) (*Value, error) 
 // Names with the format "%d" and "arg%d" are reserved for the default input parameters.
 //
 // Names are used in the StableHLO code and may be helpful for debugging, but otherwise have no impact.
-func (fn *Function) NamedInputWithSharding(name string, shape shapes.Shape,
-	shardingSpec *shardy.ShardingSpec) (*Value, error) {
+func (fn *Function) NamedInputWithShardingAndAttributes(name string, shape shapes.Shape,
+	shardingSpec *shardy.ShardingSpec, attributes map[string]any) (*Value, error) {
 	value := &Value{
-		fn:    fn,
-		name:  ConvertToValidName(name),
-		shape: shape,
+		fn:         fn,
+		name:       ConvertToValidName(name),
+		shape:      shape,
+		Attributes: attributes,
 	}
 	for i, input := range fn.Inputs {
 		if input.name == value.name {
@@ -138,6 +157,10 @@ func (fn *Function) NamedInputWithSharding(name string, shape shapes.Shape,
 		}
 	}
 	if shardingSpec != nil {
+		if value.Attributes == nil {
+			value.Attributes = make(map[string]any)
+		}
+		value.Attributes["sdy.sharding"] = shardingSpec
 		if shardingSpec.Mesh != fn.Builder.mesh {
 			return nil, errors.Errorf("sharding spec mesh %s doesn't match the stablehlo.Builder mesh %s",
 				shardingSpec.Mesh, fn.Builder.mesh)
@@ -147,7 +170,6 @@ func (fn *Function) NamedInputWithSharding(name string, shape shapes.Shape,
 		}
 	}
 	fn.Inputs = append(fn.Inputs, value)
-	fn.InputsShardingSpecs = append(fn.InputsShardingSpecs, shardingSpec)
 	return value, nil
 }
 
@@ -223,22 +245,49 @@ func (fn *Function) ConstantFromFlatAndDimensions(flat any, dimensions ...int) (
 // If you are doing distributed computation, you can use WithReturnShardingSpecs to specify
 // the sharding requirements for each of the return values.
 func (fn *Function) Return(values ...*Value) error {
+	attributes := make([]map[string]any, len(values))
+	return fn.ReturnWithAttributes(values, attributes)
+}
+
+// ReturnWithSharding is a convenience function to call ReturnWithAttributes with the given sharding specifications.
+func (fn *Function) ReturnWithSharding(values []*Value, shardingSpecs []*shardy.ShardingSpec) error {
+	if len(values) != len(shardingSpecs) {
+		return errors.Errorf("Function.ReturnWithSharding requires the same number of values and sharding specs, got %d and %d", len(values), len(shardingSpecs))
+	}
+	attributes := make([]map[string]any, len(values))
+	for i, shardingSpec := range shardingSpecs {
+		if shardingSpec != nil {
+			attributes[i] = map[string]any{"sdy.sharding": shardingSpec}
+		}
+	}
+	return fn.ReturnWithAttributes(values, attributes)
+}
+
+// ReturnWithAttributes adds a return statement to the function with the given return values and attributes.
+func (fn *Function) ReturnWithAttributes(values []*Value, attributes []map[string]any) error {
 	if fn.Returned {
 		return errors.Errorf("Function.Return already called for %q", fn.Name)
 	}
 	if len(values) == 0 {
 		return errors.New("Function.Return requires at least one return value")
 	}
+	if len(values) != len(attributes) {
+		return errors.Errorf("Function.ReturnWithAttributes requires the same number of values and attributes, got %d and %d", len(values), len(attributes))
+	}
 	fn.Returned = true
-	outputShapes := make([]shapes.Shape, len(values))
+	outputValues := make([]*Value, len(values))
 	for i, value := range values {
 		if value.fn != fn {
 			return errors.New("Function.Return given values that are not owned by the function")
 		}
-		outputShapes[i] = value.shape
+		outputValues[i] = &Value{
+			fn:         fn,
+			name:       value.name,
+			shape:      value.shape,
+			Attributes: attributes[i],
+		}
 	}
-	fn.Outputs = outputShapes
-	fn.OutputsShardingSpecs = make([]*shardy.ShardingSpec, len(values)) // All default to nil.
+	fn.Outputs = outputValues
 
 	stmt := &Statement{
 		Builder:  fn.Builder,
@@ -247,43 +296,6 @@ func (fn *Function) Return(values ...*Value) error {
 		Inputs:   values,
 	}
 	fn.Statements = append(fn.Statements, stmt)
-	return nil
-}
-
-// WithReturnShardingSpecs specify the sharding requirements of the return values.
-// It should be used after Return is called.
-//
-// You have to provide one spec per output used in Return. But nil spec values are valid,
-// the default being a replicated input across all devices.
-//
-// The specs must use the same mesh as the stablehlo.Builder. Mixing meshes will cause an error.
-// See Builder.NewShardingSpec.
-func (fn *Function) WithReturnShardingSpecs(specs ...*shardy.ShardingSpec) error {
-	if !fn.Returned {
-		return errors.Errorf(
-			"Function.WithReturnShardingSpecs called for %q, but no Return hasn't been called yet", fn.Name)
-	}
-	if len(specs) != len(fn.Outputs) {
-		return errors.Errorf(
-			"Function.WithReturnShardingSpecs called for %q, but the number of sharding specs (%d) doesn't match "+
-				"the number of return values (%d)", fn.Name, len(specs), len(fn.Outputs))
-	}
-	for i, spec := range specs {
-		if spec == nil {
-			continue
-		}
-		if spec.Mesh != fn.Builder.mesh {
-			return errors.Errorf(
-				"Function.WithReturnShardingSpecs called for %q, but the sharding spec #%d uses a different mesh "+
-					"(%s) than the function's builder (%s)",
-				fn.Name, i, spec.Mesh, fn.Builder.mesh)
-		}
-		err := spec.ValidateShape(fn.Outputs[i])
-		if err != nil {
-			return errors.Wrapf(err, "Function.WithReturnShardingSpecs called for %q, but the sharding spec #%d is invalid", fn.Name, i)
-		}
-	}
-	fn.OutputsShardingSpecs = specs
 	return nil
 }
 
@@ -355,6 +367,7 @@ func (fn *Function) Write(writer io.Writer, indentation string) error {
 		}
 		we(input, nextIndent)
 		w(": %s", input.shape.ToStableHLO())
+		writeAttributes(writer, indentation, input.Attributes, w)
 	}
 
 	if isClosure {
@@ -368,7 +381,8 @@ func (fn *Function) Write(writer io.Writer, indentation string) error {
 			if i > 0 {
 				w(", ")
 			}
-			w("%s", output.ToStableHLO())
+			w(output.shape.ToStableHLO())
+			writeAttributes(writer, indentation, output.Attributes, w)
 		}
 		if len(fn.Outputs) > 1 {
 			w(")")

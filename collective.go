@@ -128,7 +128,7 @@ func AllReduce(operands []*Value, replicaGroups [][]int, computation *Function, 
 	outputShapes, err := shapeinference.AllReduce(
 		valuesToShapes(operands),
 		valuesToShapes(computation.Inputs),
-		computation.Outputs,
+		valuesToShapes(computation.Outputs),
 		replicaGroups)
 	if err != nil {
 		return nil, err

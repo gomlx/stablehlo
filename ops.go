@@ -231,6 +231,31 @@ type DotGeneralBuilder struct {
 //
 // Because there are optional parameters, this function returns a DotGeneralBuilder that can
 // be further configured. Call DotGeneralBuilder.Done to get the final DotGeneral node.
+func Dot(lhs, rhs *Value) (*Value, error) {
+	if lhs.Shape().Rank() != 2 || rhs.Shape().Rank() != 2 {
+		return nil, errors.Errorf("Dot only supports rank-2 tensors, got %d and %d", lhs.Shape().Rank(), rhs.Shape().Rank())
+	}
+	return DotGeneral(
+		lhs, []int{1}, nil,
+		rhs, []int{0}, nil,
+	).Done()
+}
+
+// DotGeneral takes as input lhs (left-hand-side) and rhs (right-hand-side) specifications
+// for a general vector product -- a generalized "Einsum". Each axis can be:
+//   - Just aligned (batch axes), so the output has the same axes as the inputs. The dimensions
+//     must match in lhs and rhs.
+//   - Crossed (default), in which case the output is the combination (concatenation) of the
+//     dimensions.
+//   - Contracted (contracting axes), where the output does multiply the values and reduce sum
+//     those dimensions.
+//
+// It follows that the resulting dimension number starts with the batch dimension, then the 'lhs'
+// non-contracting/non-batch dimension, and finally the 'rhs' non-contracting/non-batch dimension.
+// It provides the basic means of implementing Einsum.
+//
+// Because there are optional parameters, this function returns a DotGeneralBuilder that can
+// be further configured. Call DotGeneralBuilder.Done to get the final DotGeneral node.
 func DotGeneral(
 	lhsOp *Value, lhsContractingAxes, lhsBatchAxes []int,
 	rhsOp *Value, rhsContractingAxes, rhsBatchAxes []int) *DotGeneralBuilder {
@@ -627,7 +652,7 @@ func MultiReduce(inputs, initialValues []*Value, reductionFn *Function, axes ...
 
 	outputsShapes, err := shapeinference.Reduce(
 		valuesToShapes(inputs), valuesToShapes(initialValues),
-		valuesToShapes(reductionFn.Inputs), reductionFn.Outputs,
+		valuesToShapes(reductionFn.Inputs), valuesToShapes(reductionFn.Outputs),
 		axes)
 	if err != nil {
 		return nil, err
@@ -845,7 +870,7 @@ func MultiScatter(inputs []*Value, scatterIndices *Value, updates []*Value,
 		updateWindowAxes, insertedWindowAxes,
 		inputBatchingAxes, scatterIndicesBatchingAxes,
 		indexedInputAxes, indexVectorAxis,
-		updateComputationInputShapes, updateComputationFn.Outputs)
+		updateComputationInputShapes, valuesToShapes(updateComputationFn.Outputs))
 	if err != nil {
 		return nil, err
 	}
@@ -1241,7 +1266,7 @@ func MultiReduceWindow(inputs, initialValues []*Value, reductionFn *Function,
 
 	outputsShapes, err := shapeinference.ReduceWindow(
 		valuesToShapes(inputs), valuesToShapes(initialValues),
-		valuesToShapes(reductionFn.Inputs), reductionFn.Outputs,
+		valuesToShapes(reductionFn.Inputs), valuesToShapes(reductionFn.Outputs),
 		windowDimensions, strides, inputDilations, windowDilations,
 		paddings)
 	if err != nil {
