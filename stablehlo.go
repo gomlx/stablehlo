@@ -13,5 +13,16 @@
 // See ToStableHLO documentation and specifications in https://openxla.org/stablehlo/spec
 package stablehlo
 
+import "github.com/gomlx/stablehlo/internal/utils"
+
 // Generates some trivial functions (binary and unary operators) automatically.
 //go:generate go run ./internal/cmd/ops_generator
+
+// NormalizeIdentifier converts the name of an identifier (function name or function input parameter
+// name, etc.) to a valid one: only letters, digits, and underscores are allowed.
+//
+// Invalid characters are replaced with underscores.
+// If the name starts with a digit, it is prefixed with an underscore.
+func NormalizeIdentifier(name string) string {
+	return utils.NormalizeIdentifier(name)
+}
