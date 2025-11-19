@@ -17,17 +17,17 @@ func TestShardSpec_ToStableHLO(t *testing.T) {
 		{
 			name:     "Replicated",
 			spec:     NewShardingSpec(mesh).AddReplicated(),
-			expected: "sharding<@test_mesh, [{}], replicated={a, z}>",
+			expected: "#sdy.sharding<@test_mesh, [{}], replicated={a, z}>",
 		},
 		{
 			name:     "Sharded",
 			spec:     NewShardingSpec(mesh).AddShardedAxis("z"),
-			expected: "sharding<@test_mesh, [{z}], replicated={a}>",
+			expected: "#sdy.sharding<@test_mesh, [{z}], replicated={a}>",
 		},
 		{
 			name:     "Sharded with multiple axes",
 			spec:     NewShardingSpec(mesh).AddShardedAxis("z", "a"),
-			expected: "sharding<@test_mesh, [{z, a}]>",
+			expected: "#sdy.sharding<@test_mesh, [{z, a}]>",
 		},
 		{
 			name: "Sharded with sub-axis",
@@ -37,12 +37,12 @@ func TestShardSpec_ToStableHLO(t *testing.T) {
 					{MeshAxes: []MeshAxisSpec{{AxisName: "a", PreSize: 1, Size: 2}}},
 				},
 			},
-			expected: "sharding<@test_mesh, [{a:(1)2}], replicated={z}>",
+			expected: "#sdy.sharding<@test_mesh, [{a:(1)2}], replicated={z}>",
 		},
 		{
 			name:     "Opened",
 			spec:     &ShardingSpec{Mesh: mesh, Axes: []TensorAxisSpec{{Opened: true}}},
-			expected: "sharding<@test_mesh, [{?}], replicated={a, z}>",
+			expected: "#sdy.sharding<@test_mesh, [{?}], replicated={a, z}>",
 		},
 	}
 
