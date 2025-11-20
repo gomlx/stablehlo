@@ -22,7 +22,7 @@ func shardyCompileAndExecute(t *testing.T, client *pjrt.Client, program []byte,
 	loadedExec, err := client.Compile().
 		WithStableHLO(program).
 		WithShardy(mesh.NumDevices()).
-		WithDeviceAssignment(mesh.DeviceAssignment()).
+		WithDeviceAssignment(mesh.LogicalDeviceAssignment()).
 		Done()
 	require.NoErrorf(t, err, "failed to compile program: \n%s", program)
 	defer func() {
