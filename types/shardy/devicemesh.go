@@ -20,8 +20,8 @@ type DeviceMesh struct {
 	// axesNames are the names of the mesh axes.
 	axesNames []string
 
-	// shape defines the number of devices along each mesh axis.
-	shape []int
+	// axesSizes defines the number of devices along each mesh axis.
+	axesSizes []int
 
 	// nameToAxis maps axis names to their index.
 	nameToAxis map[string]int
@@ -39,7 +39,7 @@ type DeviceMesh struct {
 // NewDeviceMesh creates a new logical topology of a set of devices.
 //
 //   - name: the name of the mesh, it must be a valid StableHLO identifier (see stablehlo.NormalizeIdentifier).
-//   - shape: defines the number of devices along each mesh axis, one value per axis.
+//   - axesSizes: defines the number of devices along each mesh axis, one value per axis.
 //   - axesNames: the names of the mesh axes. One value per axis. They must also be valid StableHLO identifiers
 //     (see stablehlo.NormalizeName).
 //
@@ -50,11 +50,11 @@ type DeviceMesh struct {
 // with the DeviceMesh.WithDeviceMapping() method.
 func NewDeviceMesh(name string, shape []int, axisNames []string) (*DeviceMesh, error) {
 	if len(shape) != len(axisNames) {
-		return nil, errors.Errorf("shape and axesNames must have the same length, got %d and %d",
+		return nil, errors.Errorf("axesSizes and axesNames must have the same length, got %d and %d",
 			len(shape), len(axisNames))
 	}
 	if len(shape) == 0 {
-		return nil, errors.New("DeviceMesh shape cannot be empty")
+		return nil, errors.New("DeviceMesh axesSizes cannot be empty")
 	}
 
 	// Normalize names:
@@ -88,7 +88,7 @@ func NewDeviceMesh(name string, shape []int, axisNames []string) (*DeviceMesh, e
 	m := &DeviceMesh{
 		name:             name,
 		axesNames:        axisNames,
-		shape:            shape,
+		axesSizes:        shape,
 		nameToAxis:       nameToAxis,
 		numDevices:       numDevices,
 		deviceAssignment: make([]int, numDevices),
@@ -118,7 +118,7 @@ func (m *DeviceMesh) NumDevices() int {
 
 // Rank returns the number of axes in the mesh.
 func (m *DeviceMesh) Rank() int {
-	return len(m.shape)
+	return len(m.axesSizes)
 }
 
 // AxisNames returns a copy of the mesh's axis names.
@@ -126,10 +126,10 @@ func (m *DeviceMesh) AxisNames() []string {
 	return slices.Clone(m.axesNames)
 }
 
-// Shape returns a copy of the mesh's shape.
+// Shape returns a copy of the mesh's axesSizes.
 func (m *DeviceMesh) Shape() []int {
-	shape := make([]int, len(m.shape))
-	copy(shape, m.shape)
+	shape := make([]int, len(m.axesSizes))
+	copy(shape, m.axesSizes)
 	return shape
 }
 
@@ -139,18 +139,18 @@ func (m *DeviceMesh) AxisSize(axisName string) (int, error) {
 	if !found {
 		return 0, errors.Errorf("mesh axis %q not found", axisName)
 	}
-	return m.shape[idx], nil
+	return m.axesSizes[idx], nil
 }
 
 // String implements the fmt.Stringer interface.
 func (m *DeviceMesh) String() string {
 	var sb strings.Builder
-	sb.WriteString("DeviceMesh(shape={")
+	sb.WriteString("DeviceMesh(axesSizes={")
 	for i, name := range m.axesNames {
 		if i > 0 {
 			sb.WriteString(", ")
 		}
-		_, _ = fmt.Fprintf(&sb, "%s: %d", name, m.shape[i])
+		_, _ = fmt.Fprintf(&sb, "%s: %d", name, m.axesSizes[i])
 	}
 	sb.WriteString("})")
 	return sb.String()
@@ -195,11 +195,11 @@ func (m *DeviceMesh) DeviceToMesh(physicalDevice int) (flatIdx int, axisIndices 
 	}
 
 	// Convert flat index to per-axis indices
-	axisIndices = make([]int, len(m.shape))
+	axisIndices = make([]int, len(m.axesSizes))
 	remaining := flatIdx
-	for i := len(m.shape) - 1; i >= 0; i-- {
-		axisIndices[i] = remaining % m.shape[i]
-		remaining /= m.shape[i]
+	for i := len(m.axesSizes) - 1; i >= 0; i-- {
+		axisIndices[i] = remaining % m.axesSizes[i]
+		remaining /= m.axesSizes[i]
 	}
 	return flatIdx, axisIndices, nil
 }
@@ -233,8 +233,8 @@ func (m *DeviceMesh) ComputeReplicaGroups(axes []string) ([][]int, error) {
 	}
 
 	// Create indices for each axis dimension
-	nonAxisIndices := make([]int, 0, len(m.shape)-len(axisIndices))
-	for i := range m.shape {
+	nonAxisIndices := make([]int, 0, len(m.axesSizes)-len(axisIndices))
+	for i := range m.axesSizes {
 		if !slices.Contains(axisIndices, i) {
 			nonAxisIndices = append(nonAxisIndices, i)
 		}
@@ -243,7 +243,7 @@ func (m *DeviceMesh) ComputeReplicaGroups(axes []string) ([][]int, error) {
 	// Calculate the size of each group and number of groups
 	groupSize := 1
 	for _, idx := range axisIndices {
-		groupSize *= m.shape[idx]
+		groupSize *= m.axesSizes[idx]
 	}
 	numGroups := m.numDevices / groupSize
 
@@ -256,11 +256,11 @@ func (m *DeviceMesh) ComputeReplicaGroups(axes []string) ([][]int, error) {
 	// Fill in the groups
 	for flatIdx := 0; flatIdx < m.numDevices; flatIdx++ {
 		// Convert flat index to per-axis indices
-		indices := make([]int, len(m.shape))
+		indices := make([]int, len(m.axesSizes))
 		remaining := flatIdx
-		for i := len(m.shape) - 1; i >= 0; i-- {
-			indices[i] = remaining % m.shape[i]
-			remaining /= m.shape[i]
+		for i := len(m.axesSizes) - 1; i >= 0; i-- {
+			indices[i] = remaining % m.axesSizes[i]
+			remaining /= m.axesSizes[i]
 		}
 
 		// Calculate group index from non-axis indices
@@ -269,7 +269,7 @@ func (m *DeviceMesh) ComputeReplicaGroups(axes []string) ([][]int, error) {
 		for i := len(nonAxisIndices) - 1; i >= 0; i-- {
 			axisIdx := nonAxisIndices[i]
 			groupIdx += indices[axisIdx] * multiplier
-			multiplier *= m.shape[axisIdx]
+			multiplier *= m.axesSizes[axisIdx]
 		}
 
 		// Calculate position within group from axis indices
@@ -278,7 +278,7 @@ func (m *DeviceMesh) ComputeReplicaGroups(axes []string) ([][]int, error) {
 		for i := len(axisIndices) - 1; i >= 0; i-- {
 			axisIdx := axisIndices[i]
 			posInGroup += indices[axisIdx] * multiplier
-			multiplier *= m.shape[axisIdx]
+			multiplier *= m.axesSizes[axisIdx]
 		}
 
 		groups[groupIdx][posInGroup] = flatIdx
@@ -299,7 +299,7 @@ func (m *DeviceMesh) ToStableHLO() string {
 		if i > 0 {
 			w(", ")
 		}
-		w("%q=%d", axisName, m.shape[i])
+		w("%q=%d", axisName, m.axesSizes[i])
 	}
 	w("]>")
 	return buf.String()

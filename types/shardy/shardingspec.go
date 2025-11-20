@@ -117,7 +117,7 @@ func (s *ShardingSpec) Validate() error {
 				return errors.Errorf("ShardingSpec tensor axis %d, mesh axis #%d refers to unknown mesh axis %q",
 					i, j, axisName)
 			}
-			meshAxisSize := s.Mesh.shape[axisIdx]
+			meshAxisSize := s.Mesh.axesSizes[axisIdx]
 
 			// Check sub-axis specification.
 			if meshAxisSpec.Size > 0 {
@@ -145,7 +145,7 @@ func (s *ShardingSpec) ValidateShape(shape shapes.Shape) error {
 		return err
 	}
 	if s.Rank() > shape.Rank() {
-		return errors.Errorf("ShardingSpec shape rank %d is largers than tensor rank %d", s.Rank(), shape.Rank())
+		return errors.Errorf("ShardingSpec shape rank %d is larger than tensor rank %d", s.Rank(), shape.Rank())
 	}
 	return nil
 }
@@ -189,9 +189,9 @@ func (s *ShardingSpec) ToStableHLO() string {
 	return fmt.Sprintf("#sdy.sharding<@%s, [%s]%s>", s.Mesh.Name(), strings.Join(dimShardings, ", "), replicatedPart)
 }
 
-// ToValueAttribute converts the ShardingSpec to a StableHLO attribute of value with the given shape.
+// ToValueAttribute converts the ShardingSpec to a StableHLO attribute of a value with the given shape.
 //
-// Notice the rank of the ShardingSpec may be smaller than the rank of shape, in which case the extra axes are
+// Notice the rank of the ShardingSpec may be smaller than the rank of the shape, in which case the extra axes are
 // assumed to be replicated (empty).
 //
 // E.g.: "#sdy.sharding<@mesh, [{\"data\"}, {}]>"

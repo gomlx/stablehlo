@@ -75,13 +75,13 @@ func TestDeviceMesh(t *testing.T) {
 				name:      "mismatched lengths",
 				shape:     []int{2, 4},
 				axisNames: []string{"x"},
-				wantErr:   "shape and axesNames must have the same length",
+				wantErr:   "axesSizes and axesNames must have the same length",
 			},
 			{
-				name:      "empty shape",
+				name:      "empty axesSizes",
 				shape:     []int{},
 				axisNames: []string{},
-				wantErr:   "DeviceMesh shape cannot be empty",
+				wantErr:   "DeviceMesh axesSizes cannot be empty",
 			},
 			{
 				name:      "empty axis name",
@@ -186,13 +186,13 @@ func TestDeviceMesh(t *testing.T) {
 				name:      "1D mesh",
 				shape:     []int{8},
 				axisNames: []string{"replica"},
-				want:      "DeviceMesh(shape={replica: 8})",
+				want:      "DeviceMesh(axesSizes={replica: 8})",
 			},
 			{
 				name:      "2D mesh",
 				shape:     []int{2, 4},
 				axisNames: []string{"x", "y"},
-				want:      "DeviceMesh(shape={x: 2, y: 4})",
+				want:      "DeviceMesh(axesSizes={x: 2, y: 4})",
 			},
 		}
 
