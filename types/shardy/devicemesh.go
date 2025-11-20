@@ -44,12 +44,12 @@ type DeviceMesh struct {
 //
 // The default mapping of logical devices numbers to the mesh is sequential, starting from 0, but it can be
 // changed with the DeviceMesh.SetLogicalDeviceAssignment() method.
-func NewDeviceMesh(name string, shape []int, axisNames []string) (*DeviceMesh, error) {
-	if len(shape) != len(axisNames) {
+func NewDeviceMesh(name string, axesSizes []int, axesNames []string) (*DeviceMesh, error) {
+	if len(axesSizes) != len(axesNames) {
 		return nil, errors.Errorf("axesSizes and axesNames must have the same length, got %d and %d",
-			len(shape), len(axisNames))
+			len(axesSizes), len(axesNames))
 	}
-	if len(shape) == 0 {
+	if len(axesSizes) == 0 {
 		return nil, errors.New("DeviceMesh axesSizes cannot be empty")
 	}
 
@@ -59,9 +59,9 @@ func NewDeviceMesh(name string, shape []int, axisNames []string) (*DeviceMesh, e
 			"DeviceMesh name %q is not a valid StableHLO identifier, suggestion %q -- or use "+
 				"stablehlo.NormalizeIdentifier()", name, utils.NormalizeIdentifier(name))
 	}
-	axisNames = slices.Clone(axisNames)
-	for i, axisName := range axisNames {
-		if axisNames[i] != utils.NormalizeIdentifier(axisName) {
+	axesNames = slices.Clone(axesNames)
+	for i, axisName := range axesNames {
+		if axesNames[i] != utils.NormalizeIdentifier(axisName) {
 			return nil, errors.Errorf(
 				"DeviceMesh axis name %q at index %d is not a valid StableHLO identifier, suggestion %q -- or use "+
 					"stablehlo.NormalizeIdentifier()", axisName, i, utils.NormalizeIdentifier(axisName))
@@ -69,8 +69,8 @@ func NewDeviceMesh(name string, shape []int, axisNames []string) (*DeviceMesh, e
 	}
 
 	numDevices := 1
-	nameToAxis := make(map[string]int, len(shape))
-	for i, name := range axisNames {
+	nameToAxis := make(map[string]int, len(axesSizes))
+	for i, name := range axesNames {
 		if name == "" {
 			return nil, errors.Errorf("DeviceMesh axis name at index %d cannot be empty", i)
 		}
@@ -78,13 +78,13 @@ func NewDeviceMesh(name string, shape []int, axisNames []string) (*DeviceMesh, e
 			return nil, errors.Errorf("DeviceMesh axis name %q is duplicated", name)
 		}
 		nameToAxis[name] = i
-		numDevices *= shape[i]
+		numDevices *= axesSizes[i]
 	}
 
 	m := &DeviceMesh{
 		name:       name,
-		axesNames:  axisNames,
-		axesSizes:  shape,
+		axesNames:  axesNames,
+		axesSizes:  axesSizes,
 		nameToAxis: nameToAxis,
 		numDevices: numDevices,
 	}
