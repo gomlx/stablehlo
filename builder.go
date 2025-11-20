@@ -6,6 +6,7 @@ import (
 	"io"
 	"slices"
 
+	"github.com/gomlx/stablehlo/internal/utils"
 	"github.com/gomlx/stablehlo/types"
 	"github.com/gomlx/stablehlo/types/shardy"
 	"github.com/pkg/errors"
@@ -23,11 +24,12 @@ type Builder struct {
 	// inlineUniqueID is a counter used to generate unique names for inlined functions values.
 	inlineUniqueID int
 
-	// Mesh used for Shardy.
-	mesh *shardy.DeviceMesh
+	// meshes used for Shardy.
+	meshes []*shardy.DeviceMesh
 
 	// numReplicas is the number of replicas for data parallelism.
 	numReplicas int
+
 	// numPartitions is the number of partitions for model parallelism.
 	numPartitions int
 
@@ -74,29 +76,53 @@ func (b *Builder) WithNumPartitions(n int) *Builder {
 	return b
 }
 
-// WithShardy enables distributed computation across the devices selected by the mesh.
+// WithShardy enables distributed computation across the devices selected by the given meshes.
+//
 // This is the recommended way to do distributed (across devices) computation, and given the inputs
 // with sharded information, Shardy will automatically distribute the computation, without you needing
 // to specify any of the collective operations.
 //
+// Usually, there is only one meshes. But one can split the devices in different meshes. The meshes overlap
+// the concrete devices used.
+//
 // See details of XLA Shardy in [1]
 //
 // [1] https://github.com/openxla/shardy
-func (b *Builder) WithShardy(mesh *shardy.DeviceMesh) *Builder {
-	b.mesh = mesh
+func (b *Builder) WithShardy(meshes ...*shardy.DeviceMesh) *Builder {
+	b.meshes = meshes
 	b.WithNumReplicas(1)
-	b.WithNumPartitions(mesh.NumDevices())
+	numDevices := 0
+	for _, mesh := range meshes {
+		numDevices = max(numDevices, mesh.NumDevices())
+	}
+	b.WithNumPartitions(numDevices)
 	return b
 }
 
-// Mesh returns the mesh configured with WithShardy.
-func (b *Builder) Mesh() *shardy.DeviceMesh {
-	return b.mesh
+// Meshes returns the meshes configured with WithShardy.
+func (b *Builder) Meshes() []*shardy.DeviceMesh {
+	return b.meshes
 }
 
-// NewShardingSpec creates a new ShardingSpec using the mesh configured with WithShardy.
+// NewShardingSpec creates a new ShardingSpec using the first mesh configured with WithShardy.
+// It returns nil if no mesh was not configured.
+//
+// This is a shortcut to NewShardingSpecByMeshIx(0).
 func (b *Builder) NewShardingSpec() *shardy.ShardingSpec {
-	return shardy.NewShardingSpec(b.mesh)
+	if len(b.meshes) == 0 {
+		return nil
+	}
+	return shardy.NewShardingSpec(b.meshes[0])
+}
+
+// NewShardingSpecByMeshIx creates a new ShardingSpec for the meshIdx (the order given by WithShardy).
+//
+// It may return nil if meshIdx is out of range.
+func (b *Builder) NewShardingSpecByMeshIx(meshIdx int) *shardy.ShardingSpec {
+	if meshIdx < 0 || meshIdx >= len(b.meshes) {
+		return nil
+	}
+	return shardy.NewShardingSpec(b.meshes[meshIdx])
 }
 
 // elementWriter represents elements of ToStableHLO that know how to write themselves.
@@ -194,9 +220,16 @@ func (b *Builder) Write(writer io.Writer) error {
 	}
 	w(" {\n")
 
-	// Write Shardy mesh if needed:
-	if b.mesh != nil {
-		w("%s%s\n", IndentationStep, b.mesh.ToStableHLO())
+	// Write Shardy meshes if needed:
+	if len(b.meshes) > 0 {
+		namesUsed := utils.MakeSet[string](len(b.meshes))
+		for _, mesh := range b.meshes {
+			if namesUsed.Has(mesh.Name()) {
+				return errors.Errorf("duplicate mesh name %q", mesh.Name())
+			}
+			namesUsed.Insert(mesh.Name())
+			w("%s%s\n", IndentationStep, mesh.ToStableHLO())
+		}
 	}
 
 	// Write non-inline functions:

@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/gomlx/gopjrt/dtypes"
 	"github.com/gomlx/stablehlo/internal/optypes"
@@ -161,9 +163,13 @@ func (fn *Function) NamedInputWithShardingAndAttributes(name string, shape shape
 			value.Attributes = make(map[string]any)
 		}
 		value.Attributes["sdy.sharding"] = literalStr(shardingSpec.ToValueAttribute(value.shape))
-		if shardingSpec.Mesh != fn.Builder.mesh {
-			return nil, errors.Errorf("sharding spec mesh %s doesn't match the stablehlo.Builder mesh %s",
-				shardingSpec.Mesh, fn.Builder.mesh)
+		if slices.Index(fn.Builder.meshes, shardingSpec.Mesh) == -1 {
+			meshesNames := make([]string, len(fn.Builder.meshes))
+			for _, mesh := range fn.Builder.meshes {
+				meshesNames = append(meshesNames, mesh.Name())
+			}
+			return nil, errors.Errorf("sharding spec meshe %q doesn't match any of the stablehlo.Builder meshes (%s)",
+				shardingSpec.Mesh, strings.Join(meshesNames, ", "))
 		}
 		if err := shardingSpec.ValidateShape(shape); err != nil {
 			return nil, err

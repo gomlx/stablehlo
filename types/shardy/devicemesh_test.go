@@ -75,13 +75,13 @@ func TestDeviceMesh(t *testing.T) {
 				name:      "mismatched lengths",
 				shape:     []int{2, 4},
 				axisNames: []string{"x"},
-				wantErr:   "shape and axesNames must have the same length",
+				wantErr:   "axesSizes and axesNames must have the same length",
 			},
 			{
-				name:      "empty shape",
+				name:      "empty axesSizes",
 				shape:     []int{},
 				axisNames: []string{},
-				wantErr:   "DeviceMesh shape cannot be empty",
+				wantErr:   "DeviceMesh axesSizes cannot be empty",
 			},
 			{
 				name:      "empty axis name",
@@ -186,13 +186,13 @@ func TestDeviceMesh(t *testing.T) {
 				name:      "1D mesh",
 				shape:     []int{8},
 				axisNames: []string{"replica"},
-				want:      "DeviceMesh(shape={replica: 8})",
+				want:      "DeviceMesh(axesSizes={replica: 8})",
 			},
 			{
 				name:      "2D mesh",
 				shape:     []int{2, 4},
 				axisNames: []string{"x", "y"},
-				want:      "DeviceMesh(shape={x: 2, y: 4})",
+				want:      "DeviceMesh(axesSizes={x: 2, y: 4})",
 			},
 		}
 
@@ -223,22 +223,14 @@ func TestDeviceMesh(t *testing.T) {
 			},
 			{
 				name:    "custom mapping",
-				devices: []int{2, 5, 1, 7},
+				devices: []int{2, 1, 3, 0},
 			},
 		}
 
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
-				err := mesh.SetDeviceAssignment(tt.devices...)
-				require.NoError(t, err)
-
-				// Verify mapping is applied correctly
-				for i, device := range tt.devices {
-					flatIdx, axisIndices, err := mesh.DeviceToMesh(device)
-					require.NoError(t, err)
-					assert.Equal(t, i, flatIdx)
-					assert.Equal(t, []int{i}, axisIndices)
-				}
+				err := mesh.SetLogicalDeviceAssignment(tt.devices...)
+				require.NoErrorf(t, err, "failed test %q", tt.name)
 			})
 		}
 	})
@@ -265,131 +257,39 @@ func TestDeviceMesh(t *testing.T) {
 			{
 				name:    "device out of range (negative)",
 				devices: []int{0, 1, -1, 3},
-				wantErr: "devices must be positive",
+				wantErr: "devices must be between 0 and 3",
 			},
 		}
 
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
-				err := mesh.SetDeviceAssignment(tt.devices...)
+				err := mesh.SetLogicalDeviceAssignment(tt.devices...)
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tt.wantErr)
 			})
 		}
 	})
 
-	t.Run("DeviceToMesh_1D", func(t *testing.T) {
-		mesh, err := shardy.NewDeviceMesh("mesh", []int{4}, []string{"replica"})
-		require.NoError(t, err)
-
-		for i := 0; i < 4; i++ {
-			flatIdx, axisIndices, err := mesh.DeviceToMesh(int(i))
-			require.NoError(t, err)
-			assert.Equal(t, i, flatIdx)
-			assert.Equal(t, []int{i}, axisIndices)
-		}
-	})
-
 	t.Run("DeviceToMesh_2D", func(t *testing.T) {
 		mesh, err := shardy.NewDeviceMesh("mesh", []int{2, 4}, []string{"x", "y"})
 		require.NoError(t, err)
-
-		tests := []struct {
-			device      int
-			wantFlat    int
-			wantIndices []int
-		}{
-			{device: 0, wantFlat: 0, wantIndices: []int{0, 0}},
-			{device: 1, wantFlat: 1, wantIndices: []int{0, 1}},
-			{device: 2, wantFlat: 2, wantIndices: []int{0, 2}},
-			{device: 3, wantFlat: 3, wantIndices: []int{0, 3}},
-			{device: 4, wantFlat: 4, wantIndices: []int{1, 0}},
-			{device: 5, wantFlat: 5, wantIndices: []int{1, 1}},
-			{device: 6, wantFlat: 6, wantIndices: []int{1, 2}},
-			{device: 7, wantFlat: 7, wantIndices: []int{1, 3}},
-		}
-
-		for _, tt := range tests {
-			t.Run(string(rune(tt.device)), func(t *testing.T) {
-				flatIdx, axisIndices, err := mesh.DeviceToMesh(tt.device)
-				require.NoError(t, err)
-				assert.Equal(t, tt.wantFlat, flatIdx)
-				assert.Equal(t, tt.wantIndices, axisIndices)
-			})
-		}
+		require.Equal(t, 8, mesh.NumDevices())
 	})
 
 	t.Run("DeviceToMesh_3D", func(t *testing.T) {
 		mesh, err := shardy.NewDeviceMesh("mesh", []int{2, 2, 2}, []string{"x", "y", "z"})
 		require.NoError(t, err)
-
-		tests := []struct {
-			device      int
-			wantFlat    int
-			wantIndices []int
-		}{
-			{device: 0, wantFlat: 0, wantIndices: []int{0, 0, 0}},
-			{device: 1, wantFlat: 1, wantIndices: []int{0, 0, 1}},
-			{device: 2, wantFlat: 2, wantIndices: []int{0, 1, 0}},
-			{device: 3, wantFlat: 3, wantIndices: []int{0, 1, 1}},
-			{device: 4, wantFlat: 4, wantIndices: []int{1, 0, 0}},
-			{device: 5, wantFlat: 5, wantIndices: []int{1, 0, 1}},
-			{device: 6, wantFlat: 6, wantIndices: []int{1, 1, 0}},
-			{device: 7, wantFlat: 7, wantIndices: []int{1, 1, 1}},
-		}
-
-		for _, tt := range tests {
-			t.Run(string(rune(tt.device)), func(t *testing.T) {
-				flatIdx, axisIndices, err := mesh.DeviceToMesh(tt.device)
-				require.NoError(t, err)
-				assert.Equal(t, tt.wantFlat, flatIdx)
-				assert.Equal(t, tt.wantIndices, axisIndices)
-			})
-		}
+		require.Equal(t, 8, mesh.NumDevices())
 	})
 
 	t.Run("DeviceToMesh_WithCustomMapping", func(t *testing.T) {
 		mesh, err := shardy.NewDeviceMesh("mesh", []int{4}, []string{"replica"})
 		require.NoError(t, err)
-
-		// Set custom mapping: devices [7, 5, 3, 1]
-		err = mesh.SetDeviceAssignment(7, 5, 3, 1)
+		err = mesh.SetLogicalDeviceAssignment(3, 2, 1, 0)
 		require.NoError(t, err)
-
-		tests := []struct {
-			device      int
-			wantFlat    int
-			wantIndices []int
-		}{
-			{device: 7, wantFlat: 0, wantIndices: []int{0}},
-			{device: 5, wantFlat: 1, wantIndices: []int{1}},
-			{device: 3, wantFlat: 2, wantIndices: []int{2}},
-			{device: 1, wantFlat: 3, wantIndices: []int{3}},
-		}
-
-		for _, tt := range tests {
-			t.Run(string(rune(tt.device)), func(t *testing.T) {
-				flatIdx, axisIndices, err := mesh.DeviceToMesh(tt.device)
-				require.NoError(t, err)
-				assert.Equal(t, tt.wantFlat, flatIdx)
-				assert.Equal(t, tt.wantIndices, axisIndices)
-			})
-		}
-
-		// Devices not in the mesh should error
-		_, _, err = mesh.DeviceToMesh(0)
+		require.Equal(t, 4, mesh.NumDevices())
+		err = mesh.SetLogicalDeviceAssignment(4, 2, 1, 0)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "not part of the mesh")
-	})
-
-	t.Run("DeviceToMesh_NotInMesh", func(t *testing.T) {
-		mesh, err := shardy.NewDeviceMesh("mesh", []int{4}, []string{"replica"})
-		require.NoError(t, err)
-
-		// Device 5 is not in the mesh (only 0-3 are used)
-		_, _, err = mesh.DeviceToMesh(5)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "physical device 5 is not part of the mesh")
 	})
 
 	t.Run("ComputeReplicaGroups", func(t *testing.T) {

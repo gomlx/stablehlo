@@ -12,7 +12,7 @@ import (
 // ShardingSpec (also known as PartitionSpec in JAX) defines how a logical tensor is to be sharded (partitioned) across
 // a DeviceMesh. This is used by Shardy, and is based on its documentation in [1].
 //
-// The definition is per axis of the logical tensor -- and not per axis of the Mesh, common confusion.
+// The definition is per axis of the logical tensor -- and not per axis of the Mesh, a common confusion.
 // If not all axes of the Tensor are defined, the tail axes are considered simply to be replicated across the whole
 // mesh.
 //
@@ -23,13 +23,13 @@ import (
 //	mesh := NewDeviceMesh("my_mesh", []int{2, 2}, []string{"data", "model"})
 //
 //	// Input's "batch" axis is sharded across the "data" axis of the mesh.
-//	inputSharding := MakeShardSpec(mesh.Name()).AddShardedAxis("data")
+//	inputSharding := NewShardingSpec(mesh).AddShardedAxis("data")
 //
 //	// First axis is replicated, second is shared across "model" devices
-//	variableSharding := MakeShardSpec(mesh.Name()).AddReplicated().AddShardedAxis("model")
+//	variableSharding := NewShardingSpec(mesh).AddReplicated().AddShardedAxis("model")
 //
 //	// Second axis is sharded across both "data" and "model" devices.
-//	 largeWeights := MakeShardSpec(mesh.Name()).AddReplicated().AddShardedAxis("data", "model")
+//	 largeWeights := NewShardingSpec(mesh).AddReplicated().AddShardedAxis("data", "model")
 //
 // There are two advanced features supported but not tested (pls if you need let us know how it goes, or if you find
 // any issues):
@@ -47,7 +47,7 @@ type ShardingSpec struct {
 // TensorAxisSpec specifies how a tensor axis is to be sharded (or replicated).
 // See details in ShardingSpec.
 //
-// Usually, one would create this using ShardingSpec.AddAxis or ShardingSpec.AddReplicated
+// Usually, one would create this using ShardingSpec.AddShardedAxis or ShardingSpec.AddReplicated
 type TensorAxisSpec struct {
 	MeshAxes []MeshAxisSpec
 	Opened   bool // If opened to further sharding.
@@ -110,14 +110,16 @@ func (s *ShardingSpec) Validate() error {
 		for j, meshAxisSpec := range axisSpec.MeshAxes {
 			axisName := meshAxisSpec.AxisName
 			if axisName == "" {
-				return errors.Errorf("ShardingSpec tensor axis %d, mesh axis #%d refers to empty mesh axis name", i, j)
+				return errors.Errorf(
+					"ShardingSpec tensor axis %d, mesh axis #%d refers to empty mesh axis name", i, j)
 			}
 			axisIdx, ok := s.Mesh.nameToAxis[axisName]
 			if !ok {
-				return errors.Errorf("ShardingSpec tensor axis %d, mesh axis #%d refers to unknown mesh axis %q",
+				return errors.Errorf(
+					"ShardingSpec tensor axis %d, mesh axis #%d refers to unknown mesh axis %q",
 					i, j, axisName)
 			}
-			meshAxisSize := s.Mesh.shape[axisIdx]
+			meshAxisSize := s.Mesh.axesSizes[axisIdx]
 
 			// Check sub-axis specification.
 			if meshAxisSpec.Size > 0 {
@@ -126,7 +128,9 @@ func (s *ShardingSpec) Validate() error {
 						i, j, axisName, meshAxisSpec.PreSize)
 				}
 				if meshAxisSize%(meshAxisSpec.PreSize*meshAxisSpec.Size) != 0 {
-					return errors.Errorf("ShardingSpec tensor axis %d, mesh axis #%d %q with PreSize %d and Size %d is not compatible with mesh axis of size %d",
+					return errors.Errorf(
+						"ShardingSpec tensor axis %d, mesh axis #%d %q with PreSize %d and Size %d is not "+
+							"compatible with mesh axis of size %d",
 						i, j, axisName, meshAxisSpec.PreSize, meshAxisSpec.Size, meshAxisSize)
 				}
 			}
@@ -145,7 +149,7 @@ func (s *ShardingSpec) ValidateShape(shape shapes.Shape) error {
 		return err
 	}
 	if s.Rank() > shape.Rank() {
-		return errors.Errorf("ShardingSpec shape rank %d is largers than tensor rank %d", s.Rank(), shape.Rank())
+		return errors.Errorf("ShardingSpec shape rank %d is larger than tensor rank %d", s.Rank(), shape.Rank())
 	}
 	return nil
 }
@@ -189,9 +193,9 @@ func (s *ShardingSpec) ToStableHLO() string {
 	return fmt.Sprintf("#sdy.sharding<@%s, [%s]%s>", s.Mesh.Name(), strings.Join(dimShardings, ", "), replicatedPart)
 }
 
-// ToValueAttribute converts the ShardingSpec to a StableHLO attribute of value with the given shape.
+// ToValueAttribute converts the ShardingSpec to a StableHLO attribute of a value with the given shape.
 //
-// Notice the rank of the ShardingSpec may be smaller than the rank of shape, in which case the extra axes are
+// Notice the rank of the ShardingSpec may be smaller than the rank of the shape, in which case the extra axes are
 // assumed to be replicated (empty).
 //
 // E.g.: "#sdy.sharding<@mesh, [{\"data\"}, {}]>"
