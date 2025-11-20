@@ -50,7 +50,9 @@ func testShardy(t *testing.T, client *pjrt.Client) {
 	}
 
 	t.Run("input-data-sharding", func(t *testing.T) {
-		mesh := must1(shardy.NewDeviceMesh("data_mesh", []int{2}, []string{"data"}))
+		mesh := must1(shardy.NewDeviceMesh("mesh", []int{2}, []string{"data"}))
+		// Reverse logical device assignment: notice it doesn't affect the order of the inputs.
+		must(mesh.SetLogicalDeviceAssignment(1, 0))
 		builder := stablehlo.New(t.Name()).WithShardy(mesh)
 		fn := builder.Main()
 		x := must1(fn.NamedInputWithSharding("arg0", shapes.Make(dtypes.F32, 2, 3),

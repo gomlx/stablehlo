@@ -47,6 +47,8 @@ func TestBuilder(t *testing.T) {
 		b := New(t.Name())
 		mesh, err := shardy.NewDeviceMesh("mesh", []int{4, 2}, []string{"data", "model"})
 		require.NoError(t, err)
+		err = mesh.SetLogicalDeviceAssignment(7, 6, 5, 4, 3, 2, 1, 0)
+		require.NoError(t, err)
 		b.WithShardy(mesh)
 		fn := b.Main()
 
@@ -77,7 +79,7 @@ func TestBuilder(t *testing.T) {
 		program := string(must(b.Build()))
 		fmt.Printf("%s program:\n%s", t.Name(), program)
 		want := `module @TestBuilder_Sharding attributes {stablehlo.num_replicas = 1,  stablehlo.num_partitions = 8} {
-  sdy.mesh @mesh = <["data"=4, "model"=2]>
+  sdy.mesh @mesh = <["data"=4, "model"=2], device_ids=[7, 6, 5, 4, 3, 2, 1, 0]>
   func.func @main(%arg0: tensor<16x128xf32> { sdy.sharding = #sdy.sharding<@mesh, [{"data"}, {}]> }, %arg1: tensor<128x256xf32> { sdy.sharding = #sdy.sharding<@mesh, [{"model"}, {}]> }) -> tensor<16x256xf32> {
     jax.result_info = "result",
     sdy.sharding = #sdy.sharding<@mesh, [{"data"}, {}]>

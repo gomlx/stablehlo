@@ -82,15 +82,11 @@ func NewDeviceMesh(name string, shape []int, axisNames []string) (*DeviceMesh, e
 	}
 
 	m := &DeviceMesh{
-		name:                    name,
-		axesNames:               axisNames,
-		axesSizes:               shape,
-		nameToAxis:              nameToAxis,
-		numDevices:              numDevices,
-		logicalDeviceAssignment: make([]int, numDevices),
-	}
-	for i := range m.logicalDeviceAssignment {
-		m.logicalDeviceAssignment[i] = i
+		name:       name,
+		axesNames:  axisNames,
+		axesSizes:  shape,
+		nameToAxis: nameToAxis,
+		numDevices: numDevices,
 	}
 	return m, nil
 }
@@ -150,6 +146,10 @@ func (m *DeviceMesh) String() string {
 //
 // It returns an error if logicalDeviceAssignment has invalid device numbers or len(devices) != NumDevices().
 func (m *DeviceMesh) SetLogicalDeviceAssignment(devices ...int) error {
+	if len(devices) == 0 {
+		m.logicalDeviceAssignment = nil
+		return nil
+	}
 	if len(devices) != m.numDevices {
 		return errors.Errorf("devices must have %d elements, got %d", m.numDevices, len(devices))
 	}
@@ -164,12 +164,18 @@ func (m *DeviceMesh) SetLogicalDeviceAssignment(devices ...int) error {
 				m.numDevices-1, device)
 		}
 	}
-	copy(m.logicalDeviceAssignment, devices)
+	m.logicalDeviceAssignment = slices.Clone(devices)
 	return nil
 }
 
 // LogicalDeviceAssignment returns the list of devices in the mesh, in the order they appear in the mesh.
+//
+// It can return nil, if no assignment was set with SetLogicalDeviceAssignment() -- in which case it will
+// default to a sequential assignment starting from 0.
 func (m *DeviceMesh) LogicalDeviceAssignment() []int {
+	if m.logicalDeviceAssignment == nil {
+		return nil
+	}
 	return slices.Clone(m.logicalDeviceAssignment)
 }
 
@@ -270,6 +276,17 @@ func (m *DeviceMesh) ToStableHLO() string {
 		}
 		w("%q=%d", axisName, m.axesSizes[i])
 	}
-	w("]>")
+	w("]")
+	if len(m.logicalDeviceAssignment) > 0 {
+		w(", device_ids=[")
+		for i, logicalDeviceId := range m.logicalDeviceAssignment {
+			if i > 0 {
+				w(", ")
+			}
+			w("%d", logicalDeviceId)
+		}
+		w("]")
+	}
+	w(">")
 	return buf.String()
 }
