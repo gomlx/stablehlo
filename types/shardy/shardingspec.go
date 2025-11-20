@@ -110,11 +110,13 @@ func (s *ShardingSpec) Validate() error {
 		for j, meshAxisSpec := range axisSpec.MeshAxes {
 			axisName := meshAxisSpec.AxisName
 			if axisName == "" {
-				return errors.Errorf("ShardingSpec tensor axis %d, mesh axis #%d refers to empty mesh axis name", i, j)
+				return errors.Errorf(
+					"ShardingSpec tensor axis %d, mesh axis #%d refers to empty mesh axis name", i, j)
 			}
 			axisIdx, ok := s.Mesh.nameToAxis[axisName]
 			if !ok {
-				return errors.Errorf("ShardingSpec tensor axis %d, mesh axis #%d refers to unknown mesh axis %q",
+				return errors.Errorf(
+					"ShardingSpec tensor axis %d, mesh axis #%d refers to unknown mesh axis %q",
 					i, j, axisName)
 			}
 			meshAxisSize := s.Mesh.axesSizes[axisIdx]
@@ -126,7 +128,9 @@ func (s *ShardingSpec) Validate() error {
 						i, j, axisName, meshAxisSpec.PreSize)
 				}
 				if meshAxisSize%(meshAxisSpec.PreSize*meshAxisSpec.Size) != 0 {
-					return errors.Errorf("ShardingSpec tensor axis %d, mesh axis #%d %q with PreSize %d and Size %d is not compatible with mesh axis of size %d",
+					return errors.Errorf(
+						"ShardingSpec tensor axis %d, mesh axis #%d %q with PreSize %d and Size %d is not "+
+							"compatible with mesh axis of size %d",
 						i, j, axisName, meshAxisSpec.PreSize, meshAxisSpec.Size, meshAxisSize)
 				}
 			}
