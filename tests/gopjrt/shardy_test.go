@@ -18,11 +18,11 @@ func TestShardy(t *testing.T) {
 
 // compileAndExecute program with PJRT. All inputs are donated.
 func shardyCompileAndExecute(t *testing.T, client *pjrt.Client, program []byte,
-	mesh *shardy.DeviceMesh, inputs ...*pjrt.Buffer) []*pjrt.Buffer {
+	deviceAssignment []int, inputs ...*pjrt.Buffer) []*pjrt.Buffer {
 	loadedExec, err := client.Compile().
 		WithStableHLO(program).
-		WithShardy(mesh.NumDevices()).
-		WithDeviceAssignment(mesh.DeviceAssignment()).
+		WithShardy(len(deviceAssignment)).
+		WithDeviceAssignment(deviceAssignment).
 		Done()
 	require.NoErrorf(t, err, "failed to compile program: \n%s", program)
 	defer func() {
@@ -44,6 +44,10 @@ func testShardy(t *testing.T, client *pjrt.Client) {
 		t.Skipf("Skipping test: not enough devices: %d < %d", numDevices, numReplicas)
 		return
 	}
+	deviceAssignment := make([]int, numReplicas)
+	for i := range numReplicas {
+		deviceAssignment[i] = i
+	}
 
 	t.Run("input-data-sharding", func(t *testing.T) {
 		mesh := must1(shardy.NewDeviceMesh("data_mesh", []int{2}, []string{"data"}))
@@ -60,11 +64,15 @@ func testShardy(t *testing.T, client *pjrt.Client) {
 		must(fn.Return(output))
 		program := must1(builder.Build())
 		fmt.Printf("%s program:\n%s", t.Name(), program)
-		x0 := must1(client.BufferFromHost().ToDeviceNum(0).FromFlatDataWithDimensions(
-			[]float32{0, 1, 2}, []int{1, 3}).Done())
-		x1 := must1(client.BufferFromHost().ToDeviceNum(1).FromFlatDataWithDimensions(
-			[]float32{0, 0.1, 0.2}, []int{1, 3}).Done())
-		outputs := shardyCompileAndExecute(t, client, program, mesh, x0, x1)
+		x0 := must1(client.BufferFromHost().
+			ToDeviceNum(deviceAssignment[0]).
+			FromFlatDataWithDimensions([]float32{0, 1, 2}, []int{1, 3}).
+			Done())
+		x1 := must1(client.BufferFromHost().
+			ToDeviceNum(deviceAssignment[1]).
+			FromFlatDataWithDimensions([]float32{0, 0.1, 0.2}, []int{1, 3}).
+			Done())
+		outputs := shardyCompileAndExecute(t, client, program, deviceAssignment, x0, x1)
 		requireBuffersEqual(t, []FlatAndDims{
 			{[]float32{3.3}, nil},
 			{[]float32{3.3}, nil},
@@ -86,11 +94,15 @@ func testShardy(t *testing.T, client *pjrt.Client) {
 		must(fn.Return(output))
 		program := must1(builder.Build())
 		fmt.Printf("%s program:\n%s", t.Name(), program)
-		x0 := must1(client.BufferFromHost().ToDeviceNum(0).FromFlatDataWithDimensions(
-			[]float32{0, 1, 2}, []int{1, 3}).Done())
-		x1 := must1(client.BufferFromHost().ToDeviceNum(1).FromFlatDataWithDimensions(
-			[]float32{0, 0.1, 0.2}, []int{1, 3}).Done())
-		outputs := shardyCompileAndExecute(t, client, program, mesh, x0, x1)
+		x0 := must1(client.BufferFromHost().
+			ToDeviceNum(deviceAssignment[0]).
+			FromFlatDataWithDimensions([]float32{0, 1, 2}, []int{1, 3}).
+			Done())
+		x1 := must1(client.BufferFromHost().
+			ToDeviceNum(deviceAssignment[1]).
+			FromFlatDataWithDimensions([]float32{0, 0.1, 0.2}, []int{1, 3}).
+			Done())
+		outputs := shardyCompileAndExecute(t, client, program, deviceAssignment, x0, x1)
 		requireBuffersEqual(t, []FlatAndDims{
 			{[]float32{3}, []int{1}},
 			{[]float32{0.3}, []int{1}},
