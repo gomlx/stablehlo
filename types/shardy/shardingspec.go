@@ -68,9 +68,9 @@ func NewShardingSpec(mesh *DeviceMesh) *ShardingSpec {
 // AddShardedAxis adds a new sharded axis to the ShardingSpec using one or more mesh axes.
 //
 // It returns itself, so calls can be chained.
-func (s *ShardingSpec) AddShardedAxis(meshAxisName string, moreMeshAxesNames ...string) *ShardingSpec {
-	axisSpec := TensorAxisSpec{MeshAxes: []MeshAxisSpec{{AxisName: meshAxisName}}}
-	for _, meshAxisName := range moreMeshAxesNames {
+func (s *ShardingSpec) AddShardedAxis(meshAxesNames ...string) *ShardingSpec {
+	axisSpec := TensorAxisSpec{}
+	for _, meshAxisName := range meshAxesNames {
 		axisSpec.MeshAxes = append(axisSpec.MeshAxes, MeshAxisSpec{AxisName: meshAxisName})
 	}
 	s.Axes = append(s.Axes, axisSpec)
