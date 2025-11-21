@@ -105,13 +105,13 @@ func (m *DeviceMesh) Rank() int {
 	return len(m.axesSizes)
 }
 
-// AxisNames returns a copy of the mesh's axis names.
-func (m *DeviceMesh) AxisNames() []string {
+// AxesNames returns a copy of the mesh's axis names.
+func (m *DeviceMesh) AxesNames() []string {
 	return slices.Clone(m.axesNames)
 }
 
-// Shape returns a copy of the mesh's axesSizes.
-func (m *DeviceMesh) Shape() []int {
+// AxesSizes returns a copy of the mesh's axesSizes.
+func (m *DeviceMesh) AxesSizes() []int {
 	shape := make([]int, len(m.axesSizes))
 	copy(shape, m.axesSizes)
 	return shape
@@ -170,7 +170,7 @@ func (m *DeviceMesh) SetLogicalDeviceAssignment(devices ...int) error {
 
 // LogicalDeviceAssignment returns the list of devices in the mesh, in the order they appear in the mesh.
 //
-// It can return nil, if no assignment was set with SetLogicalDeviceAssignment() -- in which case it will
+// It can return nil if no assignment was set with SetLogicalDeviceAssignment() -- in which case it will
 // default to a sequential assignment starting from 0.
 func (m *DeviceMesh) LogicalDeviceAssignment() []int {
 	if m.logicalDeviceAssignment == nil {

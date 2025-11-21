@@ -107,28 +107,28 @@ func TestDeviceMesh(t *testing.T) {
 		}
 	})
 
-	t.Run("AxisNames", func(t *testing.T) {
+	t.Run("AxesNames", func(t *testing.T) {
 		mesh, err := shardy.NewDeviceMesh("mesh", []int{2, 4}, []string{"x", "y"})
 		require.NoError(t, err)
 
-		axisNames := mesh.AxisNames()
+		axisNames := mesh.AxesNames()
 		assert.Equal(t, []string{"x", "y"}, axisNames)
 
 		// Verify it returns a copy
 		axisNames[0] = "modified"
-		assert.Equal(t, []string{"x", "y"}, mesh.AxisNames())
+		assert.Equal(t, []string{"x", "y"}, mesh.AxesNames())
 	})
 
 	t.Run("Shape", func(t *testing.T) {
 		mesh, err := shardy.NewDeviceMesh("mesh", []int{2, 4}, []string{"x", "y"})
 		require.NoError(t, err)
 
-		shape := mesh.Shape()
-		assert.Equal(t, []int{2, 4}, shape)
+		axesSizes := mesh.AxesSizes()
+		assert.Equal(t, []int{2, 4}, axesSizes)
 
 		// Verify it returns a copy
-		shape[0] = 99
-		assert.Equal(t, []int{2, 4}, mesh.Shape())
+		axesSizes[0] = 99
+		assert.Equal(t, []int{2, 4}, mesh.AxesSizes())
 	})
 
 	t.Run("AxisSize", func(t *testing.T) {
