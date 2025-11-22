@@ -251,8 +251,7 @@ func (fn *Function) ConstantFromFlatAndDimensions(flat any, dimensions ...int) (
 // If you are doing distributed computation, you can use WithReturnShardingSpecs to specify
 // the sharding requirements for each of the return values.
 func (fn *Function) Return(values ...*Value) error {
-	attributes := make([]map[string]any, len(values))
-	return fn.ReturnWithAttributes(values, attributes)
+	return fn.ReturnWithAttributes(values, nil)
 }
 
 // ReturnWithShardingAndAttributes is a convenience function to call ReturnWithAttributes with the given sharding
@@ -295,8 +294,10 @@ func (fn *Function) ReturnWithAttributes(values []*Value, attributes []map[strin
 	if len(values) == 0 {
 		return errors.New("Function.Return requires at least one return value")
 	}
-	if len(values) != len(attributes) {
-		return errors.Errorf("Function.ReturnWithAttributes requires the same number of values and attributes, got %d and %d", len(values), len(attributes))
+	if len(attributes) > 0 && len(values) != len(attributes) {
+		return errors.Errorf(
+			"if attributes is defined (!=nil) Function.ReturnWithAttributes requires the same number of "+
+				"values and attributes, got %d and %d", len(values), len(attributes))
 	}
 	fn.Returned = true
 	outputValues := make([]*Value, len(values))
@@ -305,14 +306,15 @@ func (fn *Function) ReturnWithAttributes(values []*Value, attributes []map[strin
 			return errors.New("Function.Return given values that are not owned by the function")
 		}
 		outputValues[i] = &Value{
-			fn:         fn,
-			name:       value.name,
-			shape:      value.shape,
-			Attributes: attributes[i],
+			fn:    fn,
+			name:  value.name,
+			shape: value.shape,
+		}
+		if len(attributes) > 0 {
+			outputValues[i].Attributes = attributes[i]
 		}
 	}
 	fn.Outputs = outputValues
-
 	stmt := &Statement{
 		Builder:  fn.Builder,
 		Function: fn,
