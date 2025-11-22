@@ -260,10 +260,14 @@ func (fn *Function) Return(values ...*Value) error {
 //
 // The shardingSpecs slice of ShardingSpecs must have the same length as the values slice.
 // Each ShardingSpec can be nil, in which case the default sharding is replicated across all devices.
+// If shardingSpecs is nil, this behaves just like ReturnWithAttributes.
 //
-// The attributes slice of maps can be set to nil, if there are no attributes.
+// The attributes slice of maps can be set to nil if there are no attributes.
 func (fn *Function) ReturnWithShardingAndAttributes(values []*Value, shardingSpecs []*shardy.ShardingSpec,
 	attributes []map[string]any) error {
+	if len(shardingSpecs) == 0 {
+		return fn.ReturnWithAttributes(values, attributes)
+	}
 	if len(values) != len(shardingSpecs) {
 		return errors.Errorf("Function.ReturnWithShardingAndAttributes requires the same number of values and sharding specs, got %d and %d", len(values), len(shardingSpecs))
 	}
