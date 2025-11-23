@@ -400,7 +400,8 @@ func (fn *Function) Write(writer io.Writer, indentation string) error {
 		w(") :\n")
 	} else if normalFunction {
 		w(") -> ")
-		if len(fn.Outputs) > 1 {
+		encloseOutputInParenthesis := len(fn.Outputs) > 1 || (len(fn.Outputs) == 1 && len(fn.Outputs[0].Attributes) > 0)
+		if encloseOutputInParenthesis {
 			w("(")
 		}
 		for i, output := range fn.Outputs {
@@ -410,7 +411,7 @@ func (fn *Function) Write(writer io.Writer, indentation string) error {
 			w(output.shape.ToStableHLO())
 			writeAttributes(writer, indentation, output.Attributes, w)
 		}
-		if len(fn.Outputs) > 1 {
+		if encloseOutputInParenthesis {
 			w(")")
 		}
 		w(" {\n")
