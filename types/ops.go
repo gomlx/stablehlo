@@ -222,14 +222,14 @@ const (
 // CollectiveConfig provides advanced, optional configuration for collective operations.
 // Pass this as the last (optional) argument to collective ops.
 type CollectiveConfig struct {
+	// ChannelType specifies the communication dimension.
+	// Defaults to CrossReplica (0).
+	ChannelType ChannelType
+
 	// ChannelID, if non-nil, forces a specific channel ID (the 'handle').
 	// If nil, a unique ID will be automatically generated.
 	// This is **required** for MPMD (multi-program, multi-data) to manually link ops across programs.
 	ChannelID *int
-
-	// ChannelType specifies the communication dimension.
-	// Defaults to CrossReplica (0).
-	ChannelType ChannelType
 
 	// UseGlobalDeviceIDs changes the interpretation of replica_groups
 	// from replica IDs to global device IDs.
