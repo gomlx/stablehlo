@@ -80,10 +80,10 @@ func TestBuilder(t *testing.T) {
 		fmt.Printf("%s program:\n%s", t.Name(), program)
 		want := `module @TestBuilder_Sharding attributes {stablehlo.num_replicas = 1,  stablehlo.num_partitions = 8} {
   sdy.mesh @mesh = <["data"=4, "model"=2], device_ids=[7, 6, 5, 4, 3, 2, 1, 0]>
-  func.func @main(%arg0: tensor<16x128xf32> { sdy.sharding = #sdy.sharding<@mesh, [{"data"}, {}]> }, %arg1: tensor<128x256xf32> { sdy.sharding = #sdy.sharding<@mesh, [{"model"}, {}]> }) -> tensor<16x256xf32> {
+  func.func @main(%arg0: tensor<16x128xf32> { sdy.sharding = #sdy.sharding<@mesh, [{"data"}, {}]> }, %arg1: tensor<128x256xf32> { sdy.sharding = #sdy.sharding<@mesh, [{"model"}, {}]> }) -> (tensor<16x256xf32> {
     jax.result_info = "result",
     sdy.sharding = #sdy.sharding<@mesh, [{"data"}, {}]>
-  } {
+  }) {
     %0 = "stablehlo.tanh"(%arg0) : (tensor<16x128xf32>) -> tensor<16x128xf32>
     %1 = "stablehlo.dot_general"(%0, %arg1) {
       dot_dimension_numbers = #stablehlo.dot<
