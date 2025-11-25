@@ -3,6 +3,7 @@ package stablehlo
 import (
 	"fmt"
 	"io"
+	"maps"
 	"math"
 	"reflect"
 	"slices"
@@ -103,31 +104,7 @@ func (s *Statement) Write(writer io.Writer, indentation string) error {
 	}
 
 	// Write attributes:
-	if len(s.Attributes) > 0 {
-		if len(s.Attributes) == 1 {
-			for key, value := range s.Attributes {
-				literalValue := literalToStableHLO(value)
-				if strings.Index(literalValue, "\n") == -1 {
-					w(" { %s = %s }", key, literalValue)
-				} else {
-					literalValue = strings.ReplaceAll(literalValue, "\n", "\n"+nextIndentation)
-					w(" {\n%s%s = %s\n  }", nextIndentation, key, literalValue)
-				}
-			}
-		} else {
-			// One attribute per line:
-			w(" {")
-			first := true
-			for key, value := range s.Attributes {
-				if !first {
-					w(",")
-				}
-				first = false
-				w("\n%s%s = %s", nextIndentation, key, literalToStableHLO(value))
-			}
-			w("\n%s}", indentation)
-		}
-	}
+	writeAttributes(writer, indentation, s.Attributes, w)
 
 	// Write signature:
 	w(" : (")
@@ -158,6 +135,38 @@ func (s *Statement) Write(writer io.Writer, indentation string) error {
 	}
 
 	return err
+}
+
+// writeAttributes writes a map of attributes to the writer.
+// The w function is the one provided by the caller to handle errors.
+func writeAttributes(writer io.Writer, indentation string, attributes map[string]any, w func(format string, args ...any)) {
+	if len(attributes) == 0 {
+		return
+	}
+	nextIndentation := indentation + IndentationStep
+	if len(attributes) == 1 {
+		for key, value := range attributes {
+			literalValue := literalToStableHLO(value)
+			if strings.Index(literalValue, "\n") == -1 {
+				w(" { %s = %s }", key, literalValue)
+			} else {
+				literalValue = strings.ReplaceAll(literalValue, "\n", "\n"+nextIndentation)
+				w(" {\n%s%s = %s\n  }", nextIndentation, key, literalValue)
+			}
+		}
+	} else {
+		// One attribute per line:
+		w(" {")
+		keys := slices.Collect(maps.Keys(attributes))
+		slices.Sort(keys)
+		for i, key := range keys {
+			if i > 0 {
+				w(",")
+			}
+			w("\n%s%s = %s", nextIndentation, key, literalToStableHLO(attributes[key]))
+		}
+		w("\n%s}", indentation)
+	}
 }
 
 // hasToStableHLO is implemented by types that can be converted to a stablehlo string.

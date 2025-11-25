@@ -6,11 +6,13 @@ import (
 	"io"
 	"slices"
 
+	"github.com/gomlx/stablehlo/internal/utils"
 	"github.com/gomlx/stablehlo/types"
+	"github.com/gomlx/stablehlo/types/shardy"
 	"github.com/pkg/errors"
 )
 
-// Builder is used to construct a StableHLO program.
+// Builder is used to construct a StableHLO program (or "Module")
 // See details in New.
 type Builder struct {
 	name   string
@@ -22,36 +24,18 @@ type Builder struct {
 	// inlineUniqueID is a counter used to generate unique names for inlined functions values.
 	inlineUniqueID int
 
-	// NumReplicas is the number of replicas for data parallelism.
-	NumReplicas int
-	// NumPartitions is the number of partitions for model parallelism.
-	NumPartitions int
+	// meshes used for Shardy.
+	meshes []*shardy.DeviceMesh
+
+	// numReplicas is the number of replicas for data parallelism.
+	numReplicas int
+
+	// numPartitions is the number of partitions for model parallelism.
+	numPartitions int
 
 	// nextChannelID is the next ID to be assigned in channel handles.
 	// It is just a Unique ID.
 	nextChannelID int
-}
-
-// NormalizeIdentifier converts the name of an identifier (function name or function input parameter
-// name) to a valid one: only letters, digits and underscores are allowed.
-//
-// Invalid characters are replaced with underscores.
-// If the name starts with a digit, it is prefixed with an underscore.
-//
-// The name is normalized in place.
-func NormalizeIdentifier(name string) string {
-	result := make([]rune, 0, len(name)+1)
-	if name[0] >= '0' && name[0] <= '9' {
-		result = append(result, '_')
-	}
-	for _, r := range name {
-		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_' {
-			result = append(result, r)
-		} else {
-			result = append(result, '_')
-		}
-	}
-	return string(result)
 }
 
 // New creates a new Builder object holding a computation graph in construction.
@@ -62,7 +46,7 @@ func NormalizeIdentifier(name string) string {
 // You have to define the "main" function for your StableHLO program: you can use Builder.Main to do so, or
 // Builder.NewFunction("main",...), it's the same.
 //
-// Once you are all set, call Builder.Build and it will return the StableHLO program as a []byte that can
+// Once you are all set, call Builder.Build and it will return the StableHLO program (or "Module") as a []byte that can
 // be used with PJRT.
 //
 // See github.com/gomlx/gopjrt for a Go API to PJRT.
@@ -70,20 +54,6 @@ func New(name string) *Builder {
 	return &Builder{
 		name: name,
 	}
-}
-
-// WithNumReplicas sets the number of replicas (for data parallelism).
-// This is added as an attribute to the StableHLO module.
-func (b *Builder) WithNumReplicas(n int) *Builder {
-	b.NumReplicas = n
-	return b
-}
-
-// WithNumPartitions sets the number of partitions (for model parallelism).
-// This is added as an attribute to the StableHLO module.
-func (b *Builder) WithNumPartitions(n int) *Builder {
-	b.NumPartitions = n
-	return b
 }
 
 // elementWriter represents elements of ToStableHLO that know how to write themselves.
@@ -134,11 +104,11 @@ const IndentationStep = "  "
 // getModuleAttributes returns the attributes for the StableHLO module (StableHLO code) generated.
 func (b *Builder) getModuleAttributes() []string {
 	var attributes []string
-	if b.NumReplicas > 0 {
-		attributes = append(attributes, fmt.Sprintf("stablehlo.num_replicas = %d", b.NumReplicas))
+	if b.numReplicas > 0 {
+		attributes = append(attributes, fmt.Sprintf("stablehlo.num_replicas = %d", b.numReplicas))
 	}
-	if b.NumPartitions > 0 {
-		attributes = append(attributes, fmt.Sprintf(" stablehlo.num_partitions = %d", b.NumPartitions))
+	if b.numPartitions > 0 {
+		attributes = append(attributes, fmt.Sprintf(" stablehlo.num_partitions = %d", b.numPartitions))
 	}
 	return attributes
 }
@@ -177,9 +147,21 @@ func (b *Builder) Write(writer io.Writer) error {
 			}
 			w("%s", attr)
 		}
-		w(" }")
+		w("}")
 	}
 	w(" {\n")
+
+	// Write Shardy meshes if needed:
+	if len(b.meshes) > 0 {
+		namesUsed := utils.MakeSet[string](len(b.meshes))
+		for _, mesh := range b.meshes {
+			if namesUsed.Has(mesh.Name()) {
+				return errors.Errorf("duplicate mesh name %q", mesh.Name())
+			}
+			namesUsed.Insert(mesh.Name())
+			w("%s%s\n", IndentationStep, mesh.ToStableHLO())
+		}
+	}
 
 	// Write non-inline functions:
 	var count int
@@ -247,4 +229,73 @@ func (b *Builder) getChannelHandle(config *types.CollectiveConfig) literalStr {
 	}
 
 	return literalStrF("#stablehlo.channel_handle<handle = %d, type = %d>", id, typ)
+}
+
+// WithNumReplicas sets the number of replicas (for data parallelism).
+// This is added as an attribute to the StableHLO module.
+//
+// Consider using WithShardy for distributed computation instead: other forms of distributed
+// (collective) computation across devices are not tested and may not work.
+func (b *Builder) WithNumReplicas(n int) *Builder {
+	b.numReplicas = n
+	return b
+}
+
+// WithNumPartitions sets the number of partitions (for model parallelism).
+// This is added as an attribute to the StableHLO module.
+//
+// Consider using WithShardy for distributed computation instead: other forms of distributed
+// (collective) computation across devices are not tested and may not work.
+func (b *Builder) WithNumPartitions(n int) *Builder {
+	b.numPartitions = n
+	return b
+}
+
+// WithShardy enables distributed computation across the devices selected by the given meshes.
+//
+// This is the recommended way to do distributed (across devices) computation, and given the inputs
+// with sharded information, Shardy will automatically distribute the computation, without you needing
+// to specify any of the collective operations.
+//
+// Usually, there is only one meshes. But one can split the devices in different meshes. The meshes overlap
+// the concrete devices used.
+//
+// See details of XLA Shardy in [1]
+//
+// [1] https://github.com/openxla/shardy
+func (b *Builder) WithShardy(meshes ...*shardy.DeviceMesh) *Builder {
+	b.meshes = meshes
+	b.WithNumReplicas(1)
+	numDevices := 0
+	for _, mesh := range meshes {
+		numDevices = max(numDevices, mesh.NumDevices())
+	}
+	b.WithNumPartitions(numDevices)
+	return b
+}
+
+// Meshes returns the meshes configured with WithShardy.
+func (b *Builder) Meshes() []*shardy.DeviceMesh {
+	return b.meshes
+}
+
+// NewShardingSpec creates a new ShardingSpec using the first mesh configured with WithShardy.
+// It returns nil if no mesh was not configured.
+//
+// This is a shortcut to NewShardingSpecByMeshIx(0).
+func (b *Builder) NewShardingSpec() *shardy.ShardingSpec {
+	if len(b.meshes) == 0 {
+		return nil
+	}
+	return shardy.NewShardingSpec(b.meshes[0])
+}
+
+// NewShardingSpecByMeshIx creates a new ShardingSpec for the meshIdx (the order given by WithShardy).
+//
+// It may return nil if meshIdx is out of range.
+func (b *Builder) NewShardingSpecByMeshIx(meshIdx int) *shardy.ShardingSpec {
+	if meshIdx < 0 || meshIdx >= len(b.meshes) {
+		return nil
+	}
+	return shardy.NewShardingSpec(b.meshes[meshIdx])
 }

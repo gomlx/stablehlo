@@ -49,7 +49,10 @@ func formatReplicaGroups(groups [][]int) literalStr {
 //     notice it's not the device numbers by the replica numbers (there is an indirection).
 //     Except if the config sets UseGlobalDeviceIDs, in which case they are interpreted as device
 //     numbers. E.g., `[[0, 1, 2, 3]]`.
-//   - config: Optional configuration of the channels to be used. This is not needed for SPMD programs.
+//   - config: Optional configuration of the channels to be used. This is shouldn't be used for SPMD programs.
+//
+// Consider using Builder.WithShardy for distributed computation instead: other forms of distributed
+// (collective) computation across devices are not tested and may not work.
 func CollectiveBroadcast(operand *Value, replicaGroups [][]int, config ...*types.CollectiveConfig) (*Value, error) {
 	op := optypes.CollectiveBroadcast
 	fn := operand.fn
@@ -77,7 +80,9 @@ func CollectiveBroadcast(operand *Value, replicaGroups [][]int, config ...*types
 	stmt := fn.addOp(op, outputShape, operand)
 	stmt.Attributes = map[string]any{
 		"replica_groups": formatReplicaGroups(replicaGroups),
-		"channel_handle": fn.Builder.getChannelHandle(cfg),
+	}
+	if cfg != nil {
+		stmt.Attributes["channel_handle"] = fn.Builder.getChannelHandle(cfg)
 	}
 	return stmt.Outputs[0], nil
 }
@@ -95,6 +100,9 @@ func CollectiveBroadcast(operand *Value, replicaGroups [][]int, config ...*types
 //     Except if the config sets UseGlobalDeviceIDs, in which case they are interpreted as device
 //     numbers. E.g., `[[0, 1, 2, 3]]`.
 //   - config: Optional configuration of the channels to be used. This is not needed for SPMD programs.
+//
+// Consider using Builder.WithShardy for distributed computation instead: other forms of distributed
+// (collective) computation across devices are not tested and may not work.
 func AllReduce(operands []*Value, replicaGroups [][]int, computation *Function, config ...*types.CollectiveConfig) (
 	[]*Value, error) {
 	op := optypes.AllReduce
@@ -122,7 +130,7 @@ func AllReduce(operands []*Value, replicaGroups [][]int, computation *Function, 
 	outputShapes, err := shapeinference.AllReduce(
 		valuesToShapes(operands),
 		valuesToShapes(computation.Inputs),
-		computation.Outputs,
+		valuesToShapes(computation.Outputs),
 		replicaGroups)
 	if err != nil {
 		return nil, err
@@ -138,7 +146,9 @@ func AllReduce(operands []*Value, replicaGroups [][]int, computation *Function, 
 	stmt := fn.addMultiOp(op, outputShapes, operands)
 	stmt.Attributes = map[string]any{
 		"replica_groups": formatReplicaGroups(replicaGroups),
-		"channel_handle": fn.Builder.getChannelHandle(cfg),
+	}
+	if cfg != nil {
+		stmt.Attributes["channel_handle"] = fn.Builder.getChannelHandle(cfg)
 	}
 	if cfg != nil && cfg.UseGlobalDeviceIDs {
 		stmt.Attributes["use_global_device_ids"] = true
@@ -153,6 +163,9 @@ func AllReduce(operands []*Value, replicaGroups [][]int, computation *Function, 
 //   - replicaGroups: A 2D array defining the communicating device groups.
 //   - allGatherDim: The dimension along which to concatenate the operands.
 //   - config: Optional configuration of the channels to be used.
+//
+// Consider using Builder.WithShardy for distributed computation instead: other forms of distributed
+// (collective) computation across devices are not tested and may not work.
 func AllGather(operand *Value, replicaGroups [][]int, allGatherDim int, config ...*types.CollectiveConfig) (*Value, error) {
 	op := optypes.AllGather
 	fn := operand.fn
@@ -176,7 +189,9 @@ func AllGather(operand *Value, replicaGroups [][]int, allGatherDim int, config .
 	stmt.Attributes = map[string]any{
 		"replica_groups": formatReplicaGroups(replicaGroups),
 		"all_gather_dim": int64(allGatherDim),
-		"channel_handle": fn.Builder.getChannelHandle(cfg),
+	}
+	if cfg != nil {
+		stmt.Attributes["channel_handle"] = fn.Builder.getChannelHandle(cfg)
 	}
 	if cfg != nil && cfg.UseGlobalDeviceIDs {
 		stmt.Attributes["use_global_device_ids"] = true
@@ -193,6 +208,9 @@ func AllGather(operand *Value, replicaGroups [][]int, allGatherDim int, config .
 //   - concatDimension: The dimension along which to concatenate the received chunks.
 //   - splitCount: The number of chunks to split the operand into. This must match the size of the replica groups.
 //   - config: Optional configuration of the channels to be used.
+//
+// Consider using Builder.WithShardy for distributed computation instead: other forms of distributed
+// (collective) computation across devices are not tested and may not work.
 func AllToAll(operand *Value, replicaGroups [][]int, splitDimension, concatDimension, splitCount int, config ...*types.CollectiveConfig) (*Value, error) {
 	op := optypes.AllToAll
 	fn := operand.fn
@@ -218,7 +236,9 @@ func AllToAll(operand *Value, replicaGroups [][]int, splitDimension, concatDimen
 		"split_dimension":  int64(splitDimension),
 		"concat_dimension": int64(concatDimension),
 		"split_count":      int64(splitCount),
-		"channel_handle":   fn.Builder.getChannelHandle(cfg),
+	}
+	if cfg != nil {
+		stmt.Attributes["channel_handle"] = fn.Builder.getChannelHandle(cfg)
 	}
 	if cfg != nil && cfg.UseGlobalDeviceIDs {
 		stmt.Attributes["use_global_device_ids"] = true
@@ -251,6 +271,9 @@ func formatSourceTargetPairs(pairs [][2]int) literalStr {
 //   - operand: The tensor from the *local* replica.
 //   - sourceTargetPairs: A 2D array where each inner array is a `[source, target]` pair of replica IDs.
 //   - config: Optional configuration of the channels to be used.
+//
+// Consider using Builder.WithShardy for distributed computation instead: other forms of distributed
+// (collective) computation across devices are not tested and may not work.
 func CollectivePermute(operand *Value, sourceTargetPairs [][2]int, config ...*types.CollectiveConfig) (*Value, error) {
 	op := optypes.CollectivePermute
 	fn := operand.fn
@@ -273,7 +296,12 @@ func CollectivePermute(operand *Value, sourceTargetPairs [][2]int, config ...*ty
 	stmt := fn.addOp(op, outputShape, operand)
 	stmt.Attributes = map[string]any{
 		"source_target_pairs": formatSourceTargetPairs(sourceTargetPairs),
-		"channel_handle":      fn.Builder.getChannelHandle(cfg),
+	}
+	if cfg != nil {
+		stmt.Attributes["channel_handle"] = fn.Builder.getChannelHandle(cfg)
+	}
+	if cfg != nil && cfg.UseGlobalDeviceIDs {
+		stmt.Attributes["use_global_device_ids"] = true
 	}
 	return stmt.Outputs[0], nil
 }

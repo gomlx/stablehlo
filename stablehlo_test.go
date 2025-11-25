@@ -6,6 +6,7 @@ import (
 
 	"github.com/gomlx/gopjrt/dtypes"
 	"github.com/gomlx/stablehlo/types/shapes"
+	"github.com/gomlx/stablehlo/types/shardy"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -40,6 +41,64 @@ func TestBuilder(t *testing.T) {
 			fmt.Printf("  Failed. Wanted the following program:\n%s", want)
 			t.Fatal("programs don't match")
 		}
+	})
+
+	t.Run("Sharding", func(t *testing.T) {
+		b := New(t.Name())
+		mesh, err := shardy.NewDeviceMesh("mesh", []int{4, 2}, []string{"data", "model"})
+		require.NoError(t, err)
+		err = mesh.SetLogicalDeviceAssignment(7, 6, 5, 4, 3, 2, 1, 0)
+		require.NoError(t, err)
+		b.WithShardy(mesh)
+		fn := b.Main()
+
+		arg0 := must(fn.NamedInputWithShardingAndAttributes(
+			"arg0",
+			shapes.Make(dtypes.F32, 16, 128),
+			b.NewShardingSpec().AddShardedAxis("data"),
+			nil,
+		))
+		arg1 := must(fn.NamedInputWithSharding(
+			"arg1",
+			shapes.Make(dtypes.F32, 128, 256),
+			b.NewShardingSpec().AddShardedAxis("model"),
+		))
+
+		tanh := must(Tanh(arg0))
+		dot := must(Dot(tanh, arg1))
+		err = fn.ReturnWithShardingAndAttributes(
+			[]*Value{dot},
+			[]*shardy.ShardingSpec{
+				b.NewShardingSpec().AddShardedAxis("data"),
+			},
+			[]map[string]any{
+				{"jax.result_info": "result"},
+			})
+		require.NoError(t, err)
+
+		program := string(must(b.Build()))
+		fmt.Printf("%s program:\n%s", t.Name(), program)
+		want := `module @TestBuilder_Sharding attributes {stablehlo.num_replicas = 1,  stablehlo.num_partitions = 8} {
+  sdy.mesh @mesh = <["data"=4, "model"=2], device_ids=[7, 6, 5, 4, 3, 2, 1, 0]>
+  func.func @main(%arg0: tensor<16x128xf32> { sdy.sharding = #sdy.sharding<@mesh, [{"data"}, {}]> }, %arg1: tensor<128x256xf32> { sdy.sharding = #sdy.sharding<@mesh, [{"model"}, {}]> }) -> (tensor<16x256xf32> {
+    jax.result_info = "result",
+    sdy.sharding = #sdy.sharding<@mesh, [{"data"}, {}]>
+  }) {
+    %0 = "stablehlo.tanh"(%arg0) : (tensor<16x128xf32>) -> tensor<16x128xf32>
+    %1 = "stablehlo.dot_general"(%0, %arg1) {
+      dot_dimension_numbers = #stablehlo.dot<
+  lhs_batching_dimensions = [],
+  rhs_batching_dimensions = [],
+  lhs_contracting_dimensions = [1],
+  rhs_contracting_dimensions = [0]
+>,
+      precision_config = [#stablehlo<precision DEFAULT>, #stablehlo<precision DEFAULT>]
+    } : (tensor<16x128xf32>, tensor<128x256xf32>) -> tensor<16x256xf32>
+    "stablehlo.return"(%1) : (tensor<16x256xf32>) -> ()
+  }
+}
+`
+		require.Equal(t, want, program)
 	})
 
 	t.Run("with inputs", func(t *testing.T) {

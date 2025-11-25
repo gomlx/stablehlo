@@ -18,9 +18,10 @@ import (
 //
 // It also carries its shape information.
 type Value struct {
-	fn    *Function
-	name  string
-	shape shapes.Shape
+	fn         *Function
+	name       string
+	shape      shapes.Shape
+	Attributes map[string]any
 }
 
 // Shape returns the shape of the value.

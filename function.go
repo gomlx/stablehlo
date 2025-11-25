@@ -4,12 +4,15 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/gomlx/gopjrt/dtypes"
 	"github.com/gomlx/stablehlo/internal/optypes"
 	"github.com/gomlx/stablehlo/shapeinference"
 	"github.com/gomlx/stablehlo/types/shapes"
+	"github.com/gomlx/stablehlo/types/shardy"
 	"github.com/pkg/errors"
 )
 
@@ -23,8 +26,8 @@ type Function struct {
 	// Inputs to the function.
 	Inputs []*Value
 
-	// Outputs types of the function.
-	Outputs []shapes.Shape
+	// Outputs of the function.
+	Outputs []*Value
 
 	// Statements in the function body.
 	Statements []*Statement
@@ -82,10 +85,28 @@ func (fn *Function) newValue(shape shapes.Shape) (v *Value) {
 // It picks a default unique name for the input parameter, you can also
 // provide a name with NamedInput.
 func (fn *Function) Input(shape shapes.Shape) (*Value, error) {
+	return fn.InputWithShardingAndAttributes(shape, nil, nil)
+}
+
+// InputWithSharding creates a new input with the given sharding specification.
+func (fn *Function) InputWithSharding(shape shapes.Shape, shardingSpec *shardy.ShardingSpec) (*Value, error) {
+	return fn.InputWithShardingAndAttributes(shape, shardingSpec, nil)
+}
+
+// InputWithAttributes creates a new input with the given attributes.
+func (fn *Function) InputWithAttributes(shape shapes.Shape, attributes map[string]any) (*Value, error) {
+	return fn.InputWithShardingAndAttributes(shape, nil, attributes)
+}
+
+// InputWithShardingAndAttributes creates a new input with the given sharding specification and attributes.
+func (fn *Function) InputWithShardingAndAttributes(shape shapes.Shape, shardingSpec *shardy.ShardingSpec, attributes map[string]any) (*Value, error) {
 	rootFn := fn.findRootFn()
-	value, err := fn.NamedInput(fmt.Sprintf("arg%d", rootFn.nextArgID), shape)
+	value, err := fn.NamedInputWithShardingAndAttributes(fmt.Sprintf("arg%d", rootFn.nextArgID), shape, shardingSpec, attributes)
+	if err != nil {
+		return nil, err
+	}
 	rootFn.nextArgID++
-	return value, err
+	return value, nil
 }
 
 // NamedInput creates a new input parameter for a function with the given name -- it
@@ -98,14 +119,60 @@ func (fn *Function) Input(shape shapes.Shape) (*Value, error) {
 // Names are used in the StableHLO code and may be helpful for debugging, but
 // otherwise have no impact.
 func (fn *Function) NamedInput(name string, shape shapes.Shape) (*Value, error) {
+	return fn.NamedInputWithShardingAndAttributes(name, shape, nil, nil)
+}
+
+// NamedInputWithSharding creates a new input parameter for a function with the given name -- it
+// must be a unique input name -- and sharding specification for distributed computation.
+func (fn *Function) NamedInputWithSharding(name string, shape shapes.Shape,
+	shardingSpec *shardy.ShardingSpec) (*Value, error) {
+	return fn.NamedInputWithShardingAndAttributes(name, shape, shardingSpec, nil)
+}
+
+// NamedInputWithAttributes creates a new input parameter for a function with the given name and attributes.
+func (fn *Function) NamedInputWithAttributes(name string, shape shapes.Shape,
+	attributes map[string]any) (*Value, error) {
+	return fn.NamedInputWithShardingAndAttributes(name, shape, nil, attributes)
+}
+
+// NamedInputWithShardingAndAttributes creates a new input parameter for a function with the given name -- it
+// must be a unique input name -- and sharding specification for distributed computation.
+//
+// The shardingSpec can be nil: the default is a replicated input across all devices.
+//
+// The name is passed through ConvertToValidName, which converts any non-digit or ASCII letter to an underscore.
+//
+// Names with the format "%d" and "arg%d" are reserved for the default input parameters.
+//
+// Names are used in the StableHLO code and may be helpful for debugging, but otherwise have no impact.
+func (fn *Function) NamedInputWithShardingAndAttributes(name string, shape shapes.Shape,
+	shardingSpec *shardy.ShardingSpec, attributes map[string]any) (*Value, error) {
 	value := &Value{
-		fn:    fn,
-		name:  ConvertToValidName(name),
-		shape: shape,
+		fn:         fn,
+		name:       ConvertToValidName(name),
+		shape:      shape,
+		Attributes: attributes,
 	}
 	for i, input := range fn.Inputs {
 		if input.name == value.name {
 			return nil, errors.Errorf("duplicate input name %q with input #%d", value.name, i)
+		}
+	}
+	if shardingSpec != nil {
+		if value.Attributes == nil {
+			value.Attributes = make(map[string]any)
+		}
+		value.Attributes["sdy.sharding"] = literalStr(shardingSpec.ToValueAttribute(value.shape))
+		if slices.Index(fn.Builder.meshes, shardingSpec.Mesh) == -1 {
+			meshesNames := make([]string, len(fn.Builder.meshes))
+			for _, mesh := range fn.Builder.meshes {
+				meshesNames = append(meshesNames, mesh.Name())
+			}
+			return nil, errors.Errorf("sharding spec meshe %q doesn't match any of the stablehlo.Builder meshes (%s)",
+				shardingSpec.Mesh, strings.Join(meshesNames, ", "))
+		}
+		if err := shardingSpec.ValidateShape(shape); err != nil {
+			return nil, err
 		}
 	}
 	fn.Inputs = append(fn.Inputs, value)
@@ -180,28 +247,79 @@ func (fn *Function) ConstantFromFlatAndDimensions(flat any, dimensions ...int) (
 //
 // There can be only one return statement from a Function, and it must be the last
 // operation of a function.
-func (fn *Function) Return(firstValue *Value, otherValues ...*Value) error {
+//
+// If you are doing distributed computation, you can use WithReturnShardingSpecs to specify
+// the sharding requirements for each of the return values.
+func (fn *Function) Return(values ...*Value) error {
+	return fn.ReturnWithAttributes(values, nil)
+}
+
+// ReturnWithShardingAndAttributes is a convenience function to call ReturnWithAttributes with the given sharding
+// specifications.
+//
+// The shardingSpecs slice of ShardingSpecs must have the same length as the values slice.
+// Each ShardingSpec can be nil, in which case the default sharding is replicated across all devices.
+// If shardingSpecs is nil, this behaves just like ReturnWithAttributes.
+//
+// The attributes slice of maps can be set to nil if there are no attributes.
+func (fn *Function) ReturnWithShardingAndAttributes(values []*Value, shardingSpecs []*shardy.ShardingSpec,
+	attributes []map[string]any) error {
+	if len(shardingSpecs) == 0 {
+		return fn.ReturnWithAttributes(values, attributes)
+	}
+	if len(values) != len(shardingSpecs) {
+		return errors.Errorf("Function.ReturnWithShardingAndAttributes requires the same number of values and sharding specs, got %d and %d", len(values), len(shardingSpecs))
+	}
+	if len(attributes) == 0 {
+		attributes = make([]map[string]any, len(values))
+	}
+	for i, shardingSpec := range shardingSpecs {
+		if shardingSpec != nil {
+			specLiteral := literalStr(shardingSpec.ToValueAttribute(values[i].shape))
+			if attributes[i] == nil {
+				attributes[i] = map[string]any{"sdy.sharding": specLiteral}
+			} else {
+				attributes[i]["sdy.sharding"] = specLiteral
+			}
+		}
+	}
+	return fn.ReturnWithAttributes(values, attributes)
+}
+
+// ReturnWithAttributes adds a return statement to the function with the given return values and attributes.
+func (fn *Function) ReturnWithAttributes(values []*Value, attributes []map[string]any) error {
 	if fn.Returned {
 		return errors.Errorf("Function.Return already called for %q", fn.Name)
 	}
+	if len(values) == 0 {
+		return errors.New("Function.Return requires at least one return value")
+	}
+	if len(attributes) > 0 && len(values) != len(attributes) {
+		return errors.Errorf(
+			"if attributes is defined (!=nil) Function.ReturnWithAttributes requires the same number of "+
+				"values and attributes, got %d and %d", len(values), len(attributes))
+	}
 	fn.Returned = true
-	allValues := make([]*Value, 1, len(otherValues)+1)
-	allValues[0] = firstValue
-	allValues = append(allValues, otherValues...)
-	outputShapes := make([]shapes.Shape, len(allValues))
-	for i, value := range allValues {
+	outputValues := make([]*Value, len(values))
+	for i, value := range values {
 		if value.fn != fn {
 			return errors.New("Function.Return given values that are not owned by the function")
 		}
-		outputShapes[i] = value.shape
+		outputValues[i] = &Value{
+			fn:    fn,
+			name:  value.name,
+			shape: value.shape,
+		}
+		if len(attributes) > 0 {
+			outputValues[i].Attributes = attributes[i]
+		}
 	}
-	fn.Outputs = outputShapes
-
+	fn.Outputs = outputValues
 	stmt := &Statement{
 		Builder:  fn.Builder,
 		Function: fn,
 		OpType:   optypes.FuncReturn,
-		Inputs:   allValues,
+		Inputs:   values,
 	}
 	fn.Statements = append(fn.Statements, stmt)
 	return nil
@@ -275,22 +393,25 @@ func (fn *Function) Write(writer io.Writer, indentation string) error {
 		}
 		we(input, nextIndent)
 		w(": %s", input.shape.ToStableHLO())
+		writeAttributes(writer, indentation, input.Attributes, w)
 	}
 
 	if isClosure {
 		w(") :\n")
 	} else if normalFunction {
 		w(") -> ")
-		if len(fn.Outputs) > 1 {
+		encloseOutputInParenthesis := len(fn.Outputs) > 1 || (len(fn.Outputs) == 1 && len(fn.Outputs[0].Attributes) > 0)
+		if encloseOutputInParenthesis {
 			w("(")
 		}
 		for i, output := range fn.Outputs {
 			if i > 0 {
 				w(", ")
 			}
-			w("%s", output.ToStableHLO())
+			w(output.shape.ToStableHLO())
+			writeAttributes(writer, indentation, output.Attributes, w)
 		}
-		if len(fn.Outputs) > 1 {
+		if encloseOutputInParenthesis {
 			w(")")
 		}
 		w(" {\n")
