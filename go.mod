@@ -6,7 +6,6 @@ toolchain go1.24.6
 
 require (
 	github.com/gomlx/gopjrt v0.10.0-rc0
-	github.com/janpfeifer/must v0.2.0
 	github.com/pkg/errors v0.9.1
 	github.com/x448/float16 v0.8.4
 	k8s.io/klog/v2 v2.130.1

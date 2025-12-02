@@ -9,7 +9,6 @@ import (
 
 	"github.com/gomlx/stablehlo/internal/utils"
 	"github.com/gomlx/stablehlo/shapeinference"
-	"github.com/janpfeifer/must"
 )
 
 const (
@@ -51,11 +50,11 @@ func GenerateBinaryOps() {
 	}
 
 	fileName := binaryOpsFile
-	f := must.M1(os.Create(fileName))
-	must.M(binaryOpsTemplate.Execute(f, data))
-	must.M(f.Close())
+	f := must1(os.Create(fileName))
+	must(binaryOpsTemplate.Execute(f, data))
+	must(f.Close())
 
 	cmd := exec.Command("gofmt", "-w", fileName)
-	must.M(cmd.Run())
-	fmt.Printf("✅ Successfully generated %s\n", path.Join(must.M1(os.Getwd()), fileName))
+	must(cmd.Run())
+	fmt.Printf("✅ Successfully generated %s\n", path.Join(must1(os.Getwd()), fileName))
 }
