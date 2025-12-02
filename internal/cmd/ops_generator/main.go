@@ -14,8 +14,6 @@ func must(err error) {
 }
 
 func must1[T any](value T, err error) T {
-	if err != nil {
-		log.Fatalf("Failed: %+v", err)
-	}
+	must(err)
 	return value
 }
