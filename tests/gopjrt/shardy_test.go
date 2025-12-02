@@ -9,7 +9,6 @@ import (
 	"github.com/gomlx/stablehlo"
 	"github.com/gomlx/stablehlo/types/shapes"
 	"github.com/gomlx/stablehlo/types/shardy"
-	"github.com/stretchr/testify/require"
 )
 
 func TestShardy(t *testing.T) {
@@ -24,7 +23,9 @@ func shardyCompileAndExecute(t *testing.T, client *pjrt.Client, program []byte,
 		WithShardy(len(deviceAssignment)).
 		WithDeviceAssignment(deviceAssignment).
 		Done()
-	require.NoErrorf(t, err, "failed to compile program: \n%s", program)
+	if err != nil {
+		t.Fatalf("failed to compile program: \n%s\nError: %v", program, err)
+	}
 	defer func() {
 		err := loadedExec.Destroy()
 		if err != nil {
@@ -32,7 +33,9 @@ func shardyCompileAndExecute(t *testing.T, client *pjrt.Client, program []byte,
 		}
 	}()
 	outputBuffers, err := loadedExec.Execute(inputs...).DonateAll().Done()
-	require.NoErrorf(t, err, "failed to execute program: \n%s", program)
+	if err != nil {
+		t.Fatalf("failed to execute program: \n%s\nError: %v", program, err)
+	}
 	return outputBuffers
 }
 

@@ -1,11 +1,10 @@
 package shapeinference
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/gomlx/stablehlo/types/shapes"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestConvolve(t *testing.T) {
@@ -238,11 +237,20 @@ func TestConvolve(t *testing.T) {
 				tc.outputBatch, tc.outputChannels, tc.outputSpatial,
 				tc.channelGroupCount, tc.batchGroupCount)
 			if tc.expectedError != "" {
-				require.ErrorContains(t, err, tc.expectedError)
+				if err == nil {
+					t.Fatalf("expected error containing %q, got nil", tc.expectedError)
+				}
+				if !strings.Contains(err.Error(), tc.expectedError) {
+					t.Fatalf("expected error containing %q, got %q", tc.expectedError, err.Error())
+				}
 				return
 			}
-			require.NoError(t, err)
-			assert.Equal(t, tc.output, output)
+			if err != nil {
+				t.Fatalf("expected no error, got %v", err)
+			}
+			if !tc.output.Equal(output) {
+				t.Errorf("expected output %v, got %v", tc.output, output)
+			}
 		})
 	}
 }

@@ -17,10 +17,10 @@
 package shapes
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/gomlx/gopjrt/dtypes"
-	"github.com/stretchr/testify/require"
 )
 
 func TestCastAsDType(t *testing.T) {
@@ -28,60 +28,140 @@ func TestCastAsDType(t *testing.T) {
 	{
 		want := [][]float32{{1, 2}, {3, 4}, {5, 6}}
 		got := CastAsDType(value, dtypes.Float32)
-		require.Equal(t, want, got)
+		if !reflect.DeepEqual(want, got) {
+			t.Errorf("CastAsDType(..., Float32) = %v, want %v", got, want)
+		}
 	}
 	{
 		want := [][]complex64{{1, 2}, {3, 4}, {5, 6}}
 		got := CastAsDType(value, dtypes.Complex64)
-		require.Equal(t, want, got)
+		if !reflect.DeepEqual(want, got) {
+			t.Errorf("CastAsDType(..., Complex64) = %v, want %v", got, want)
+		}
 	}
 }
 
 func TestShape(t *testing.T) {
 	invalidShape := Invalid()
-	require.False(t, invalidShape.Ok())
+	if invalidShape.Ok() {
+		t.Error("Invalid().Ok() should be false")
+	}
 
 	shape0 := Make(dtypes.Float64)
-	require.True(t, shape0.Ok())
-	require.True(t, shape0.IsScalar())
-	require.False(t, shape0.IsTuple())
-	require.Equal(t, 0, shape0.Rank())
-	require.Len(t, shape0.Dimensions, 0)
-	require.Equal(t, 1, shape0.Size())
-	require.Equal(t, 8, int(shape0.Memory()))
+	if !shape0.Ok() {
+		t.Error("shape0.Ok() should be true")
+	}
+	if !shape0.IsScalar() {
+		t.Error("shape0.IsScalar() should be true")
+	}
+	if shape0.IsTuple() {
+		t.Error("shape0.IsTuple() should be false")
+	}
+	if shape0.Rank() != 0 {
+		t.Errorf("shape0.Rank() = %d, want 0", shape0.Rank())
+	}
+	if len(shape0.Dimensions) != 0 {
+		t.Errorf("len(shape0.Dimensions) = %d, want 0", len(shape0.Dimensions))
+	}
+	if shape0.Size() != 1 {
+		t.Errorf("shape0.Size() = %d, want 1", shape0.Size())
+	}
+	if int(shape0.Memory()) != 8 {
+		t.Errorf("shape0.Memory() = %d, want 8", int(shape0.Memory()))
+	}
 
 	shape1 := Make(dtypes.Float32, 4, 3, 2)
-	require.True(t, shape1.Ok())
-	require.False(t, shape1.IsScalar())
-	require.False(t, shape1.IsTuple())
-	require.Equal(t, 3, shape1.Rank())
-	require.Len(t, shape1.Dimensions, 3)
-	require.Equal(t, 4*3*2, shape1.Size())
-	require.Equal(t, 4*4*3*2, int(shape1.Memory()))
+	if !shape1.Ok() {
+		t.Error("shape1.Ok() should be true")
+	}
+	if shape1.IsScalar() {
+		t.Error("shape1.IsScalar() should be false")
+	}
+	if shape1.IsTuple() {
+		t.Error("shape1.IsTuple() should be false")
+	}
+	if shape1.Rank() != 3 {
+		t.Errorf("shape1.Rank() = %d, want 3", shape1.Rank())
+	}
+	if len(shape1.Dimensions) != 3 {
+		t.Errorf("len(shape1.Dimensions) = %d, want 3", len(shape1.Dimensions))
+	}
+	if shape1.Size() != 4*3*2 {
+		t.Errorf("shape1.Size() = %d, want %d", shape1.Size(), 4*3*2)
+	}
+	if int(shape1.Memory()) != 4*4*3*2 {
+		t.Errorf("shape1.Memory() = %d, want %d", int(shape1.Memory()), 4*4*3*2)
+	}
+}
+
+func panics(t *testing.T, f func()) {
+	t.Helper()
+	defer func() {
+		if r := recover(); r == nil {
+			t.Error("expected panic, but code did not panic")
+		}
+	}()
+	f()
+}
+
+func notPanics(t *testing.T, f func()) {
+	t.Helper()
+	defer func() {
+		if r := recover(); r != nil {
+			t.Errorf("expected no panic, but code panicked: %v", r)
+		}
+	}()
+	f()
 }
 
 func TestDim(t *testing.T) {
 	shape := Make(dtypes.Float32, 4, 3, 2)
-	require.Equal(t, 4, shape.Dim(0))
-	require.Equal(t, 3, shape.Dim(1))
-	require.Equal(t, 2, shape.Dim(2))
-	require.Equal(t, 4, shape.Dim(-3))
-	require.Equal(t, 3, shape.Dim(-2))
-	require.Equal(t, 2, shape.Dim(-1))
-	require.Panics(t, func() { _ = shape.Dim(3) })
-	require.Panics(t, func() { _ = shape.Dim(-4) })
+	if d := shape.Dim(0); d != 4 {
+		t.Errorf("shape.Dim(0) = %d, want 4", d)
+	}
+	if d := shape.Dim(1); d != 3 {
+		t.Errorf("shape.Dim(1) = %d, want 3", d)
+	}
+	if d := shape.Dim(2); d != 2 {
+		t.Errorf("shape.Dim(2) = %d, want 2", d)
+	}
+	if d := shape.Dim(-3); d != 4 {
+		t.Errorf("shape.Dim(-3) = %d, want 4", d)
+	}
+	if d := shape.Dim(-2); d != 3 {
+		t.Errorf("shape.Dim(-2) = %d, want 3", d)
+	}
+	if d := shape.Dim(-1); d != 2 {
+		t.Errorf("shape.Dim(-1) = %d, want 2", d)
+	}
+	panics(t, func() { _ = shape.Dim(3) })
+	panics(t, func() { _ = shape.Dim(-4) })
 }
 
 func TestFromAnyValue(t *testing.T) {
 	shape, err := FromAnyValue([]int32{1, 2, 3})
-	require.NoError(t, err)
-	require.NotPanics(t, func() { shape.Assert(dtypes.Int32, 3) })
+	if err != nil {
+		t.Fatalf("FromAnyValue failed: %v", err)
+	}
+	notPanics(t, func() {
+		if err := shape.Check(dtypes.Int32, 3); err != nil {
+			panic(err)
+		}
+	})
 
 	shape, err = FromAnyValue([][][]complex64{{{1, 2, -3}, {3, 4 + 2i, -7 - 1i}}})
-	require.NoError(t, err)
-	require.NotPanics(t, func() { shape.Assert(dtypes.Complex64, 1, 2, 3) })
+	if err != nil {
+		t.Fatalf("FromAnyValue failed: %v", err)
+	}
+	notPanics(t, func() {
+		if err := shape.Check(dtypes.Complex64, 1, 2, 3); err != nil {
+			panic(err)
+		}
+	})
 
 	// Irregular shape is not accepted:
 	shape, err = FromAnyValue([][]float32{{1, 2, 3}, {4, 5}})
-	require.Errorf(t, err, "irregular shape should have returned an error, instead got shape %s", shape)
+	if err == nil {
+		t.Errorf("irregular shape should have returned an error, instead got shape %s", shape)
+	}
 }
