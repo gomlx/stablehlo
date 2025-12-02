@@ -741,7 +741,7 @@ func Transpose(x *Value, permutation ...int) (*Value, error) {
 	return stmt.Outputs[0], nil
 }
 
-// RngBitGenerator generates the given shape filled with random bits.
+// RNGBitGenerator generates the given shape filled with random bits.
 // It takes the current random number generator (RNG) state, see RngState or RngStateFromSeed.
 //
 // It returns the new state of the RNG and the generated values (with random bits) with the given shape.
@@ -751,14 +751,14 @@ func Transpose(x *Value, permutation ...int) (*Value, error) {
 // - types.RngDefault: PJRT implementation defined.
 // - types.RngThreeFry: 2xUint64
 // - types.RngPhilox: 2xUint64 or 3xUint64
-func RngBitGenerator(state *Value, shape shapes.Shape, algorithm types.RngBitGeneratorAlgorithm) (newState, values *Value, err error) {
-	op := optypes.RngBitGenerator
+func RNGBitGenerator(state *Value, shape shapes.Shape, algorithm types.RNGBitGeneratorAlgorithm) (newState, values *Value, err error) {
+	op := optypes.RNGBitGenerator
 	fn := state.fn
 	if fn.Returned {
 		return nil, nil, errors.Errorf("cannot add operation %s after returning, in function %q",
 			op, fn.Name)
 	}
-	stmt := fn.addMultiOp(optypes.RngBitGenerator, []shapes.Shape{state.shape, shape}, []*Value{state})
+	stmt := fn.addMultiOp(optypes.RNGBitGenerator, []shapes.Shape{state.shape, shape}, []*Value{state})
 	stmt.Attributes = map[string]any{
 		"rng_algorithm": literalStrF("#stablehlo<rng_algorithm %s>", strings.ToUpper(algorithm.String())),
 	}

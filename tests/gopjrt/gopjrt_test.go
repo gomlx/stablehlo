@@ -470,13 +470,13 @@ func testOps(t *testing.T, client *pjrt.Client) {
 		}, outputs)
 	})
 
-	for _, algo := range []types.RngBitGeneratorAlgorithm{types.RngDefault, types.RngThreeFry, types.RngPhilox} {
-		t.Run(fmt.Sprintf("RngBitGenerator-%s", algo), func(t *testing.T) {
+	for _, algo := range []types.RNGBitGeneratorAlgorithm{types.RNGDefault, types.RNGThreeFry, types.RNGPhilox} {
+		t.Run(fmt.Sprintf("RNGBitGenerator-%s", algo), func(t *testing.T) {
 			builder := New(t.Name())
 			fn := builder.Main()
 			state := must1(fn.ConstantFromFlatAndDimensions([]uint64{42, 1}, 2))
 			const numSamples = 10_000
-			_, noiseV := must2(RngBitGenerator(state, shapes.Make(dtypes.Uint64, numSamples), algo))
+			_, noiseV := must2(RNGBitGenerator(state, shapes.Make(dtypes.Uint64, numSamples), algo))
 			must(fn.Return(noiseV))
 			program := must1(builder.Build())
 			fmt.Printf("%s program:\n%s", t.Name(), withLines(program))

@@ -158,16 +158,16 @@ type DotGeneralAlgorithm struct {
 	AllowImpreciseAccumulation bool
 }
 
-// RngBitGeneratorAlgorithm used by the RngBitGenerator operation.
-type RngBitGeneratorAlgorithm int
+// RNGBitGeneratorAlgorithm used by the RngBitGenerator operation.
+type RNGBitGeneratorAlgorithm int
 
 const (
-	RngDefault RngBitGeneratorAlgorithm = iota
-	RngPhilox
-	RngThreeFry
+	RNGDefault RNGBitGeneratorAlgorithm = iota
+	RNGPhilox
+	RNGThreeFry
 )
 
-//go:generate go tool enumer -type=RngBitGeneratorAlgorithm -trimprefix=Rng -output=gen_rngbitgeneratoralgorithm_enumer.go -transform=snake ops.go
+//go:generate go tool enumer -type=RNGBitGeneratorAlgorithm -trimprefix=RNG -output=gen_rngbitgeneratoralgorithm_enumer.go -transform=snake ops.go
 
 // FFTType defines the type of the FFT operation, see FFT.
 type FFTType int

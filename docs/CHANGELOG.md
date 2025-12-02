@@ -10,6 +10,7 @@
   - Added `Builder.WithShardy(mesh)` 
   - Added `Function.NamedInputWithShardingAndAttributes()`
   - Added `Function.ReturnWithShardingAndAttributes()`
+- All random number generator types renamed from "Rng" to "RNG".
 
 # v0.1.0: 2025/11/06 Multi-Device support
 

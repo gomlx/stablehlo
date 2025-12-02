@@ -70,7 +70,7 @@ const (
 	ReduceWindow
 	Reshape
 	Reverse
-	RngBitGenerator
+	RNGBitGenerator
 	RoundNearestAfz
 	RoundNearestEven
 	Rsqrt

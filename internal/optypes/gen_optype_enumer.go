@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-const _OpTypeName = "InvalidFuncReturnConstantIdentityAbsAddAllReduceAndAtan2BatchNormInferenceBatchNormTrainingBatchNormGradBitcastConvertBroadcastInDimCbrtCeilClampCollectiveBroadcastCompareComplexConcatenateConvertConvolutionCosineCountLeadingZerosDivideDotGeneralDynamicSliceDynamicUpdateSliceErfExponentialExponentialMinusOneFftFloorGatherImagIsFiniteIotaLogLogPlusOneLogisticMaximumMinimumMultiplyNegateNotOrPadPopcntPowerRealRemainderReduceReduceWindowReshapeReverseRngBitGeneratorRoundNearestAfzRoundNearestEvenRsqrtScatterSelectSelectAndScatterShiftLeftShiftRightArithmeticShiftRightLogicalSignSineSliceSqrtSubtractTanTanhTransposeXorAllGatherAllToAllCaseCholeskyCollectivePermuteCompositeCustomCallDynamicBroadcastInDimDynamicConvDynamicGatherDynamicIotaDynamicPadDynamicReshapeGetDimensionSizeGetTupleElementIfInfeedOptimizationBarrierOutfeedPartitionIdRecvReducePrecisionReduceScatterSendTriangularSolveTupleUniformDequantizeUniformQuantizeWhileLast"
+const _OpTypeName = "InvalidFuncReturnConstantIdentityAbsAddAllReduceAndAtan2BatchNormInferenceBatchNormTrainingBatchNormGradBitcastConvertBroadcastInDimCbrtCeilClampCollectiveBroadcastCompareComplexConcatenateConvertConvolutionCosineCountLeadingZerosDivideDotGeneralDynamicSliceDynamicUpdateSliceErfExponentialExponentialMinusOneFftFloorGatherImagIsFiniteIotaLogLogPlusOneLogisticMaximumMinimumMultiplyNegateNotOrPadPopcntPowerRealRemainderReduceReduceWindowReshapeReverseRNGBitGeneratorRoundNearestAfzRoundNearestEvenRsqrtScatterSelectSelectAndScatterShiftLeftShiftRightArithmeticShiftRightLogicalSignSineSliceSqrtSubtractTanTanhTransposeXorAllGatherAllToAllCaseCholeskyCollectivePermuteCompositeCustomCallDynamicBroadcastInDimDynamicConvDynamicGatherDynamicIotaDynamicPadDynamicReshapeGetDimensionSizeGetTupleElementIfInfeedOptimizationBarrierOutfeedPartitionIdRecvReducePrecisionReduceScatterSendTriangularSolveTupleUniformDequantizeUniformQuantizeWhileLast"
 
 var _OpTypeIndex = [...]uint16{0, 7, 17, 25, 33, 36, 39, 48, 51, 56, 74, 91, 104, 118, 132, 136, 140, 145, 164, 171, 178, 189, 196, 207, 213, 230, 236, 246, 258, 276, 279, 290, 309, 312, 317, 323, 327, 335, 339, 342, 352, 360, 367, 374, 382, 388, 391, 393, 396, 402, 407, 411, 420, 426, 438, 445, 452, 467, 482, 498, 503, 510, 516, 532, 541, 561, 578, 582, 586, 591, 595, 603, 606, 610, 619, 622, 631, 639, 643, 651, 668, 677, 687, 708, 719, 732, 743, 753, 767, 783, 798, 800, 806, 825, 832, 843, 847, 862, 875, 879, 894, 899, 916, 931, 936, 940}
 
@@ -80,7 +80,7 @@ func _OpTypeNoOp() {
 	_ = x[ReduceWindow-(53)]
 	_ = x[Reshape-(54)]
 	_ = x[Reverse-(55)]
-	_ = x[RngBitGenerator-(56)]
+	_ = x[RNGBitGenerator-(56)]
 	_ = x[RoundNearestAfz-(57)]
 	_ = x[RoundNearestEven-(58)]
 	_ = x[Rsqrt-(59)]
@@ -131,7 +131,7 @@ func _OpTypeNoOp() {
 	_ = x[Last-(104)]
 }
 
-var _OpTypeValues = []OpType{Invalid, FuncReturn, Constant, Identity, Abs, Add, AllReduce, And, Atan2, BatchNormInference, BatchNormTraining, BatchNormGrad, BitcastConvert, BroadcastInDim, Cbrt, Ceil, Clamp, CollectiveBroadcast, Compare, Complex, Concatenate, Convert, Convolution, Cosine, CountLeadingZeros, Divide, DotGeneral, DynamicSlice, DynamicUpdateSlice, Erf, Exponential, ExponentialMinusOne, Fft, Floor, Gather, Imag, IsFinite, Iota, Log, LogPlusOne, Logistic, Maximum, Minimum, Multiply, Negate, Not, Or, Pad, Popcnt, Power, Real, Remainder, Reduce, ReduceWindow, Reshape, Reverse, RngBitGenerator, RoundNearestAfz, RoundNearestEven, Rsqrt, Scatter, Select, SelectAndScatter, ShiftLeft, ShiftRightArithmetic, ShiftRightLogical, Sign, Sine, Slice, Sqrt, Subtract, Tan, Tanh, Transpose, Xor, AllGather, AllToAll, Case, Cholesky, CollectivePermute, Composite, CustomCall, DynamicBroadcastInDim, DynamicConv, DynamicGather, DynamicIota, DynamicPad, DynamicReshape, GetDimensionSize, GetTupleElement, If, Infeed, OptimizationBarrier, Outfeed, PartitionId, Recv, ReducePrecision, ReduceScatter, Send, TriangularSolve, Tuple, UniformDequantize, UniformQuantize, While, Last}
+var _OpTypeValues = []OpType{Invalid, FuncReturn, Constant, Identity, Abs, Add, AllReduce, And, Atan2, BatchNormInference, BatchNormTraining, BatchNormGrad, BitcastConvert, BroadcastInDim, Cbrt, Ceil, Clamp, CollectiveBroadcast, Compare, Complex, Concatenate, Convert, Convolution, Cosine, CountLeadingZeros, Divide, DotGeneral, DynamicSlice, DynamicUpdateSlice, Erf, Exponential, ExponentialMinusOne, Fft, Floor, Gather, Imag, IsFinite, Iota, Log, LogPlusOne, Logistic, Maximum, Minimum, Multiply, Negate, Not, Or, Pad, Popcnt, Power, Real, Remainder, Reduce, ReduceWindow, Reshape, Reverse, RNGBitGenerator, RoundNearestAfz, RoundNearestEven, Rsqrt, Scatter, Select, SelectAndScatter, ShiftLeft, ShiftRightArithmetic, ShiftRightLogical, Sign, Sine, Slice, Sqrt, Subtract, Tan, Tanh, Transpose, Xor, AllGather, AllToAll, Case, Cholesky, CollectivePermute, Composite, CustomCall, DynamicBroadcastInDim, DynamicConv, DynamicGather, DynamicIota, DynamicPad, DynamicReshape, GetDimensionSize, GetTupleElement, If, Infeed, OptimizationBarrier, Outfeed, PartitionId, Recv, ReducePrecision, ReduceScatter, Send, TriangularSolve, Tuple, UniformDequantize, UniformQuantize, While, Last}
 
 var _OpTypeNameToValueMap = map[string]OpType{
 	_OpTypeName[0:7]:          Invalid,
@@ -246,8 +246,8 @@ var _OpTypeNameToValueMap = map[string]OpType{
 	_OpTypeLowerName[438:445]: Reshape,
 	_OpTypeName[445:452]:      Reverse,
 	_OpTypeLowerName[445:452]: Reverse,
-	_OpTypeName[452:467]:      RngBitGenerator,
-	_OpTypeLowerName[452:467]: RngBitGenerator,
+	_OpTypeName[452:467]:      RNGBitGenerator,
+	_OpTypeLowerName[452:467]: RNGBitGenerator,
 	_OpTypeName[467:482]:      RoundNearestAfz,
 	_OpTypeLowerName[467:482]: RoundNearestAfz,
 	_OpTypeName[482:498]:      RoundNearestEven,
