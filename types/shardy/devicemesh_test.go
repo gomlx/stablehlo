@@ -1,11 +1,11 @@
 package shardy_test
 
 import (
+	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/gomlx/stablehlo/types/shardy"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestDeviceMesh(t *testing.T) {
@@ -55,11 +55,21 @@ func TestDeviceMesh(t *testing.T) {
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
 				mesh, err := shardy.NewDeviceMesh("mesh", tt.shape, tt.axisNames)
-				require.NoError(t, err)
-				assert.NotNil(t, mesh)
-				assert.Equal(t, tt.wantRank, mesh.Rank())
-				assert.Equal(t, tt.wantNum, mesh.NumDevices())
-				assert.Equal(t, tt.wantStableHLO, mesh.ToStableHLO())
+				if err != nil {
+					t.Fatalf("NewDeviceMesh() error = %v", err)
+				}
+				if mesh == nil {
+					t.Fatal("NewDeviceMesh() returned nil")
+				}
+				if got := mesh.Rank(); got != tt.wantRank {
+					t.Errorf("Rank() = %d, want %d", got, tt.wantRank)
+				}
+				if got := mesh.NumDevices(); got != tt.wantNum {
+					t.Errorf("NumDevices() = %d, want %d", got, tt.wantNum)
+				}
+				if got := mesh.ToStableHLO(); got != tt.wantStableHLO {
+					t.Errorf("ToStableHLO() = %q, want %q", got, tt.wantStableHLO)
+				}
 			})
 		}
 	})
@@ -100,40 +110,60 @@ func TestDeviceMesh(t *testing.T) {
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
 				mesh, err := shardy.NewDeviceMesh("mesh", tt.shape, tt.axisNames)
-				require.Error(t, err)
-				assert.Nil(t, mesh)
-				assert.Contains(t, err.Error(), tt.wantErr)
+				if err == nil {
+					t.Error("NewDeviceMesh() expected error, got nil")
+				}
+				if mesh != nil {
+					t.Error("NewDeviceMesh() expected nil mesh on error")
+				}
+				if err != nil && !strings.Contains(err.Error(), tt.wantErr) {
+					t.Errorf("NewDeviceMesh() error = %q, want substring %q", err.Error(), tt.wantErr)
+				}
 			})
 		}
 	})
 
 	t.Run("AxesNames", func(t *testing.T) {
 		mesh, err := shardy.NewDeviceMesh("mesh", []int{2, 4}, []string{"x", "y"})
-		require.NoError(t, err)
+		if err != nil {
+			t.Fatalf("NewDeviceMesh() error = %v", err)
+		}
 
 		axisNames := mesh.AxesNames()
-		assert.Equal(t, []string{"x", "y"}, axisNames)
+		if !reflect.DeepEqual(axisNames, []string{"x", "y"}) {
+			t.Errorf("AxesNames() = %v, want %v", axisNames, []string{"x", "y"})
+		}
 
 		// Verify it returns a copy
 		axisNames[0] = "modified"
-		assert.Equal(t, []string{"x", "y"}, mesh.AxesNames())
+		if !reflect.DeepEqual(mesh.AxesNames(), []string{"x", "y"}) {
+			t.Errorf("AxesNames() modified original, want %v", []string{"x", "y"})
+		}
 	})
 
 	t.Run("Shape", func(t *testing.T) {
 		mesh, err := shardy.NewDeviceMesh("mesh", []int{2, 4}, []string{"x", "y"})
-		require.NoError(t, err)
+		if err != nil {
+			t.Fatalf("NewDeviceMesh() error = %v", err)
+		}
 
 		axesSizes := mesh.AxesSizes()
-		assert.Equal(t, []int{2, 4}, axesSizes)
+		if !reflect.DeepEqual(axesSizes, []int{2, 4}) {
+			t.Errorf("AxesSizes() = %v, want %v", axesSizes, []int{2, 4})
+		}
 
 		// Verify it returns a copy
 		axesSizes[0] = 99
-		assert.Equal(t, []int{2, 4}, mesh.AxesSizes())
+		if !reflect.DeepEqual(mesh.AxesSizes(), []int{2, 4}) {
+			t.Errorf("AxesSizes() modified original, want %v", []int{2, 4})
+		}
 	})
 
 	t.Run("AxisSize", func(t *testing.T) {
 		mesh, err := shardy.NewDeviceMesh("mesh", []int{2, 4}, []string{"x", "y"})
-		require.NoError(t, err)
+		if err != nil {
+			t.Fatalf("NewDeviceMesh() error = %v", err)
+		}
 
 		tests := []struct {
 			name     string
@@ -165,11 +195,19 @@ func TestDeviceMesh(t *testing.T) {
 			t.Run(tt.name, func(t *testing.T) {
 				size, err := mesh.AxisSize(tt.axisName)
 				if tt.wantErr {
-					require.Error(t, err)
-					assert.Contains(t, err.Error(), "not found")
+					if err == nil {
+						t.Error("AxisSize() expected error, got nil")
+					}
+					if err != nil && !strings.Contains(err.Error(), "not found") {
+						t.Errorf("AxisSize() error = %q, want substring %q", err.Error(), "not found")
+					}
 				} else {
-					require.NoError(t, err)
-					assert.Equal(t, tt.wantSize, size)
+					if err != nil {
+						t.Errorf("AxisSize() error = %v", err)
+					}
+					if size != tt.wantSize {
+						t.Errorf("AxisSize() = %d, want %d", size, tt.wantSize)
+					}
 				}
 			})
 		}
@@ -199,15 +237,21 @@ func TestDeviceMesh(t *testing.T) {
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
 				mesh, err := shardy.NewDeviceMesh("mesh", tt.shape, tt.axisNames)
-				require.NoError(t, err)
-				assert.Equal(t, tt.want, mesh.String())
+				if err != nil {
+					t.Fatalf("NewDeviceMesh() error = %v", err)
+				}
+				if got := mesh.String(); got != tt.want {
+					t.Errorf("String() = %q, want %q", got, tt.want)
+				}
 			})
 		}
 	})
 
 	t.Run("SetDeviceAssignment_Valid", func(t *testing.T) {
 		mesh, err := shardy.NewDeviceMesh("mesh", []int{4}, []string{"replica"})
-		require.NoError(t, err)
+		if err != nil {
+			t.Fatalf("NewDeviceMesh() error = %v", err)
+		}
 
 		tests := []struct {
 			name    string
@@ -230,14 +274,18 @@ func TestDeviceMesh(t *testing.T) {
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
 				err := mesh.SetLogicalDeviceAssignment(tt.devices...)
-				require.NoErrorf(t, err, "failed test %q", tt.name)
+				if err != nil {
+					t.Errorf("SetLogicalDeviceAssignment() error = %v", err)
+				}
 			})
 		}
 	})
 
 	t.Run("SetDeviceAssignment_Errors", func(t *testing.T) {
 		mesh, err := shardy.NewDeviceMesh("mesh", []int{4}, []string{"replica"})
-		require.NoError(t, err)
+		if err != nil {
+			t.Fatalf("NewDeviceMesh() error = %v", err)
+		}
 
 		tests := []struct {
 			name    string
@@ -264,111 +312,184 @@ func TestDeviceMesh(t *testing.T) {
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
 				err := mesh.SetLogicalDeviceAssignment(tt.devices...)
-				require.Error(t, err)
-				assert.Contains(t, err.Error(), tt.wantErr)
+				if err == nil {
+					t.Error("SetLogicalDeviceAssignment() expected error, got nil")
+				}
+				if err != nil && !strings.Contains(err.Error(), tt.wantErr) {
+					t.Errorf("SetLogicalDeviceAssignment() error = %q, want substring %q", err.Error(), tt.wantErr)
+				}
 			})
 		}
 	})
 
 	t.Run("DeviceToMesh_2D", func(t *testing.T) {
 		mesh, err := shardy.NewDeviceMesh("mesh", []int{2, 4}, []string{"x", "y"})
-		require.NoError(t, err)
-		require.Equal(t, 8, mesh.NumDevices())
+		if err != nil {
+			t.Fatalf("NewDeviceMesh() error = %v", err)
+		}
+		if got := mesh.NumDevices(); got != 8 {
+			t.Errorf("NumDevices() = %d, want 8", got)
+		}
 	})
 
 	t.Run("DeviceToMesh_3D", func(t *testing.T) {
 		mesh, err := shardy.NewDeviceMesh("mesh", []int{2, 2, 2}, []string{"x", "y", "z"})
-		require.NoError(t, err)
-		require.Equal(t, 8, mesh.NumDevices())
+		if err != nil {
+			t.Fatalf("NewDeviceMesh() error = %v", err)
+		}
+		if got := mesh.NumDevices(); got != 8 {
+			t.Errorf("NumDevices() = %d, want 8", got)
+		}
 	})
 
 	t.Run("DeviceToMesh_WithCustomMapping", func(t *testing.T) {
 		mesh, err := shardy.NewDeviceMesh("mesh", []int{4}, []string{"replica"})
-		require.NoError(t, err)
+		if err != nil {
+			t.Fatalf("NewDeviceMesh() error = %v", err)
+		}
 		err = mesh.SetLogicalDeviceAssignment(3, 2, 1, 0)
-		require.NoError(t, err)
-		require.Equal(t, 4, mesh.NumDevices())
+		if err != nil {
+			t.Fatalf("SetLogicalDeviceAssignment() error = %v", err)
+		}
+		if got := mesh.NumDevices(); got != 4 {
+			t.Errorf("NumDevices() = %d, want 4", got)
+		}
 		err = mesh.SetLogicalDeviceAssignment(4, 2, 1, 0)
-		require.Error(t, err)
+		if err == nil {
+			t.Error("SetLogicalDeviceAssignment() expected error for out of range device, got nil")
+		}
 	})
 
 	t.Run("ComputeReplicaGroups", func(t *testing.T) {
 		t.Run("2D mesh batch groups", func(t *testing.T) {
 			mesh, err := shardy.NewDeviceMesh("mesh", []int{2, 2}, []string{"batch", "data"})
-			require.NoError(t, err)
+			if err != nil {
+				t.Fatalf("NewDeviceMesh() error = %v", err)
+			}
 
 			// Example from comments: m.ComputeReplicaGroups([]string{"batch"}) -> [][]int{{0, 2}, {1, 3}}
 			groups, err := mesh.ComputeReplicaGroups([]string{"batch"})
-			require.NoError(t, err)
-			assert.Equal(t, [][]int{{0, 2}, {1, 3}}, groups)
+			if err != nil {
+				t.Fatalf("ComputeReplicaGroups() error = %v", err)
+			}
+			expected := [][]int{{0, 2}, {1, 3}}
+			if !reflect.DeepEqual(groups, expected) {
+				t.Errorf("ComputeReplicaGroups() = %v, want %v", groups, expected)
+			}
 		})
 
 		t.Run("2D mesh data groups", func(t *testing.T) {
 			mesh, err := shardy.NewDeviceMesh("mesh", []int{2, 2}, []string{"batch", "data"})
-			require.NoError(t, err)
+			if err != nil {
+				t.Fatalf("NewDeviceMesh() error = %v", err)
+			}
 
 			// Example from comments: m.ComputeReplicaGroups([]string{"data"}) -> [][]int{{0, 1}, {2, 3}}
 			groups, err := mesh.ComputeReplicaGroups([]string{"data"})
-			require.NoError(t, err)
-			assert.Equal(t, [][]int{{0, 1}, {2, 3}}, groups)
+			if err != nil {
+				t.Fatalf("ComputeReplicaGroups() error = %v", err)
+			}
+			expected := [][]int{{0, 1}, {2, 3}}
+			if !reflect.DeepEqual(groups, expected) {
+				t.Errorf("ComputeReplicaGroups() = %v, want %v", groups, expected)
+			}
 		})
 
 		t.Run("2D mesh global groups", func(t *testing.T) {
 			mesh, err := shardy.NewDeviceMesh("mesh", []int{2, 2}, []string{"batch", "data"})
-			require.NoError(t, err)
+			if err != nil {
+				t.Fatalf("NewDeviceMesh() error = %v", err)
+			}
 
 			// Example from comments: m.ComputeReplicaGroups([]string{"batch", "data"}) -> [][]int{{0, 1, 2, 3}}
 			groups, err := mesh.ComputeReplicaGroups([]string{"batch", "data"})
-			require.NoError(t, err)
-			assert.Equal(t, [][]int{{0, 1, 2, 3}}, groups)
+			if err != nil {
+				t.Fatalf("ComputeReplicaGroups() error = %v", err)
+			}
+			expected := [][]int{{0, 1, 2, 3}}
+			if !reflect.DeepEqual(groups, expected) {
+				t.Errorf("ComputeReplicaGroups() = %v, want %v", groups, expected)
+			}
 		})
 
 		t.Run("1D mesh", func(t *testing.T) {
 			mesh, err := shardy.NewDeviceMesh("mesh", []int{4}, []string{"replica"})
-			require.NoError(t, err)
+			if err != nil {
+				t.Fatalf("NewDeviceMesh() error = %v", err)
+			}
 
 			groups, err := mesh.ComputeReplicaGroups([]string{"replica"})
-			require.NoError(t, err)
-			assert.Equal(t, [][]int{{0, 1, 2, 3}}, groups)
+			if err != nil {
+				t.Fatalf("ComputeReplicaGroups() error = %v", err)
+			}
+			expected := [][]int{{0, 1, 2, 3}}
+			if !reflect.DeepEqual(groups, expected) {
+				t.Errorf("ComputeReplicaGroups() = %v, want %v", groups, expected)
+			}
 		})
 
 		t.Run("3D mesh single axis", func(t *testing.T) {
 			mesh, err := shardy.NewDeviceMesh("mesh", []int{2, 2, 2}, []string{"x", "y", "z"})
-			require.NoError(t, err)
+			if err != nil {
+				t.Fatalf("NewDeviceMesh() error = %v", err)
+			}
 
 			// Groups along x axis: should split by y and z
 			groups, err := mesh.ComputeReplicaGroups([]string{"x"})
-			require.NoError(t, err)
-			assert.Equal(t, [][]int{{0, 4}, {1, 5}, {2, 6}, {3, 7}}, groups)
+			if err != nil {
+				t.Fatalf("ComputeReplicaGroups() error = %v", err)
+			}
+			expected := [][]int{{0, 4}, {1, 5}, {2, 6}, {3, 7}}
+			if !reflect.DeepEqual(groups, expected) {
+				t.Errorf("ComputeReplicaGroups() = %v, want %v", groups, expected)
+			}
 		})
 
 		t.Run("3D mesh two axes", func(t *testing.T) {
 			mesh, err := shardy.NewDeviceMesh("mesh", []int{2, 2, 2}, []string{"x", "y", "z"})
-			require.NoError(t, err)
+			if err != nil {
+				t.Fatalf("NewDeviceMesh() error = %v", err)
+			}
 
 			// Groups along x and y axes: should split by z
 			groups, err := mesh.ComputeReplicaGroups([]string{"x", "y"})
-			require.NoError(t, err)
-			assert.Equal(t, [][]int{{0, 2, 4, 6}, {1, 3, 5, 7}}, groups)
+			if err != nil {
+				t.Fatalf("ComputeReplicaGroups() error = %v", err)
+			}
+			expected := [][]int{{0, 2, 4, 6}, {1, 3, 5, 7}}
+			if !reflect.DeepEqual(groups, expected) {
+				t.Errorf("ComputeReplicaGroups() = %v, want %v", groups, expected)
+			}
 		})
 
 		t.Run("empty axes list", func(t *testing.T) {
 			mesh, err := shardy.NewDeviceMesh("mesh", []int{2, 2}, []string{"batch", "data"})
-			require.NoError(t, err)
+			if err != nil {
+				t.Fatalf("NewDeviceMesh() error = %v", err)
+			}
 
 			// Empty axes list: each device is its own group
 			groups, err := mesh.ComputeReplicaGroups([]string{})
-			require.NoError(t, err)
-			assert.Equal(t, [][]int{{0}, {1}, {2}, {3}}, groups)
+			if err != nil {
+				t.Fatalf("ComputeReplicaGroups() error = %v", err)
+			}
+			expected := [][]int{{0}, {1}, {2}, {3}}
+			if !reflect.DeepEqual(groups, expected) {
+				t.Errorf("ComputeReplicaGroups() = %v, want %v", groups, expected)
+			}
 		})
 
 		t.Run("non-existent axis", func(t *testing.T) {
 			mesh, err := shardy.NewDeviceMesh("mesh", []int{2, 2}, []string{"batch", "data"})
-			require.NoError(t, err)
+			if err != nil {
+				t.Fatalf("NewDeviceMesh() error = %v", err)
+			}
 
 			// A non-existent axis should return an error.
 			_, err = mesh.ComputeReplicaGroups([]string{"nonexistent"})
-			require.Error(t, err)
+			if err == nil {
+				t.Error("ComputeReplicaGroups() expected error, got nil")
+			}
 		})
 	})
 }

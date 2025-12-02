@@ -10,7 +10,6 @@ import (
 	"github.com/gomlx/gopjrt/pjrt"
 	. "github.com/gomlx/stablehlo"
 	"github.com/gomlx/stablehlo/types/shapes"
-	"github.com/stretchr/testify/require"
 )
 
 var flagCollectiveBroadcast = flag.Bool("collective_broadcast", false, "Run collective broadcast test: it is not implemented in PJRT CPU, so it is skipped by default.")
@@ -58,9 +57,15 @@ func testCollectiveOps(t *testing.T, client *pjrt.Client) {
 		// Execute expects a flat list of inputs, one for each argument of main(),
 		// mapped to devices in order.
 		e, err := client.Compile().WithStableHLO(program).WithSPMD(numReplicas).Done()
-		require.NoErrorf(t, err, "failed to compile program: \n%s", program)
+		if err != nil {
+			t.Errorf("failed to compile program: \n%s\nError: %v", program, err)
+			return
+		}
 		outputBuffers, err := e.Execute(input0, input1).DonateAll().Done()
-		require.NoErrorf(t, err, "failed to execute program: \n%s", program)
+		if err != nil {
+			t.Errorf("failed to execute program: \n%s\nError: %v", program, err)
+			return
+		}
 
 		// Check outputs: all replicas should have the data from replica 0.
 		want := []FlatAndDims{
@@ -97,9 +102,15 @@ func testCollectiveOps(t *testing.T, client *pjrt.Client) {
 		// Execute expects a flat list of inputs, one for each argument of main(),
 		// mapped to devices in order.
 		e, err := client.Compile().WithStableHLO(program).WithSPMD(numReplicas).Done()
-		require.NoErrorf(t, err, "failed to compile program: \n%s", program)
+		if err != nil {
+			t.Errorf("failed to compile program: \n%s\nError: %v", program, err)
+			return
+		}
 		outputBuffers, err := e.Execute(inputX0, inputX1).DonateAll().Done()
-		require.NoErrorf(t, err, "failed to execute program: \n%s", program)
+		if err != nil {
+			t.Errorf("failed to execute program: \n%s\nError: %v", program, err)
+			return
+		}
 
 		// Check outputs: all replicas should have the sum.
 		want := []FlatAndDims{
@@ -141,9 +152,15 @@ func testCollectiveOps(t *testing.T, client *pjrt.Client) {
 		// Execute expects a flat list of inputs, one for each argument of main(),
 		// mapped to devices in order.
 		e, err := client.Compile().WithStableHLO(program).WithSPMD(numReplicas).Done()
-		require.NoErrorf(t, err, "failed to compile program: \n%s", program)
+		if err != nil {
+			t.Errorf("failed to compile program: \n%s\nError: %v", program, err)
+			return
+		}
 		outputBuffers, err := e.Execute(inputX0, inputY0, inputX1, inputY1).DonateAll().Done()
-		require.NoErrorf(t, err, "failed to execute program: \n%s", program)
+		if err != nil {
+			t.Errorf("failed to execute program: \n%s\nError: %v", program, err)
+			return
+		}
 
 		// Check outputs: all replicas should have the sum.
 		want := []FlatAndDims{
@@ -170,9 +187,15 @@ func testCollectiveOps(t *testing.T, client *pjrt.Client) {
 			[]float32{2.0, 20.0}, []int{2}).ToDeviceNum(replicaGroups[0][1]).Done())
 
 		e, err := client.Compile().WithStableHLO(program).WithSPMD(numReplicas).Done()
-		require.NoErrorf(t, err, "failed to compile program: \n%s", program)
+		if err != nil {
+			t.Errorf("failed to compile program: \n%s\nError: %v", program, err)
+			return
+		}
 		outputBuffers, err := e.Execute(input0, input1).DonateAll().Done()
-		require.NoErrorf(t, err, "failed to execute program: \n%s", program)
+		if err != nil {
+			t.Errorf("failed to execute program: \n%s\nError: %v", program, err)
+			return
+		}
 
 		want := []FlatAndDims{
 			{[]float32{1.0, 10.0, 2.0, 20.0}, []int{4}},
@@ -196,9 +219,15 @@ func testCollectiveOps(t *testing.T, client *pjrt.Client) {
 			[]float32{10.0, 20.0, 30.0, 40.0}, []int{4}).ToDeviceNum(replicaGroups[0][1]).Done())
 
 		e, err := client.Compile().WithStableHLO(program).WithSPMD(numReplicas).Done()
-		require.NoErrorf(t, err, "failed to compile program: \n%s", program)
+		if err != nil {
+			t.Errorf("failed to compile program: \n%s\nError: %v", program, err)
+			return
+		}
 		outputBuffers, err := e.Execute(input0, input1).DonateAll().Done()
-		require.NoErrorf(t, err, "failed to execute program: \n%s", program)
+		if err != nil {
+			t.Errorf("failed to execute program: \n%s\nError: %v", program, err)
+			return
+		}
 
 		want := []FlatAndDims{
 			{[]float32{1.0, 2.0, 10.0, 20.0}, []int{4}},
@@ -226,9 +255,15 @@ func testCollectiveOps(t *testing.T, client *pjrt.Client) {
 			[]float32{2.0, 20.0}, []int{2}).ToDeviceNum(replicaGroups[0][1]).Done())
 
 		e, err := client.Compile().WithStableHLO(program).WithSPMD(numReplicas).Done()
-		require.NoErrorf(t, err, "failed to compile program: \n%s", program)
+		if err != nil {
+			t.Errorf("failed to compile program: \n%s\nError: %v", program, err)
+			return
+		}
 		outputBuffers, err := e.Execute(input0, input1).DonateAll().Done()
-		require.NoErrorf(t, err, "failed to execute program: \n%s", program)
+		if err != nil {
+			t.Errorf("failed to execute program: \n%s\nError: %v", program, err)
+			return
+		}
 
 		want := []FlatAndDims{
 			{[]float32{2.0, 20.0}, []int{2}},

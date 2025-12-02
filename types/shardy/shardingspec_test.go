@@ -2,13 +2,13 @@ package shardy
 
 import (
 	"testing"
-
-	"github.com/stretchr/testify/require"
 )
 
 func TestShardSpec_ToStableHLO(t *testing.T) {
 	mesh, err := NewDeviceMesh("test_mesh", []int{4, 2}, []string{"z", "a"})
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("NewDeviceMesh() error = %v", err)
+	}
 	testCases := []struct {
 		name     string
 		spec     *ShardingSpec
@@ -48,14 +48,18 @@ func TestShardSpec_ToStableHLO(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			require.Equal(t, tc.expected, tc.spec.ToStableHLO())
+			if got := tc.spec.ToStableHLO(); got != tc.expected {
+				t.Errorf("ToStableHLO() = %q, want %q", got, tc.expected)
+			}
 		})
 	}
 }
 
 func TestShardSpec_Validate(t *testing.T) {
 	mesh, err := NewDeviceMesh("test_mesh", []int{2, 8}, []string{"z", "a"})
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("NewDeviceMesh() error = %v", err)
+	}
 	testCases := []struct {
 		name        string
 		spec        *ShardingSpec
@@ -107,9 +111,13 @@ func TestShardSpec_Validate(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			err := tc.spec.Validate()
 			if tc.expectError {
-				require.Error(t, err)
+				if err == nil {
+					t.Error("Validate() expected error, got nil")
+				}
 			} else {
-				require.NoError(t, err)
+				if err != nil {
+					t.Errorf("Validate() error = %v", err)
+				}
 			}
 		})
 	}

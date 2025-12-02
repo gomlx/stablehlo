@@ -2,13 +2,12 @@ package stablehlo
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/gomlx/gopjrt/dtypes"
 	"github.com/gomlx/stablehlo/types/shapes"
 	"github.com/gomlx/stablehlo/types/shardy"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func must[T any](value T, err error) T {
@@ -25,7 +24,9 @@ func TestBuilder(t *testing.T) {
 		c1 := must(fn.ConstantFromScalar(1.0))
 		c2 := must(fn.ConstantFromScalar(2.0))
 		sum := must(Add(c1, c2))
-		require.NoError(t, fn.Return(sum))
+		if err := fn.Return(sum); err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
 		program := string(must(b.Build()))
 		fmt.Printf("%s program:\n%s", t.Name(), program)
 		want := `module @TestBuilder_no_inputs {
@@ -46,9 +47,13 @@ func TestBuilder(t *testing.T) {
 	t.Run("Sharding", func(t *testing.T) {
 		b := New(t.Name())
 		mesh, err := shardy.NewDeviceMesh("mesh", []int{4, 2}, []string{"data", "model"})
-		require.NoError(t, err)
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
 		err = mesh.SetLogicalDeviceAssignment(7, 6, 5, 4, 3, 2, 1, 0)
-		require.NoError(t, err)
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
 		b.WithShardy(mesh)
 		fn := b.Main()
 
@@ -74,7 +79,9 @@ func TestBuilder(t *testing.T) {
 			[]map[string]any{
 				{"jax.result_info": "result"},
 			})
-		require.NoError(t, err)
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
 
 		program := string(must(b.Build()))
 		fmt.Printf("%s program:\n%s", t.Name(), program)
@@ -98,7 +105,9 @@ func TestBuilder(t *testing.T) {
   }
 }
 `
-		require.Equal(t, want, program)
+		if want != program {
+			t.Fatalf("programs don't match.\nWant:\n%s\nGot:\n%s", want, program)
+		}
 	})
 
 	t.Run("with inputs", func(t *testing.T) {
@@ -109,7 +118,9 @@ func TestBuilder(t *testing.T) {
 		lhs := must(fn.NamedInput("lhs", shape))
 		rhs := must(fn.NamedInput("rhs", shape))
 		sum := must(Add(lhs, rhs))
-		require.NoError(t, fn.Return(sum))
+		if err := fn.Return(sum); err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
 		program := string(must(builder.Build()))
 		fmt.Printf("%s program:\n%s", t.Name(), program)
 		want := `module @TestBuilder_with_inputs {
@@ -131,10 +142,16 @@ func TestBuilder_Errors(t *testing.T) {
 		b := New("test_program")
 		fn := b.NewFunction("not_main", nil)
 		c1 := must(fn.ConstantFromScalar(1.0))
-		require.NoError(t, fn.Return(c1))
+		if err := fn.Return(c1); err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
 		_, err := b.Build()
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "program must have a main function")
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		if !strings.Contains(err.Error(), "program must have a main function") {
+			t.Fatalf("error message %q does not contain expected substring", err.Error())
+		}
 	})
 }
 
@@ -148,6 +165,8 @@ func TestNormalizeIdentifier(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		got := NormalizeIdentifier(tc.input)
-		assert.Equal(t, tc.want, got)
+		if got != tc.want {
+			t.Errorf("NormalizeIdentifier(%q) = %q, want %q", tc.input, got, tc.want)
+		}
 	}
 }
