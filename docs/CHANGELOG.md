@@ -11,6 +11,7 @@
   - Added `Function.NamedInputWithShardingAndAttributes()`
   - Added `Function.ReturnWithShardingAndAttributes()`
 - All random number generator types renamed from "Rng" to "RNG".
+- Removed all dependencies to `testify` and `janpfeifer/must`.
 
 # v0.1.0: 2025/11/06 Multi-Device support
 
