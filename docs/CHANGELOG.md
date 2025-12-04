@@ -1,4 +1,4 @@
-# v0.2.0: (Release Candidate) Adding support for XLA Shardy
+# v0.2.0: Adding support for XLA Shardy
 
 - `Function.Input` and `Function.NamedInput`: (change in API) they now may return an error, if the name is duplicate.
 - Collective ops:
