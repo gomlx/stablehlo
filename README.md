@@ -1,5 +1,7 @@
 # [XLA](https://openxla.org/)'s [StableHLO](https://openxla.org/stablehlo) Builder API for Go
 
+# 🛑 DEPRECATED. This library has been merged and improved into [github.com/gomlx/go-xla](https://github.com/gomlx/go-xla). Please update your imports.
+
 [![GoDev](https://img.shields.io/badge/go.dev-reference-007d9c?logo=go&logoColor=white)](https://pkg.go.dev/github.com/gomlx/stablehlo?tab=doc)
 [![GitHub](https://img.shields.io/github/license/gomlx/stablehlo)](https://github.com/gomlx/stablehlo/blob/main/LICENSE)
 [![Go Report Card](https://goreportcard.com/badge/github.com/gomlx/stablehlo)](https://goreportcard.com/report/github.com/gomlx/stablehlo)
